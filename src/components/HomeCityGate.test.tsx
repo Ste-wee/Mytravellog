@@ -87,3 +87,36 @@ describe("HomeCityGate — la partenza è obbligatoria", () => {
     expect(screen.getByText(/Ogni viaggio parte da casa/i)).toBeInTheDocument();
   });
 });
+
+// L'app è una PWA: deve restare usabile in aereo o in metro. Senza rete la
+// ricerca della città non può funzionare, e il muro diventerebbe una trappola.
+describe("HomeCityGate — senza connessione", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    localStorage.setItem("navta.welcome.dismissed", "1");
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+  });
+
+  it("dice il vero motivo, non che il nome è sbagliato", () => {
+    renderGate();
+    fireEvent.change(screen.getByLabelText(/Cerca la tua città/i), { target: { value: "Milano" } });
+    expect(screen.getByText(/senza connessione/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Nessuna città trovata/i)).not.toBeInTheDocument();
+  });
+
+  it("offre una via d'uscita, e la domanda resta per il prossimo avvio", () => {
+    renderGate();
+    fireEvent.click(screen.getByRole("button", { name: /Continua per ora/i }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    // La città NON è stata salvata: l'obbligo non si aggira, si rimanda.
+    // (Il resto delle impostazioni c'è comunque: le scrive il provider.)
+    const s = JSON.parse(localStorage.getItem("atlas.settings.v1") ?? "{}");
+    expect(s.homeCity ?? null).toBeNull();
+  });
+
+  it("con la rete non c'è nessuna via d'uscita", () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    renderGate();
+    expect(screen.queryByRole("button", { name: /Continua per ora/i })).not.toBeInTheDocument();
+  });
+});

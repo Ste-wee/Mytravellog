@@ -38,7 +38,19 @@ export function HomeCityGate() {
   // Contato una volta all'apertura: dopo l'adozione tornerebbe zero e il
   // messaggio cambierebbe sotto gli occhi mentre si sceglie la città.
   const [orfani] = useState(() => (homeCity ? 0 : countTripsWithoutHome()));
-  const attivo = !homeCity && welcomeGone;
+  // Senza rete la ricerca della città non può funzionare: l'app è una PWA e
+  // deve restare usabile in aereo o in metro. Il muro resta, ma non diventa
+  // una trappola — si può entrare "per ora", e la domanda torna al prossimo
+  // avvio (nulla viene salvato: l'obbligo non si aggira, si rimanda).
+  const [online, setOnline] = useState(() => navigator.onLine !== false);
+  const [rimandato, setRimandato] = useState(false);
+  useEffect(() => {
+    const su = () => setOnline(true), giu = () => setOnline(false);
+    window.addEventListener("online", su);
+    window.addEventListener("offline", giu);
+    return () => { window.removeEventListener("online", su); window.removeEventListener("offline", giu); };
+  }, []);
+  const attivo = !homeCity && welcomeGone && !rimandato;
   const modalRef = useModalFocus<HTMLDivElement>(attivo);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -126,10 +138,24 @@ export function HomeCityGate() {
           </div>
         )}
 
-        {query.trim().length >= 2 && !loading && results.length === 0 && (
+        {/* Senza rete il vero motivo è quello, non il nome digitato: dirlo. */}
+        {!online && (
+          <div style={{ marginTop: 12, background: "rgba(251,191,36,0.10)", border: "0.5px solid rgba(251,191,36,0.35)",
+            borderRadius: 10, padding: "10px 12px", fontSize: 11.5, color: "#fbbf24", lineHeight: 1.5 }}>
+            Sei senza connessione: per cercare la tua città serve la rete.
+          </div>
+        )}
+        {online && query.trim().length >= 2 && !loading && results.length === 0 && (
           <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.6)", textAlign: "center" }}>
             Nessuna città trovata. Prova con un nome più semplice.
           </div>
+        )}
+        {!online && (
+          <button type="button" onClick={() => setRimandato(true)}
+            style={{ display: "block", margin: "14px auto 0", background: "none", border: "none",
+              color: "rgba(255,255,255,0.6)", fontSize: 12.5, textDecoration: "underline", cursor: "pointer" }}>
+            Continua per ora
+          </button>
         )}
 
         {orfani > 0 && (
