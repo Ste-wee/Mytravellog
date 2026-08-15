@@ -111,7 +111,11 @@ async function run(viewport, tag) {
     ["home", "trips", "plans", "stats"].forEach(k => localStorage.setItem(`navta.tour.${k}.v1`, "1"));
     localStorage.setItem("navta.globe_hint_seen", "1");
     // Rotazione ferma: altrimenti il bersaglio si sposta tra il calcolo e il tap.
-    localStorage.setItem("atlas.settings.v1", JSON.stringify({ autoRotate: "off" }));
+    // Anche la città di casa: è obbligatoria, e senza il gate coprirebbe la
+    // Home — i tap non arriverebbero mai al globo e la misura sarebbe falsa.
+    localStorage.setItem("atlas.settings.v1", JSON.stringify({
+      autoRotate: "off", homeCity: { label: "Milano, Italia", lat: 45.46, lon: 9.19 },
+    }));
   }, TRIPS);
   await page.reload({ waitUntil: "load" });
   await page.waitForFunction(GRAB_MAP, null, { timeout: 60000 });
