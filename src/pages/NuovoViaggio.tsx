@@ -147,6 +147,13 @@ const NuovoViaggio = () => {
       toast.error("Il ritorno non può essere prima della partenza");
       return;
     }
+    // Senza partenza il viaggio non produce nessuna tratta e sparirebbe da
+    // globo, poster dell'anno e mappa della vita. Normalmente c'è già (la
+    // città è obbligatoria all'avvio), ma qui la si può anche togliere.
+    if (!home) {
+      toast.error("Indica da dove parti: tocca la casa nell'itinerario");
+      return;
+    }
     setSaving(true);
     try {
     const dest = waypoints[waypoints.length - 1];

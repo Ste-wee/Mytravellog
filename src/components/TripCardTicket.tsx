@@ -368,7 +368,10 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
           return onSelectCompanion ? (
             <button key={"c"+c} type="button" onClick={() => onSelectCompanion(c)}
               aria-label={`Vedi la mappa dei viaggi con ${c}`}
-              style={{...chip, border:"0.5px solid rgba(52,211,153,0.45)", cursor:"pointer"}}>
+              // Contorno con boxShadow e non border: il bordo occuperebbe
+              // spazio e questo chip risulterebbe più alto (e disallineato di
+              // un pixel) rispetto a quello del motivo, che gli sta accanto.
+              style={{...chip, border:"none", boxShadow:"inset 0 0 0 0.5px rgba(52,211,153,0.45)", cursor:"pointer"}}>
               👤 {c}
             </button>
           ) : (

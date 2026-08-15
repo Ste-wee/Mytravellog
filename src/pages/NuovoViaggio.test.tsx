@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import NuovoViaggio from "./NuovoViaggio";
 import { SettingsProvider } from "@/lib/settings";
+import { loadTrips } from "@/lib/storage";
 
 vi.mock("@/components/AppHeader", () => ({
   AppHeader: () => <header data-testid="app-header" />,
@@ -118,10 +119,35 @@ describe("NuovoViaggio — validazione date", () => {
   });
 });
 
+describe("NuovoViaggio — la partenza è obbligatoria", () => {
+  beforeEach(() => { localStorage.clear(); sessionStorage.clear(); });
+
+  it("senza città di casa non salva: il viaggio sparirebbe dalle mappe", async () => {
+    // Nessuna homeCity nelle impostazioni: il form parte senza partenza.
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "+ Aggiungi tappa" }));
+    fireEvent.change(screen.getByPlaceholderText("Cerca città…"), { target: { value: "par" } });
+    await screen.findByText("Parigi, Francia");
+    fireEvent.click(screen.getByText("Parigi, Francia"));
+
+    fireEvent.click(screen.getByRole("button", { name: /Salva viaggio/ }));
+
+    // Resta sulla pagina: niente salvataggio, niente navigazione alla Home.
+    await waitFor(() => expect(screen.queryByText("HOME")).not.toBeInTheDocument());
+    expect(loadTrips()).toHaveLength(0);
+  });
+});
+
 describe("NuovoViaggio — feedback durante il salvataggio lento", () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
+    // La città di casa ora è obbligatoria (senza, il viaggio sparirebbe dalle
+    // mappe): il form la prende dalle impostazioni, quindi qui va impostata o
+    // il salvataggio si ferma prima di partire.
+    localStorage.setItem("atlas.settings.v1", JSON.stringify({
+      homeCity: { label: "Milano, Italia", lat: 45.46, lon: 9.19 },
+    }));
   });
 
   it("mentre salva: bottone e Annulla lo dicono chiaramente, invece di sembrare bloccati", async () => {

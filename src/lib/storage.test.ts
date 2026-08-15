@@ -12,6 +12,8 @@ import {
   parseLocalDate,
   formatTripDate,
   isValidDateISO,
+  adoptHomeForTripsWithout,
+  countTripsWithoutHome,
   todayLocalISO,
   type Trip,
 } from "./storage";
@@ -302,6 +304,55 @@ describe("formatTripDate", () => {
     expect(formatTripDate("non-una-data")).toBe("—");
     expect(formatTripDate("20261-06-01")).toBe("—"); // refuso anno a 5 cifre
     expect(formatTripDate("")).toBe("—");
+  });
+});
+
+describe("adoptHomeForTripsWithout — la partenza per i viaggi orfani", () => {
+  beforeEach(() => localStorage.clear());
+  const MILANO = { lat: 45.46, lon: 9.19, label: "Milano, Italia" };
+
+  it("dà la partenza SOLO ai viaggi che non ce l'hanno", () => {
+    const orfano = addTrip(makeTrip({ home_latitude: null, home_longitude: null, home_label: null }));
+    const suo = addTrip(makeTrip({ home_latitude: 41.9, home_longitude: 12.5, home_label: "Roma" }));
+
+    expect(adoptHomeForTripsWithout(MILANO)).toBe(1);
+
+    const dopo = loadTrips();
+    const a = dopo.find(t => t.id === orfano.id)!;
+    const b = dopo.find(t => t.id === suo.id)!;
+    expect([a.home_latitude, a.home_longitude, a.home_label]).toEqual([45.46, 9.19, "Milano, Italia"]);
+    // Un viaggio è partito da dove è partito: un trasloco non riscrive il passato.
+    expect([b.home_latitude, b.home_longitude, b.home_label]).toEqual([41.9, 12.5, "Roma"]);
+  });
+
+  it("senza orfani non scrive nulla e risponde zero", () => {
+    const suo = addTrip(makeTrip({ home_latitude: 41.9, home_longitude: 12.5, home_label: "Roma" }));
+    const prima = loadTrips().find(t => t.id === suo.id)!.updated_at;
+    expect(adoptHomeForTripsWithout(MILANO)).toBe(0);
+    expect(loadTrips().find(t => t.id === suo.id)!.updated_at).toBe(prima);
+  });
+
+  it("timbra updated_at sui viaggi sistemati, così il backup se ne accorge", () => {
+    // Orologio pilotato: creazione e adozione cadrebbero nello stesso
+    // millisecondo e i due timbri risulterebbero identici.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T10:00:00Z"));
+    const orfano = addTrip(makeTrip({ home_latitude: null, home_longitude: null, home_label: null }));
+    const prima = loadTrips().find(t => t.id === orfano.id)!.updated_at;
+
+    vi.setSystemTime(new Date("2026-01-02T10:00:00Z"));
+    adoptHomeForTripsWithout(MILANO);
+    expect(loadTrips().find(t => t.id === orfano.id)!.updated_at).not.toBe(prima);
+    vi.useRealTimers();
+  });
+
+  it("countTripsWithoutHome conta gli orfani", () => {
+    addTrip(makeTrip({ home_latitude: null, home_longitude: null, home_label: null }));
+    addTrip(makeTrip({ home_latitude: null, home_longitude: null, home_label: null }));
+    addTrip(makeTrip({ home_latitude: 41.9, home_longitude: 12.5, home_label: "Roma" }));
+    expect(countTripsWithoutHome()).toBe(2);
+    adoptHomeForTripsWithout(MILANO);
+    expect(countTripsWithoutHome()).toBe(0);
   });
 });
 

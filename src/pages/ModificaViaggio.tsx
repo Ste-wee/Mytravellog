@@ -188,6 +188,11 @@ const ModificaViaggio = () => {
       toast.error("Il ritorno non può essere prima della partenza");
       return;
     }
+    // Come in NuovoViaggio: senza partenza il viaggio sparirebbe dalle mappe.
+    if (!home) {
+      toast.error("Indica da dove parti: tocca la casa nell'itinerario");
+      return;
+    }
     setSaving(true);
     try {
     const dest = waypoints[waypoints.length - 1];

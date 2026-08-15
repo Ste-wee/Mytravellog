@@ -48,7 +48,9 @@ await page.evaluate(([t, p]) => {
   localStorage.setItem("navta.welcome.dismissed", "1");
   ["home", "trips", "plans", "stats"].forEach(k => localStorage.setItem(`navta.tour.${k}.v1`, "1"));
   localStorage.setItem("navta.globe_hint_seen", "1");
-  localStorage.setItem("atlas.settings.v1", JSON.stringify({ autoRotate: "off" }));
+  // La citta' di casa e' obbligatoria: senza, il gate sbarra tutto (ed e'
+  // giusto cosi') e il collaudo non arriverebbe da nessuna parte.
+  localStorage.setItem("atlas.settings.v1", JSON.stringify({ autoRotate: "off", homeCity: { label: "Milano, Italia", lat: 45.46, lon: 9.19 } }));
 }, [TRIPS, PLANS]);
 await page.reload({ waitUntil: "load" });
 await page.waitForTimeout(2000);

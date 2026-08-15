@@ -168,6 +168,40 @@ export function updateTrip(id: string, patch: Partial<Omit<Trip, "id" | "created
   return updated;
 }
 
+/**
+ * Dà la città di partenza ai viaggi che non ne hanno una, e restituisce quanti
+ * ne ha sistemati.
+ *
+ * Serve a chi ha usato l'app prima che la partenza fosse obbligatoria: un
+ * viaggio senza casa non produce nessuna tratta, quindi spariva da globo,
+ * poster dell'anno e mappa della vita — senza spiegazione. Chiamata una volta
+ * sola, quando la città viene finalmente impostata.
+ *
+ * Tocca SOLO i viaggi orfani: chi una partenza ce l'ha se la tiene, perché un
+ * viaggio è partito da dove è partito — un trasloco di oggi non riscrive il
+ * passato.
+ */
+export function adoptHomeForTripsWithout(home: { lat: number; lon: number; label: string }): number {
+  const all = loadTrips();
+  let n = 0;
+  const next = all.map(t => {
+    if (t.home_latitude != null && t.home_longitude != null) return t;
+    n++;
+    return {
+      ...t,
+      home_latitude: home.lat, home_longitude: home.lon, home_label: home.label,
+      updated_at: new Date().toISOString(), // il backup Drive deve accorgersene
+    };
+  });
+  if (n > 0) saveTrips(next);
+  return n;
+}
+
+/** Quanti viaggi non hanno una città di partenza (per il messaggio del gate). */
+export function countTripsWithoutHome(): number {
+  return loadTrips().filter(t => t.home_latitude == null || t.home_longitude == null).length;
+}
+
 export function deleteTrip(id: string): void {
   saveTrips(loadTrips().filter((t) => t.id !== id));
   recordTombstone("trips", id); // così la cancellazione si propaga agli altri dispositivi
