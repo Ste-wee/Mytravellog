@@ -30,11 +30,11 @@ function openActions() {
   fireEvent.keyDown(screen.getByRole("button", { name: "Azioni viaggio" }), { key: "Enter" });
 }
 
-function renderCard(trip: Trip, onDeleteRequested?: (trip: Trip) => void) {
+function renderCard(trip: Trip, onDeleteRequested?: (trip: Trip) => void, onSelectCompanion?: (name: string) => void) {
   return render(
     <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <SettingsProvider>
-        <TripCardTicket trip={trip} onDeleteRequested={onDeleteRequested} />
+        <TripCardTicket trip={trip} onDeleteRequested={onDeleteRequested} onSelectCompanion={onSelectCompanion} />
       </SettingsProvider>
     </MemoryRouter>
   );
@@ -312,6 +312,23 @@ describe("TripCardTicket — distanza e temperatura", () => {
     renderCard(makeTrip({ transport_mode: "plane", distance_from_home_km: null, temperature_c: 24 }));
     expect(screen.getByText("Aereo")).toBeInTheDocument();
     expect(screen.getByText("24.0°C")).toBeInTheDocument();
+  });
+});
+
+describe("TripCardTicket — compagni di viaggio", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("senza il gestore i nomi restano chip semplici, non toccabili", () => {
+    renderCard(makeTrip({ companions: ["Giulia"] } as any));
+    expect(screen.getByText(/Giulia/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /mappa dei viaggi con/i })).not.toBeInTheDocument();
+  });
+
+  it("toccando il nome chiede la mappa dei viaggi con quella persona", () => {
+    const onSelectCompanion = vi.fn();
+    renderCard(makeTrip({ companions: ["Giulia", "Marco"] } as any), undefined, onSelectCompanion);
+    fireEvent.click(screen.getByRole("button", { name: /mappa dei viaggi con Marco/i }));
+    expect(onSelectCompanion).toHaveBeenCalledWith("Marco");
   });
 });
 

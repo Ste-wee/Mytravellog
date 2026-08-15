@@ -56,13 +56,16 @@ interface Props {
    * eliminato — chi lo gestisce (MieiViaggi) decide quando eliminarlo
    * davvero, per poter offrire un "Annulla". */
   onDeleteRequested?: (trip: Trip) => void;
+  /** Tocco su un compagno di viaggio: apre la costellazione dei viaggi fatti
+   * insieme a quella persona. Se non passata, i nomi restano semplici chip. */
+  onSelectCompanion?: (name: string) => void;
 }
 
 // Oltre questa lunghezza le note vengono mostrate troncate (2 righe) con
 // espansione al tap: sotto, stanno comunque in 2 righe e il toggle sarebbe inutile.
 const NOTES_CLAMP_THRESHOLD = 120;
 
-export function TripCardTicket({ trip, onDeleteRequested }: Props) {
+export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: Props) {
   const navigate = useNavigate();
   const [showFlyover, setShowFlyover] = useState(false);
   const [notesExpanded, setNotesExpanded] = useState(false);
@@ -354,9 +357,24 @@ export function TripCardTicket({ trip, onDeleteRequested }: Props) {
         {purpose && (
           <span style={{fontSize:10,fontWeight:700,letterSpacing:"0.05em",textTransform:"uppercase",padding:"3px 9px",borderRadius:999,background:"rgba(96,165,250,0.14)",color:"#93c5fd"}}>{purpose}</span>
         )}
-        {companions.map(c => (
-          <span key={"c"+c} style={{fontSize:10,fontWeight:600,padding:"3px 9px",borderRadius:999,background:"rgba(52,211,153,0.12)",color:"#6ee7b7"}}>👤 {c}</span>
-        ))}
+        {/* Il nome è toccabile: apre la costellazione dei viaggi fatti con
+            quella persona (stessa resa della mappa della vita, solo i vostri).
+            Senza il gestore resta un chip semplice, com'era. */}
+        {companions.map(c => {
+          const chip: React.CSSProperties = {
+            fontSize:10,fontWeight:600,padding:"3px 9px",borderRadius:999,
+            background:"rgba(52,211,153,0.12)",color:"#6ee7b7",
+          };
+          return onSelectCompanion ? (
+            <button key={"c"+c} type="button" onClick={() => onSelectCompanion(c)}
+              aria-label={`Vedi la mappa dei viaggi con ${c}`}
+              style={{...chip, border:"0.5px solid rgba(52,211,153,0.45)", cursor:"pointer"}}>
+              👤 {c}
+            </button>
+          ) : (
+            <span key={"c"+c} style={chip}>👤 {c}</span>
+          );
+        })}
         <button type="button" onClick={() => setShowDiary(true)}
           aria-label={diary.length ? `Apri il diario (${diary.length} giorni scritti)` : "Apri il diario del viaggio"}
           style={{

@@ -28,6 +28,8 @@ export default function MieiViaggi() {
   const [leavingId, setLeavingId] = useState<string | null>(null);
   const [flyoverYear, setFlyoverYear] = useState<string | null>(null);
   const [showLifeMap, setShowLifeMap] = useState(false);
+  // Nome del compagno di cui mostrare la costellazione condivisa (null = chiusa).
+  const [companionMap, setCompanionMap] = useState<string | null>(null);
   const pendingDeletesRef = useRef<Map<string, {
     animTimer: ReturnType<typeof setTimeout>;
     commitTimer: ReturnType<typeof setTimeout>;
@@ -304,7 +306,8 @@ export default function MieiViaggi() {
                         opacity: leavingId === t.id ? 0 : 1,
                         transform: leavingId === t.id ? "scale(0.95)" : "none",
                       }}>
-                        <TripCardTicket trip={t} onDeleteRequested={handleDeleteRequested}/>
+                        <TripCardTicket trip={t} onDeleteRequested={handleDeleteRequested}
+                          onSelectCompanion={setCompanionMap}/>
                       </div>
                     </div>
                   ))}
@@ -319,6 +322,13 @@ export default function MieiViaggi() {
       )}
       {showLifeMap && (
         <TripFlyover trips={trips} lifeMap onClose={() => setShowLifeMap(false)} />
+      )}
+      {/* La costellazione dei viaggi fatti con una persona: stessa resa nuda
+          della mappa della vita (niente titolo né statistiche), solo i vostri.
+          Il confronto è senza maiuscole: "giulia" e "Giulia" sono la stessa. */}
+      {companionMap && (
+        <TripFlyover lifeMap onClose={() => setCompanionMap(null)}
+          trips={trips.filter(t => (t.companions ?? []).some(c => c.toLowerCase() === companionMap.toLowerCase()))} />
       )}
       {/* Budget e cose da organizzare del viaggio in programma, senza cambiare
           pagina. onChanged ricarica ANCHE i viaggi: "Segna come fatto" sposta
