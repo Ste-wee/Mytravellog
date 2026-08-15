@@ -23,4 +23,15 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  {
+    // Nei test si costruiscono oggetti finti al posto di quelli veri — una
+    // mappa MapLibre, una risposta di rete — e pretendere lì la tipizzazione
+    // completa non protegge nulla: quegli oggetti esistono solo per la durata
+    // del test. Il rumore però nascondeva il segnale: con 195 segnalazioni in
+    // elenco, una nuova nel codice di produzione non si sarebbe notata.
+    files: ["**/*.test.{ts,tsx}", "src/test/**", "e2e/**"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
 );

@@ -14,7 +14,7 @@ import type { Trip } from "@/lib/storage";
 class FakeMap {
   layers = new Map<string, any>();
   sources = new Map<string, any>();
-  handlers: Record<string, Function[]> = {};
+  handlers: Record<string, ((payload?: any) => void)[]> = {};
   calls: { op: string; id: string }[] = [];
   flyToCount = 0;
   setDataCalls: { id: string; features: any[] }[] = [];
