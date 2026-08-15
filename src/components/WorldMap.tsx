@@ -6,6 +6,24 @@ import { unwrapPath } from "@/lib/lonWrap";
 import { hasCoords } from "@/lib/coords";
 import { TRANSPORT, TRANSPORT_MODES, TRANSPORT_FALLBACK_COLOR } from "@/lib/transport";
 import { Play, Square, Hand } from "lucide-react";
+// SOLO i tipi: `import type` sparisce alla compilazione, quindi maplibre-gl
+// continua ad arrivare dall'import dinamico più sotto e non entra nel bundle
+// iniziale (il globo resta un pezzo a parte, caricato quando serve).
+import type { Map as MapLibreMap, Marker, MapMouseEvent, StyleSpecification, LayerSpecification, FilterSpecification, GeoJSONSource } from "maplibre-gl";
+
+/** Il modulo maplibre-gl caricato al volo: serve per `new maplibregl.Map(...)`. */
+type MapLibreModule = typeof import("maplibre-gl");
+/**
+ * Espressione di stile MapLibre (`["match", ["get","transport"], "car", "#A855F7", …]`).
+ * Resta un array libero: i tipi veri della libreria descrivono ogni forma
+ * possibile con una precisione tale che scriverli a mano costa più di quanto
+ * protegga — e qui un errore lo si vede subito, il pallino perde il colore.
+ * Il nome però dice cosa sono, che con `any[]` non si capiva.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- vedi il commento qui sopra
+type StyleExpr = any;
+/** Evento di click su un layer: MapLibre allega le feature colpite. */
+type LayerClickEvent = MapMouseEvent & { features?: { properties: Record<string, unknown> }[] };
 
 export interface CityInfo {
   name: string;
@@ -32,11 +50,11 @@ const GLOBE_HINT_FADE_MS = 400;
 // ri-scaricato (una chiamata a un'API a consumo, non gratuita come Nominatim
 // o geoBoundaries) ogni volta che il globo si smonta e rimonta — es.
 // navigando Home → Statistiche → Home con HashRouter.
-let cachedMapStyle: any = null;
+let cachedMapStyle: StyleSpecification | null = null;
 
 /** Ritorna sempre una copia: ogni mount muta projection/glyphs sulla propria
  * istanza senza toccare la cache condivisa. */
-export async function fetchMapStyle(): Promise<any> {
+export async function fetchMapStyle(): Promise<StyleSpecification> {
   if (!cachedMapStyle) {
     const styleResp = await fetch(`https://api.maptiler.com/maps/hybrid/style.json?key=${MAPTILER_KEY}`);
     cachedMapStyle = await styleResp.json();
@@ -104,7 +122,7 @@ const TRANSPORT_EMOJI: Record<string, string> =
  * testo/icone, serve un layer "symbol" con icon-image che punti a queste.
  * Idempotente: ogni mezzo viene registrato una sola volta per istanza mappa.
  */
-function ensureTransportIcons(map: any) {
+function ensureTransportIcons(map: MapLibreMap) {
   Object.entries(TRANSPORT_EMOJI).forEach(([mode, emoji]) => {
     const id = `transport-icon-${mode}`;
     if (map.hasImage(id)) return;
@@ -148,9 +166,9 @@ export function WorldMap({
   trips, selectedId, onSelectTrip, onSelectCity, autoRotateSetting = "on"
 }: Props) {
   const containerRef  = useRef<HTMLDivElement>(null);
-  const mapRef        = useRef<any>(null);
-  const markersRef    = useRef<any[]>([]);
-  const popupsRef     = useRef<any[]>([]);
+  const mapRef        = useRef<MapLibreMap | null>(null);
+  const markersRef    = useRef<Marker[]>([]);
+  const popupsRef     = useRef<{ remove(): void }[]>([]);
   const rotTimerRef   = useRef<number | null>(null);
   const [playing, setPlaying] = useState(false);
   const [mapReady, setMapReady] = useState(false);
@@ -174,7 +192,7 @@ export function WorldMap({
   const playingRef    = useRef(false);
   const onSelectCityRef = useRef(onSelectCity);
   const onSelectTripRef = useRef(onSelectTrip);
-  const cityMarkerRefs = useRef<{marker:any;el:HTMLElement;city:CityInfo}[]>([]);
+  const cityMarkerRefs = useRef<{marker:Marker;el:HTMLElement;city:CityInfo}[]>([]);
   // I click handler dei layer viaggio vengono registrati UNA volta per layer
   // (map.on con layerId sopravvive a removeLayer/addLayer): questo set tiene
   // traccia di quali sono già attivi, e orderedRef dà loro sempre la lista
@@ -229,7 +247,7 @@ export function WorldMap({
   // ── Init MapLibre ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current) return;
-    let map: any;
+    let map: MapLibreMap;
     // init() è asincrona (import dinamico + fetch dello style): senza questa
     // guardia, uno smonta/rimonta rapido (navigazione Home↔Statistiche, o il
     // doppio-mount di StrictMode) faceva scattare la cleanup mentre gli await
@@ -246,7 +264,7 @@ export function WorldMap({
 
     const init = async () => {
       const ml = await import("maplibre-gl");
-      const maplibregl = (ml as any).default || ml;
+      const maplibregl = ((ml as { default?: MapLibreModule }).default ?? ml) as MapLibreModule;
       if (cancelled) return;
 
       // CSS di MapLibre: bundlato globalmente (import in main.tsx) — la vecchia
@@ -285,7 +303,7 @@ export function WorldMap({
       // Suppress MapLibre globe projection warnings
       prevWarn = console.warn.bind(console);
       const _warn = prevWarn;
-      console.warn = (...args: any[]) => {
+      console.warn = (...args: unknown[]) => {
         if (typeof args[0] === 'string' && args[0].includes('globe projection')) return;
         _warn(...args);
       };
@@ -296,22 +314,18 @@ export function WorldMap({
         // (a zoom 1.5-2 default, l'area Europa/Medio Oriente ha così tante etichette
         // di paesi piccoli e vicini tra loro da diventare rumore visivo, specialmente
         // con la rotazione automatica che porta quella regione in vista da sola).
-        map.getStyle().layers?.forEach((layer: any) => {
+        map.getStyle().layers?.forEach((layer: LayerSpecification) => {
           if (layer.type === "symbol") {
             map.setLayerZoomRange(layer.id, 3, 24);
           }
         });
 
-        // Globe atmosphere
-        try {
-          map.setFog({
-            color: "rgb(140,200,255)",
-            "high-color": "rgb(30,100,255)",
-            "horizon-blend": 0.12,
-            "space-color": "rgb(3,8,22)",
-            "star-intensity": 0.9,
-          });
-        } catch(_) {}
+        // NB: qui per anni c'e' stata una chiamata a map.setFog({...}) per
+        // l'atmosfera del globo. setFog e' API di MAPBOX: in MapLibre non
+        // esiste (c'e' setSky), quindi lanciava un TypeError che il try/catch
+        // inghiottiva — l'atmosfera non e' MAI stata applicata. Rimossa la
+        // chiamata morta: zero cambiamenti visivi. Se un giorno la si vuole
+        // davvero, va fatta con setSky ed e' un cambio VISIVO da approvare.
 
         // Signal map ready — useEffect will add markers
         setMapReady(true);
@@ -328,7 +342,7 @@ export function WorldMap({
       });
 
       // Click → reverse geocode
-      map.on("click", async (e: any) => {
+      map.on("click", async (e: MapMouseEvent) => {
         // Se il click ha colpito un pallino viaggio, la mini-card è già stata
         // aperta dal suo handler: senza questo controllo, dopo ~1s arriverebbe
         // anche il popup città "Aggiungi come viaggio" a coprirla.
@@ -355,7 +369,7 @@ export function WorldMap({
             country_code: (addr.country_code || "").toUpperCase(),
             latitude: lat, longitude: lng, tier: 1,
           });
-        } catch(_) {}
+        } catch(_) { /* rete giù o risposta storta: niente popup, nessun danno */ }
       });
 
       // Stop rotation on interaction
@@ -415,7 +429,7 @@ export function WorldMap({
   }, [autoRotateSetting]);
 
   // ── Add trips ──────────────────────────────────────────────────────────────
-  function addTripsToMap(map: any, maplibregl: any) {
+  function addTripsToMap(map: MapLibreMap, maplibregl: MapLibreModule) {
     // I click handler dei layer (registrati una sola volta) leggono da qui la
     // lista viaggi corrente, mai da una chiusura vecchia.
     orderedRef.current = ordered;
@@ -429,12 +443,12 @@ export function WorldMap({
     // Remove old layers/sources
     // Remove all route layers
     try {
-      const allLayers = map.getStyle()?.layers?.map((l: any) => l.id) ?? [];
+      const allLayers = map.getStyle()?.layers?.map((l: LayerSpecification) => l.id) ?? [];
       allLayers.filter((id: string) => id.startsWith("route-")).forEach((id: string) => {
         if (map.getLayer(id)) map.removeLayer(id);
         if (map.getSource(id)) map.removeSource(id);
       });
-    } catch(_) {}
+    } catch(_) { /* stile non ancora pronto: i layer li (ri)crea il seguito */ }
     // Prima TUTTI i layer, poi le source: rimuovere la source "trips-single"
     // mentre il layer "trips-single-icons" (più avanti nella lista) la usa
     // ancora farebbe scattare un errore MapLibre a ogni ridisegno.
@@ -450,7 +464,7 @@ export function WorldMap({
     // Espressione MapLibre condivisa: colora un pallino in base al mezzo di
     // trasporto della tappa (property "transport"), stessa palette ovunque
     // nell'app (linee, badge, marker del flyover).
-    const TRANSPORT_MATCH_EXPR: any[] = [
+    const TRANSPORT_MATCH_EXPR: StyleExpr = [
       "match", ["get", "transport"],
       "plane", TRANSPORT_COLORS_MAP.plane,
       "train", TRANSPORT_COLORS_MAP.train,
@@ -463,7 +477,7 @@ export function WorldMap({
     ];
     // Espressione gemella: sceglie l'icona (immagine registrata via addImage,
     // vedi ensureTransportIcons) invece del colore, stessa property "transport".
-    const ICON_MATCH_EXPR: any[] = [
+    const ICON_MATCH_EXPR: StyleExpr = [
       "match", ["get", "transport"],
       "plane", "transport-icon-plane",
       "train", "transport-icon-train",
@@ -491,7 +505,7 @@ export function WorldMap({
       const coords = buildRouteCoords(t);
       map.addSource(lineId, {
         type: "geojson",
-        data: { type:"Feature", geometry:{ type:"LineString", coordinates: coords } },
+        data: { type:"Feature", properties: {}, geometry:{ type:"LineString", coordinates: coords } },
       });
       map.addLayer({
         id: lineId, type: "line", source: lineId,
@@ -503,7 +517,7 @@ export function WorldMap({
     // Home marker
     const homeEl = document.createElement("div");
     homeEl.style.cssText = "width:16px;height:16px;border-radius:50%;background:#fbbf24;border:2.5px solid #fff;box-shadow:0 0 8px rgba(251,191,36,0.6);cursor:pointer";
-    const firstWithHome = ordered.find((t: any) => hasCoords(t.home_latitude, t.home_longitude));
+    const firstWithHome = ordered.find((t: Trip) => hasCoords(t.home_latitude, t.home_longitude));
     if (firstWithHome) {
       markersRef.current.push(
         new maplibregl.Marker({ element: homeEl })
@@ -516,24 +530,24 @@ export function WorldMap({
     // Build GeoJSON for single-destination trips (colored by transport mode)
     // (niente property "selected": non era letta da alcuna paint expression)
     const singleFeatures = ordered
-      .filter((t: any) => !t.waypoints?.length)
-      .map((t: any) => ({
-        type: "Feature",
+      .filter((t: Trip) => !t.waypoints?.length)
+      .map((t: Trip) => ({
+        type: "Feature" as const,
         properties: { id: t.id, transport: t.transport_mode ?? "plane", td: dayNum(t.trip_date) },
-        geometry: { type: "Point", coordinates: [t.longitude, t.latitude] }
+        geometry: { type: "Point" as const, coordinates: [t.longitude, t.latitude] }
       }));
 
     // Build GeoJSON for multi-tappa trips (colored by transport mode)
     const multiFeatures = ordered
-      .filter((t: any) => t.waypoints?.length > 0)
-      .map((t: any) => ({
-        type: "Feature",
+      .filter((t: Trip) => (t.waypoints?.length ?? 0) > 0)
+      .map((t: Trip) => ({
+        type: "Feature" as const,
         properties: { id: t.id, transport: t.transport_mode ?? "plane", td: dayNum(t.trip_date) },
-        geometry: { type: "Point", coordinates: [t.longitude, t.latitude] }
+        geometry: { type: "Point" as const, coordinates: [t.longitude, t.latitude] }
       }));
 
     // Add click handlers via map.on for these layers
-    const addCircleLayer = (id: string, features: any[], color: string | any[]) => {
+    const addCircleLayer = (id: string, features: GeoJSON.Feature[], color: StyleExpr) => {
       if (map.getLayer(id)) map.removeLayer(id);
       if (map.getSource(id)) map.removeSource(id);
       if (!features.length) return;
@@ -564,10 +578,10 @@ export function WorldMap({
       // accumulerebbe — N selezioni, N flyTo per ogni click.
       if (!tripLayerHandlersRef.current.has(id)) {
         tripLayerHandlersRef.current.add(id);
-        map.on("click", id, (e: any) => {
+        map.on("click", id, (e: LayerClickEvent) => {
           if (!e.features?.length) return;
           const tripId = e.features[0].properties.id;
-          const trip = orderedRef.current.find((t: any) => t.id === tripId);
+          const trip = orderedRef.current.find((t: Trip) => t.id === tripId);
           // Niente flyTo qui: ci pensa l'effect su selectedId (prima partivano
           // DUE animazioni sovrapposte per lo stesso click, 800ms + 1000ms).
           if (trip) onSelectTripRef.current?.(trip);
@@ -606,13 +620,13 @@ export function WorldMap({
     });
 
     // Waypoint intermediate stop markers (smaller dots, colored by transport)
-    const waypointFeatures = ordered.flatMap((t: any) =>
+    const waypointFeatures = ordered.flatMap((t: Trip) =>
       (t.waypoints ?? [])
-        .filter((w: any) => hasCoords(w.lat, w.lon))
-        .map((w: any) => ({
-          type: "Feature",
+        .filter((w) => hasCoords(w.lat, w.lon))
+        .map((w) => ({
+          type: "Feature" as const,
           properties: { transport: w.transport_mode ?? "plane", td: dayNum(t.trip_date) },
-          geometry: { type: "Point", coordinates: [w.lon, w.lat] }
+          geometry: { type: "Point" as const, coordinates: [w.lon, w.lat] }
         }))
     );
     if (map.getLayer("trips-waypoints")) map.removeLayer("trips-waypoints");
@@ -652,7 +666,7 @@ export function WorldMap({
   // multi-tappa, e le etichette città. Applicarlo con setPaintProperty/setData
   // evita il teardown+rebuild di TUTTE le source a ogni tap sul globo (gesto
   // più frequente della Home, e causa storica del leak WebGL).
-  function applySelection(map: any, selId: string | null) {
+  function applySelection(map: MapLibreMap, selId: string | null) {
     if (!map || !map.getSource("trips-labels")) return; // rebuild non ancora passato
     const prev = appliedSelRef.current;
     if (prev === selId) return;
@@ -664,7 +678,7 @@ export function WorldMap({
 
     // Spegni la selezione precedente
     if (prev) {
-      const prevTrip = orderedRef.current.find((t: any) => t.id === prev);
+      const prevTrip = orderedRef.current.find((t: Trip) => t.id === prev);
       const prevId = "route-" + prev;
       if (prevTrip?.waypoints?.length) {
         if (map.getLayer(prevId)) routePaint(prevId, false);
@@ -676,7 +690,7 @@ export function WorldMap({
     }
 
     // Accendi la nuova
-    const trip = selId ? orderedRef.current.find((t: any) => t.id === selId) : null;
+    const trip = selId ? orderedRef.current.find((t: Trip) => t.id === selId) : null;
     if (trip && hasCoords(trip.home_latitude, trip.home_longitude) && hasCoords(trip.latitude, trip.longitude)) {
       const lineId = "route-" + trip.id;
       if (trip.waypoints?.length) {
@@ -684,7 +698,7 @@ export function WorldMap({
       } else if (!map.getLayer(lineId)) {
         map.addSource(lineId, {
           type: "geojson",
-          data: { type: "Feature", geometry: { type: "LineString", coordinates: buildRouteCoords(trip) } },
+          data: { type: "Feature" as const, properties: {}, geometry: { type: "LineString", coordinates: buildRouteCoords(trip) } },
         });
         // beforeId: sotto i pallini, stessa pila del rebuild (le rotte
         // venivano aggiunte prima dei circle layer).
@@ -702,50 +716,50 @@ export function WorldMap({
     }
 
     // Etichette città (vuote se nulla è selezionato)
-    const labelFeatures: any[] = trip ? [
+    const labelFeatures: GeoJSON.Feature[] = trip ? [
       ...(hasCoords(trip.home_latitude, trip.home_longitude) ? [{
-        type: "Feature",
+        type: "Feature" as const,
         properties: { name: trip.home_label?.split(",")[0] ?? "Casa" },
-        geometry: { type: "Point", coordinates: [trip.home_longitude, trip.home_latitude] }
+        geometry: { type: "Point" as const, coordinates: [trip.home_longitude, trip.home_latitude] }
       }] : []),
       ...(trip.waypoints ?? [])
-        .filter((w: any) => hasCoords(w.lat, w.lon))
-        .map((w: any) => ({
-          type: "Feature",
+        .filter((w) => hasCoords(w.lat, w.lon))
+        .map((w) => ({
+          type: "Feature" as const,
           properties: { name: w.city },
-          geometry: { type: "Point", coordinates: [w.lon, w.lat] }
+          geometry: { type: "Point" as const, coordinates: [w.lon, w.lat] }
         })),
       {
-        type: "Feature",
+        type: "Feature" as const,
         properties: { name: trip.city },
-        geometry: { type: "Point", coordinates: [trip.longitude, trip.latitude] }
+        geometry: { type: "Point" as const, coordinates: [trip.longitude, trip.latitude] }
       }
     ] : [];
-    map.getSource("trips-labels").setData({ type: "FeatureCollection", features: labelFeatures });
+    (map.getSource("trips-labels") as GeoJSONSource).setData({ type: "FeatureCollection", features: labelFeatures });
 
     appliedSelRef.current = selId;
   }
 
   // Applica il cursore temporale ai layer dei viaggi: nasconde marker/tratte con
   // data successiva. setFilter + visibility, nessun rebuild → nessun rischio leak.
-  function applyCursor(map: any) {
+  function applyCursor(map: MapLibreMap) {
     if (!map) return;
     const c = cursorRef.current;
     // Cursore non-finito (Infinity di default) = nessun filtro. NON passare
     // Infinity dentro l'espressione: MapLibre valida i literal numerici e
     // potrebbe rifiutarlo → filtro null = "mostra tutto", robusto per ogni timing.
     const finite = Number.isFinite(c);
-    const filt = finite ? (["<=", ["get", "td"], c] as any) : null;
+    const filt = finite ? (["<=", ["get", "td"], c] as FilterSpecification) : null;
     ["trips-single", "trips-single-icons", "trips-multi", "trips-multi-icons", "trips-waypoints", "trips-waypoints-icons"]
       .forEach(id => { if (map.getLayer(id)) map.setFilter(id, filt); });
-    orderedRef.current.forEach((t: any) => {
+    orderedRef.current.forEach((t: Trip) => {
       const id = "route-" + t.id;
       if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", (!finite || dayNum(t.trip_date) <= c) ? "visible" : "none");
     });
   }
 
   // ── City labels ────────────────────────────────────────────────────────────
-  function updateCityLabels(map: any, _maplibregl: any) {
+  function updateCityLabels(map: MapLibreMap, _maplibregl: MapLibreModule) {
     // Remove old city markers (HTML)
     cityMarkerRefs.current.forEach(({marker}) => marker.remove());
     cityMarkerRefs.current = [];
@@ -768,8 +782,8 @@ export function WorldMap({
         data: {
           type: "FeatureCollection",
           features: cities.map(c => ({
-            type: "Feature",
-            geometry: { type: "Point", coordinates: [c.longitude, c.latitude] },
+            type: "Feature" as const,
+            geometry: { type: "Point" as const, coordinates: [c.longitude, c.latitude] },
             properties: { name: c.name, country: c.country, country_code: c.country_code, latitude: c.latitude, longitude: c.longitude, tier: c.tier },
           })),
         },
@@ -813,12 +827,14 @@ export function WorldMap({
       });
 
       // Click on city label
-      map.on("click", `cities-t${tier}`, (e: any) => {
+      map.on("click", `cities-t${tier}`, (e: LayerClickEvent) => {
         if (!e.features?.length) return;
+        // Le properties tornano da MapLibre senza tipi: la CityInfo si
+        // ricostruisce dichiarando le conversioni, non fingendo che tornino.
         const p = e.features[0].properties;
         onSelectCityRef.current?.({
-          name: p.name, country: p.country, country_code: p.country_code,
-          latitude: p.latitude, longitude: p.longitude, tier: p.tier,
+          name: String(p.name), country: String(p.country), country_code: String(p.country_code),
+          latitude: Number(p.latitude), longitude: Number(p.longitude), tier: Number(p.tier) as CityInfo["tier"],
         });
         e.preventDefault();
       });
@@ -835,7 +851,7 @@ export function WorldMap({
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     import("maplibre-gl").then(ml => {
-      const maplibregl = (ml as any).default || ml;
+      const maplibregl = ((ml as { default?: MapLibreModule }).default ?? ml) as MapLibreModule;
       addTripsToMap(mapRef.current, maplibregl);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
