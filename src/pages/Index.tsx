@@ -8,7 +8,7 @@ import { hasCoords } from "@/lib/coords";
 import { tripTotalKm } from "@/lib/flyover";
 import { fmtDistance, useSettings } from "@/lib/settings";
 import { TRANSPORT, isTransportMode } from "@/lib/transport";
-import { Compass, Globe, MapPin, Pencil, Plane, Plus, Video, X, ChevronDown } from "lucide-react";
+import { Route, Globe, MapPin, Pencil, Plane, Plus, Video, X, ChevronDown } from "lucide-react";
 import { WorldMap, CityInfo } from "@/components/WorldMap";
 import { StarField, StarFieldController } from "@/components/StarField";
 import { TripFlyover } from "@/components/TripFlyover";
@@ -85,8 +85,11 @@ export function backfillDistanceFromHome(trip: Trip, homeCity: { lat: number; lo
 // stabile React riconcilia il nodo esistente e l'animazione parte una volta sola.
 interface StatCardProps {
   icon: ReactNode; label: string; value: string; accent: string; bg: string; i?: number;
+  /** Unità di misura (km/mi): resa più piccola e tenue, così l'occhio legge
+   *  prima il numero — con lo stesso peso si prendeva metà dell'attenzione. */
+  unit?: string;
 }
-function StatCard({ icon, label, value, accent, bg, i = 0 }: StatCardProps) {
+function StatCard({ icon, label, value, accent, bg, i = 0, unit }: StatCardProps) {
   return (
     <div className="animate-fade-up" style={{
       background:"#0a1628", border:"0.5px solid #1a2d4a", borderRadius:12,
@@ -96,12 +99,18 @@ function StatCard({ icon, label, value, accent, bg, i = 0 }: StatCardProps) {
       // tutte insieme (nessuna animazione d'ingresso in Home).
       animationDelay: `${i * 60}ms`,
     }}>
-      <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:accent,borderRadius:"12px 12px 0 0"}}/>
+      {/* NB: qui c'era una barretta accento da 2px in cima. Ripeteva il colore
+          dell'icona — due decorazioni per la stessa informazione assente. */}
       <div style={{width:36,height:36,borderRadius:9,background:bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
         <span style={{color:accent}}>{icon}</span>
       </div>
       <div>
-        <div className="font-mono" style={{fontSize:20,fontWeight:700,color:"#f0f4ff",lineHeight:1.1}}>{value}</div>
+        <div className="font-mono" style={{fontSize:20,fontWeight:700,color:"#f0f4ff",lineHeight:1.1}}>
+          {/* Lo spazio sta DENTRO il testo, non è un margine: così il valore
+              letto resta "10.193 km" come prima anche per un lettore di
+              schermo (con il solo margine diventava "10.193km"). */}
+          {value}{unit && <span style={{fontSize:12,fontWeight:400,color:"rgba(255,255,255,0.55)"}}> {unit}</span>}
+        </div>
         <div style={{fontSize:10,letterSpacing:"1.2px",textTransform:"uppercase",color:"rgba(255,255,255,0.6)",marginTop:3}}>{label}</div>
       </div>
     </div>
@@ -199,11 +208,22 @@ function HomeInner() {
 
       <div className="container mx-auto px-4 py-6 flex-1 flex flex-col gap-6">
         {(() => {
+          // Distanza: numero ed unità separati, così l'unità può essere resa
+          // più piccola nella card (fmtDistance dà "34.812 km", oppure "—").
+          const dist = fmtDistance(stats.km, distanceUnit);
+          const distSpace = dist.lastIndexOf(" ");
+          // Colore con una REGOLA, non a scacchiera: i conteggi sono blu,
+          // l'ambra è riservata ai km perché sul globo le rotte sono ambra —
+          // così il colore dice "questa è la strada percorsa". Prima blu e
+          // ambra si alternavano senza significato (Paesi ambra, Città blu).
           const statItems = [
-            { icon: <Plane       className="w-[18px] h-[18px]"/>, label: "Viaggi",   value: stats.trips.toString(),     accent: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
-            { icon: <Globe       className="w-[18px] h-[18px]"/>, label: "Paesi",    value: stats.countries.toString(), accent: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
-            { icon: <MapPin      className="w-[18px] h-[18px]"/>, label: "Città",    value: stats.cities.toString(),    accent: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
-            { icon: <Compass     className="w-[18px] h-[18px]"/>, label: distanceUnit === "imperial" ? "Miglia" : "Km totali", value: fmtDistance(stats.km, distanceUnit), accent: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
+            { icon: <Plane  className="w-[18px] h-[18px]"/>, label: "Viaggi", value: stats.trips.toString(),     accent: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
+            { icon: <Globe  className="w-[18px] h-[18px]"/>, label: "Paesi",  value: stats.countries.toString(), accent: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
+            { icon: <MapPin className="w-[18px] h-[18px]"/>, label: "Città",  value: stats.cities.toString(),    accent: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
+            { icon: <Route  className="w-[18px] h-[18px]"/>, label: "Totali",
+              value: distSpace > 0 ? dist.slice(0, distSpace) : dist,
+              unit: distSpace > 0 ? dist.slice(distSpace + 1) : undefined,
+              accent: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
           ];
           return (
             <>
