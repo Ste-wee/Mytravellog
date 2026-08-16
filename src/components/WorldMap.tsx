@@ -285,8 +285,7 @@ export function WorldMap({
         center: [10, 20],
         // Globo più "profondo"/distante all'apertura della Home (1.5 → 0.8 →
         // 0.5, sempre su richiesta a vista dell'utente): lascia più cielo
-        // attorno. L'atmosfera (setFog) scala insieme al globo, quindi non
-        // serve ritarare nulla.
+        // attorno.
         zoom: 0.5,
         attributionControl: false,
       });

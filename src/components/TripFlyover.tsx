@@ -488,16 +488,18 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   };
 
   /**
-   * Compone il POSTER su un canvas: mappa (tracciato + puntine, dal canvas WebGL
-   * grazie a preserveDrawingBuffer) + pillola dati in alto a destra.
-   * Restituisce il canvas pronto per toBlob.
+   * Compone il POSTER su un canvas: mappa (tracciato + puntine — la copia del
+   * canvas WebGL fatta da captureSnapshotBlob dentro l'evento "render") +
+   * pillola dati in alto a destra. Restituisce il canvas pronto per toBlob.
    */
-  const composePoster = (mapCanvas: HTMLCanvasElement, flagImgs: HTMLImageElement[], logoImg: HTMLImageElement | null): HTMLCanvasElement => {
+  // `dpr` va passato dal canvas VIVO della mappa: la copia fuori-DOM fatta da
+  // captureSnapshotBlob non ha layout (clientWidth 0) e il ripiego darebbe 1,
+  // rimpicciolendo firma e didascalia sui telefoni con devicePixelRatio 2-3.
+  const composePoster = (mapCanvas: HTMLCanvasElement, flagImgs: HTMLImageElement[], logoImg: HTMLImageElement | null, dpr = mapCanvas.width / (mapCanvas.clientWidth || mapCanvas.width)): HTMLCanvasElement => {
     const c = document.createElement("canvas");
     c.width = mapCanvas.width; c.height = mapCanvas.height;
     const ctx = c.getContext("2d")!;
     ctx.drawImage(mapCanvas, 0, 0);
-    const dpr = mapCanvas.width / (mapCanvas.clientWidth || mapCanvas.width);
     // Firma "By 🐻" in basso a destra, prima di ogni uscita (tutte le viste).
     const stamp = () => { if (logoImg) drawBrandSignatureCanvas(ctx, c.width, c.height, dpr, logoImg); };
 
@@ -705,10 +707,10 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     }))
   ).then(arr => arr.filter((x): x is HTMLImageElement => !!x));
 
-  /** Cattura il poster come JPEG. Forza un render fresco della mappa appena prima
-   *  di leggerne il canvas: senza il vecchio loop di registrazione che
-   *  ridisegnava di continuo, a mappa ferma il buffer WebGL può essere
-   *  vuoto/nero anche con preserveDrawingBuffer, e drawImage catturerebbe nero. */
+  /** Cattura il poster come JPEG. Forza un render fresco e copia il canvas
+   *  in modo SINCRONO dentro l'evento "render": il buffer WebGL non è
+   *  preservato (vedi nota alle MapOptions), quindi fuori da quel frame
+   *  drawImage leggerebbe nero. */
   const captureSnapshotBlob = async (): Promise<Blob | null> => {
     try {
       const map = mapRef.current;
@@ -725,16 +727,28 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
           ]);
         }
       } catch { /* font non disponibili: si usa il fallback */ }
-      // Attendi un frame appena renderizzato prima di catturare.
-      await new Promise<void>(res => {
-        if (!map) { res(); return; }
+      // Copia il canvas DENTRO il gestore dell'evento "render", in modo
+      // sincrono: il backbuffer WebGL (non preservato) è garantito pieno solo
+      // lì. Prima la copia avveniva dopo l'await — sul percorso felice reggeva
+      // (un solo salto di microtask, prima del compositing), ma il salvagente
+      // a tempo scattava in un macrotask a buffer ormai svuotato → poster nero
+      // salvato in silenzio (es. app mandata in background subito dopo "Salva").
+      const snapshot = await new Promise<HTMLCanvasElement>(res => {
+        const grab = () => {
+          const c = document.createElement("canvas");
+          c.width = mapCanvas.width; c.height = mapCanvas.height;
+          c.getContext("2d")!.drawImage(mapCanvas, 0, 0);
+          return c;
+        };
+        if (!map) { res(grab()); return; }
         let done = false;
-        const fin = () => { if (done) return; done = true; res(); };
-        map.once("render", fin);
+        const fin = (c: HTMLCanvasElement) => { if (done) return; done = true; res(c); };
+        map.once("render", () => fin(grab()));
         map.triggerRepaint();
-        setTimeout(fin, 400); // salvagente se "render" non scatta
+        setTimeout(() => fin(grab()), 400); // salvagente: copia best-effort
       });
-      const posterCanvas = composePoster(mapCanvas, flagImgs, logoImg);
+      const posterCanvas = composePoster(snapshot, flagImgs, logoImg,
+        mapCanvas.width / (mapCanvas.clientWidth || mapCanvas.width));
       return await new Promise(res => posterCanvas.toBlob(res, "image/jpeg", 0.9));
     } catch {
       return null;

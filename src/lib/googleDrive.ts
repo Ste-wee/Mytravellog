@@ -57,16 +57,23 @@ export interface DriveBackup {
 let gisPromise: Promise<void> | null = null;
 function loadGis(): Promise<void> {
   if (gisPromise) return gisPromise;
-  gisPromise = new Promise((resolve, reject) => {
+  const p = new Promise<void>((resolve, reject) => {
     if (window.google?.accounts?.oauth2) { resolve(); return; }
     const s = document.createElement("script");
     s.src = "https://accounts.google.com/gsi/client";
     s.async = true; s.defer = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Impossibile caricare Google (rete?)."));
+    // onload non basta: un 200 farlocco (adblocker, captive portal) fa
+    // scattare onload senza attaccare l'API a window.google.
+    s.onload = () => (window.google?.accounts?.oauth2 ? resolve() : reject(new Error("gis_unavailable")));
+    s.onerror = () => { s.remove(); reject(new Error("Impossibile caricare Google (rete?).")); };
     document.head.appendChild(s);
   });
-  return gisPromise;
+  gisPromise = p;
+  // Il FALLIMENTO non va in cache: prima restava lì per sempre e, dopo un
+  // avvio senza rete, "Connetti" rispondeva all'istante col vecchio errore
+  // anche a connessione tornata — fino a un reload completo della pagina.
+  p.catch(() => { if (gisPromise === p) gisPromise = null; });
+  return p;
 }
 
 export interface TokenResult { token: string; expiresIn: number }
