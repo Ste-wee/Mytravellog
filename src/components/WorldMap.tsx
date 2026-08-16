@@ -10,7 +10,7 @@ import { Play, Square, Hand } from "lucide-react";
 // continua ad arrivare dall'import dinamico più sotto e non entra nel bundle
 // iniziale (il globo resta un pezzo a parte, caricato quando serve).
 import type { Map as MapLibreMap, Marker, MapMouseEvent, MapLayerMouseEvent, StyleSpecification, LayerSpecification, FilterSpecification, GeoJSONSource } from "maplibre-gl";
-import { loadMapLibre, MapLibreModule, StyleExpr } from "@/lib/maplibre";
+import { loadMapLibre, type MapLibreModule, type StyleExpr } from "@/lib/maplibre";
 
 export interface CityInfo {
   name: string;
@@ -831,6 +831,10 @@ export function WorldMap({
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     loadMapLibre().then(maplibregl => {
+      // Ricontrolla DOPO l'attesa del chunk: smontando la Home prima che
+      // maplibre arrivi (prima visita, rete lenta) la mappa è già stata
+      // rimossa e disegnarci sopra sarebbe un TypeError non gestito.
+      if (!mapRef.current) return;
       addTripsToMap(mapRef.current, maplibregl);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, X } from "lucide-react";
 import { Trip as LocalTrip } from "@/lib/storage";
-import { loadWorldAtlasCountries } from "@/lib/worldAtlas";
+import { loadWorldAtlasCountries, polygonsOf } from "@/lib/worldAtlas";
 import { CountryMapModal } from "@/components/CountryMapModal";
 
 // Approximate continent bounding boxes (lat, lon)
@@ -393,12 +393,8 @@ function polyCentroid(geom: GeoJSON.Geometry): [number, number] {
   return [lon / coords.length, lat / coords.length];
 }
 
-function extractPolygons(geom: GeoJSON.Geometry | null | undefined): number[][][][] {
-  if (!geom) return [];
-  if (geom.type === "Polygon") return [geom.coordinates];
-  if (geom.type === "MultiPolygon") return geom.coordinates;
-  return [];
-}
+// La normalizzazione Polygon/MultiPolygon è condivisa: vive in worldAtlas.ts.
+const extractPolygons = polygonsOf;
 
 function pointInRing(lon: number, lat: number, ring: number[][]): boolean {
   let inside = false;

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Trip } from "@/lib/storage";
+import { polygonsOf } from "@/lib/worldAtlas";
 import { ISO2_TO_ISO3 } from "@/lib/iso3166";
 import { X } from "lucide-react";
 
@@ -253,13 +254,11 @@ interface Props {
 
 function projectGeoJSON(features: RegionFeature[], W: number, H: number) {
   let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
-  // La profondità è nota (RegionGeometry = Polygon|MultiPolygon): iterazione
-  // piatta e tipizzata, come buildFeaturePath qui sotto — niente ricorsione.
+  // polygonsOf salta in silenzio le geometrie inattese (il tipo RegionFeature
+  // è solo un cast su dati di rete/localStorage): una feature strana non deve
+  // far cadere l'intero modal, come non lo faceva la vecchia ricorsione.
   for (const f of features) {
-    const g = f.geometry;
-    if (!g) continue;
-    const polys = g.type === "Polygon" ? [g.coordinates] : g.coordinates;
-    for (const poly of polys) for (const ring of poly) for (const [lon, lat] of ring) {
+    for (const poly of polygonsOf(f.geometry)) for (const ring of poly) for (const [lon, lat] of ring) {
       minLon = Math.min(minLon, lon); maxLon = Math.max(maxLon, lon);
       minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
     }
@@ -291,16 +290,9 @@ function drawRing(ctx: CanvasRenderingContext2D, ring: GeoJSON.Position[], proje
 }
 
 function buildFeaturePath(ctx: CanvasRenderingContext2D, feature: RegionFeature, project: (lon: number, lat: number) => [number, number]) {
-  const geom = feature.geometry;
-  if (!geom) return;
   ctx.beginPath();
-  if (geom.type === "Polygon") {
-    drawRing(ctx, geom.coordinates[0], project);
-  } else if (geom.type === "MultiPolygon") {
-    for (const poly of geom.coordinates) {
-      drawRing(ctx, poly[0], project);
-    }
-  }
+  // Solo l'anello esterno di ogni poligono (poly[0]): i buchi non si disegnano.
+  for (const poly of polygonsOf(feature.geometry)) drawRing(ctx, poly[0], project);
 }
 
 /** Normalize a region name for matching: lowercase, remove accents, trim */

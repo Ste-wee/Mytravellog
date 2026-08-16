@@ -1,4 +1,4 @@
-import { loadWorldAtlasCountries, WorldAtlasResolution } from "./worldAtlas";
+import { loadWorldAtlasCountries, polygonsOf, WorldAtlasResolution } from "./worldAtlas";
 import { LOGO_DATA_URI } from "./brandLogo";
 
 /**
@@ -93,10 +93,7 @@ export async function loadCountryRings(
   const geo = await loadWorldAtlasCountries(resolution);
   const rings: [number, number][][] = [];
   for (const f of geo.features) {
-    const g = f.geometry;
-    if (!g) continue;
-    const polys = g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : [];
-    for (const poly of polys) {
+    for (const poly of polygonsOf(f.geometry)) {
       for (const ring of poly) {
         if (bboxIntersects(ring as [number, number][], bounds)) rings.push(ring as [number, number][]);
       }

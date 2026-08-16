@@ -3,7 +3,7 @@ import type { ElementType } from "react";
 // SOLO i tipi: `import type` sparisce alla compilazione — maplibre-gl resta
 // caricato dinamicamente (loadMapLibre) e fuori dal bundle iniziale.
 import type { Map as MapLibreMap, StyleSpecification } from "maplibre-gl";
-import { loadMapLibre, StyleExpr } from "@/lib/maplibre";
+import { loadMapLibre, type StyleExpr } from "@/lib/maplibre";
 import { createPortal } from "react-dom";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Trip, formatTripDate } from "@/lib/storage";

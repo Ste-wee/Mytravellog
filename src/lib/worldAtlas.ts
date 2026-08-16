@@ -19,11 +19,34 @@ export function __clearWorldAtlasCache() {
   topoCache.clear();
 }
 
-/** Il TopoJSON grezzo di world-atlas (110m leggero, 50m dettagliato). */
-export function loadWorldAtlasTopology(resolution: WorldAtlasResolution = "110m"): Promise<Topology> {
+/**
+ * Normalizza una geometria in lista di poligoni (ognuno = lista di anelli).
+ * Fonte unica della ternaria Polygon/MultiPolygon (prima viveva in 4 copie,
+ * e una aveva perso la guardia): qualunque ALTRA geometria (Point,
+ * GeometryCollection, dato stantio da una cache) torna [] e viene saltata
+ * in silenzio — mai far cadere un'intera mappa per una feature strana.
+ */
+export function polygonsOf(g: GeoJSON.Geometry | null | undefined): GeoJSON.Position[][][] {
+  if (!g) return [];
+  if (g.type === "Polygon") return [g.coordinates];
+  if (g.type === "MultiPolygon") return g.coordinates;
+  return [];
+}
+
+/** Il TopoJSON grezzo di world-atlas (110m leggero, 50m dettagliato). Privata:
+ *  da fuori si usa loadWorldAtlasCountries, che passa dal cast sanzionato. */
+function loadWorldAtlasTopology(resolution: WorldAtlasResolution): Promise<Topology> {
   let topoP = topoCache.get(resolution);
   if (!topoP) {
-    topoP = fetch(`https://cdn.jsdelivr.net/npm/world-atlas@2/countries-${resolution}.json`).then(r => r.json());
+    topoP = fetch(`https://cdn.jsdelivr.net/npm/world-atlas@2/countries-${resolution}.json`).then(async r => {
+      if (!r.ok) throw new Error(`world-atlas ${r.status}`);
+      const t: Topology = await r.json();
+      // Un 200 farlocco (proxy/captive portal) con JSON senza i paesi NON deve
+      // restare in cache: rigettando qui, l'eviction sotto la espelle e il
+      // prossimo mount riprova (prima ContinentsMap rifetchava sempre e guariva).
+      if (!t?.objects?.countries) throw new Error("world-atlas malformato");
+      return t;
+    });
     topoCache.set(resolution, topoP);
     topoP.catch(() => { topoCache.delete(resolution); });
   }

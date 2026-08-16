@@ -116,13 +116,13 @@ describe("ContinentsMap — cache dei confini tra i mount", () => {
   }
 
   it("scarica il topojson al primo mount", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ json: async () => fakeTopo });
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => fakeTopo });
     renderMap();
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
   });
 
   it("un secondo mount non rifà il fetch: usa la cache in memoria", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ json: async () => fakeTopo });
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => fakeTopo });
     const first = renderMap();
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
     first.unmount();
@@ -133,7 +133,7 @@ describe("ContinentsMap — cache dei confini tra i mount", () => {
   });
 
   it("azzerate ENTRAMBE le cache (feats + topojson condiviso), il mount successivo rifà il fetch", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ json: async () => fakeTopo });
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => fakeTopo });
     const first = renderMap();
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
     first.unmount();

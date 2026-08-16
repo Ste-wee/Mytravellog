@@ -50,7 +50,7 @@ describe("ContinentsMap — click su un paese visitato", () => {
   const fakeTopo = { objects: { countries: {} } };
 
   it("apre CountryMapModal con nome/codice/viaggi presi dal viaggio, non dal topojson", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ json: async () => fakeTopo });
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => fakeTopo });
     render(<ContinentsMap trips={[makeTrip()]} />);
 
     const country = await waitFor(() => screen.getByRole("button", { name: "Viaggi in Italy" }));
@@ -63,7 +63,7 @@ describe("ContinentsMap — click su un paese visitato", () => {
   });
 
   it("un paese senza viaggi non è cliccabile (nessun bottone/ruolo)", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ json: async () => fakeTopo });
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => fakeTopo });
     render(<ContinentsMap trips={[]} />);
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
     expect(screen.queryByRole("button", { name: /Viaggi in/ })).not.toBeInTheDocument();
