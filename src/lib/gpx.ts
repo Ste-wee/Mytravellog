@@ -87,7 +87,7 @@ export async function reverseGeocode(lat: number, lon: number): Promise<ReverseR
   const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=10&addressdetails=1`;
   const r = await fetch(url, { headers: { "Accept-Language": "it" } });
   if (!r.ok) throw new Error("reverse geocode fallito");
-  const d: any = await r.json();
+  const d = await r.json();
   const a = d.address ?? {};
   const city = a.city || a.town || a.village || a.hamlet || a.municipality || a.county || d.name || "";
   return { city, country: a.country || "", country_code: (a.country_code || "").toUpperCase() };

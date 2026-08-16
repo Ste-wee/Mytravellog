@@ -154,7 +154,7 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
   const spent = totalSpent({ budget: expenses });
 
   const stops = hasWaypoints
-    ? [trip.home_label?.split(",")[0] ?? "Casa", ...trip.waypoints!.map((w: any) => w.city), trip.city]
+    ? [trip.home_label?.split(",")[0] ?? "Casa", ...trip.waypoints!.map(w => w.city), trip.city]
     : null;
 
   // Eliminazione: l'apertura del menu ⋮ fa da gesto deliberato, quindi la voce

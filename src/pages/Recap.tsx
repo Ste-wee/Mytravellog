@@ -49,7 +49,7 @@ interface Fmt { dist: (km: number) => string; alt: (m: number) => string; temp: 
 
 function drawRecap(ctx: CanvasRenderingContext2D, r: YearRecap, fmt: Fmt, flag: HTMLImageElement | null) {
   const P = 70;
-  const ls = (v: string) => { try { (ctx as any).letterSpacing = v; } catch { /* browser vecchio */ } };
+  const ls = (v: string) => { try { ctx.letterSpacing = v; } catch { /* browser vecchio */ } };
 
   // Sfondo notturno (gradiente) + micro-stelle decorative.
   const bg = ctx.createLinearGradient(0, 0, 0, H);
@@ -207,7 +207,7 @@ function drawRecap(ctx: CanvasRenderingContext2D, r: YearRecap, fmt: Fmt, flag: 
 
 function canShareFile(file: File): boolean {
   try {
-    return typeof navigator !== "undefined" && typeof (navigator as any).canShare === "function" && (navigator as any).canShare({ files: [file] });
+    return typeof navigator !== "undefined" && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] });
   } catch { return false; }
 }
 
@@ -250,7 +250,7 @@ const Recap = () => {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try { await (document as any).fonts?.ready; } catch { /* noop */ }
+      try { await document.fonts?.ready; } catch { /* noop */ }
       if (cancelled) return;
       const c = canvasRef.current; if (!c) return;
       const ctx = c.getContext("2d"); if (!ctx) return;

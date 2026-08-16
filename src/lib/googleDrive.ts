@@ -15,6 +15,26 @@ import { Trip, Tombstone } from "@/lib/storage";
 export const GOOGLE_CLIENT_ID =
   "238461152099-10eqsi1gobbvqnoibjk81pucicgp9a41.apps.googleusercontent.com";
 
+// ── Tipi minimi per Google Identity Services ─────────────────────────────────
+// Google non pubblica tipi per lo script gsi/client: descriviamo SOLO ciò che
+// usiamo, così il compilatore controlla i punti in cui parliamo con Google
+// (prima era tutto `any`, cioè zona cieca proprio attorno ai dati dell'utente).
+interface GisTokenResponse { access_token?: string; expires_in?: number | string; error?: string }
+interface GisTokenClient {
+  callback: (resp: GisTokenResponse) => void;
+  error_callback: (err: { type?: string }) => void;
+  requestAccessToken(opts: { prompt: string }): void;
+}
+interface GoogleGlobal {
+  accounts?: {
+    oauth2?: {
+      initTokenClient(cfg: { client_id: string; scope: string; callback: (resp: GisTokenResponse) => void }): GisTokenClient;
+      revoke?(token: string, done: () => void): void;
+    };
+  };
+}
+declare global { interface Window { google?: GoogleGlobal } }
+
 const SCOPE = "openid email profile https://www.googleapis.com/auth/drive.appdata";
 const BACKUP_FILE = "navta-backup.json";
 export const BACKUP_VERSION = 1;
@@ -38,7 +58,7 @@ let gisPromise: Promise<void> | null = null;
 function loadGis(): Promise<void> {
   if (gisPromise) return gisPromise;
   gisPromise = new Promise((resolve, reject) => {
-    if ((window as any).google?.accounts?.oauth2) { resolve(); return; }
+    if (window.google?.accounts?.oauth2) { resolve(); return; }
     const s = document.createElement("script");
     s.src = "https://accounts.google.com/gsi/client";
     s.async = true; s.defer = true;
@@ -53,7 +73,7 @@ export interface TokenResult { token: string; expiresIn: number }
 
 // UN SOLO token client GIS, riusato per tutte le richieste (callback
 // riassegnata di volta in volta, prompt passato per-chiamata).
-let tokenClient: any = null;
+let tokenClient: GisTokenClient | null = null;
 // Richiesta in corso: le chiamate concorrenti si agganciano alla stessa
 // Promise (evita doppi popup e callback che si pestano i piedi sul client unico).
 let pendingToken: Promise<TokenResult> | null = null;
@@ -94,9 +114,10 @@ export function requestAccessToken(interactive: boolean): Promise<TokenResult> {
 
 function issueToken(interactive: boolean): Promise<TokenResult> {
   return loadGis().then(() => new Promise<TokenResult>((resolve, reject) => {
-    const google = (window as any).google;
+    const oauth2 = window.google?.accounts?.oauth2;
+    if (!oauth2) { reject(new Error("gis_unavailable")); return; }
     if (!tokenClient) {
-      tokenClient = google.accounts.oauth2.initTokenClient({
+      tokenClient = oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
         scope: SCOPE,
         callback: () => { /* riassegnata per-richiesta qui sotto */ },
@@ -106,12 +127,12 @@ function issueToken(interactive: boolean): Promise<TokenResult> {
     const timeout = window.setTimeout(() => {
       if (!done) { done = true; reject(new Error("timeout")); }
     }, interactive ? 120_000 : 8_000);
-    tokenClient.callback = (resp: any) => {
+    tokenClient.callback = (resp) => {
       if (done) return; done = true; clearTimeout(timeout);
       if (resp?.access_token) resolve({ token: resp.access_token, expiresIn: Number(resp.expires_in) || 3600 });
       else reject(new Error(resp?.error || "no_token"));
     };
-    tokenClient.error_callback = (err: any) => {
+    tokenClient.error_callback = (err) => {
       if (done) return; done = true; clearTimeout(timeout);
       reject(new Error(err?.type || "token_error"));
     };
@@ -122,8 +143,7 @@ function issueToken(interactive: boolean): Promise<TokenResult> {
 
 /** Revoca il token (al "Disconnetti"): l'app perde l'accesso finché non ri-consenti. */
 export function revokeAccessToken(token: string): void {
-  const google = (window as any).google;
-  try { google?.accounts?.oauth2?.revoke?.(token, () => {}); } catch { /* best effort */ }
+  try { window.google?.accounts?.oauth2?.revoke?.(token, () => {}); } catch { /* best effort */ }
 }
 
 /** Email dell'utente connesso (per mostrarla in Impostazioni). */
@@ -161,7 +181,7 @@ async function findBackupFileId(token: string, force = false): Promise<string | 
   if (r.status === 401) throw new Error("unauthorized");
   if (!r.ok) throw new Error("drive_list_failed");
   const j = await r.json();
-  const f = (j.files ?? []).find((x: any) => x.name === BACKUP_FILE);
+  const f = (j.files ?? []).find((x: { name?: string; id?: string }) => x.name === BACKUP_FILE);
   cachedFileId = f?.id ?? null;
   return cachedFileId;
 }

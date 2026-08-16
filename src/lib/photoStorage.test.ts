@@ -15,6 +15,7 @@ describe("photoStorage", () => {
   beforeEach(async () => {
     // fake-indexeddb non condivide stato tra file di test, ma tra i singoli
     // test di questo stesso file sì: puliamo il DB per isolarli.
+    // eslint-disable-next-line no-global-assign -- riassegnazione VOLUTA: qui il globale è il finto IndexedDB del test
     indexedDB = new IDBFactory();
     __resetPhotoDB();
   });

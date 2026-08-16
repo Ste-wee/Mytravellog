@@ -1,4 +1,5 @@
 import { feature } from "topojson-client";
+import type { Topology } from "topojson-specification";
 import { LOGO_DATA_URI } from "./brandLogo";
 
 /**
@@ -84,7 +85,7 @@ function bboxIntersects(ring: [number, number][], b: { lonMin: number; lonMax: n
 // pesa ~1,4 MB e l'editor del quadro lo richiederebbe a ogni ingresso. Si
 // cache la PROMISE così anche richieste concorrenti condividono un solo fetch;
 // in caso di errore la voce viene rimossa (nessuna cache avvelenata).
-const topoCache = new Map<string, Promise<any>>();
+const topoCache = new Map<string, Promise<Topology>>();
 
 /**
  * Scarica i confini dei paesi (world-atlas) e ne estrae gli anelli [lon,lat][]
@@ -102,8 +103,10 @@ export async function loadCountryRings(
     topoCache.set(resolution, topoP);
     topoP.catch(() => { topoCache.delete(resolution); });
   }
-  const topo: any = await topoP;
-  const geo: any = feature(topo, topo.objects.countries);
+  const topo = await topoP;
+  // Come in ContinentsMap: il world-atlas è una GeometryCollection di paesi,
+  // quindi il risultato è sempre una FeatureCollection (l'overload inferisce male).
+  const geo = feature(topo, topo.objects.countries) as unknown as GeoJSON.FeatureCollection;
   const rings: [number, number][][] = [];
   for (const f of geo.features) {
     const g = f.geometry;

@@ -126,10 +126,13 @@ export function ContinentsMap({ trips }: Props) {
     let cancelled = false;
     fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json")
       .then((r) => r.json())
-      .then((topo: any) => {
+      .then((topo) => {
         if (cancelled) return;
-        const geo: any = feature(topo, topo.objects.countries);
-        const feats: CountryFeat[] = geo.features.map((f: any, idx: number) => {
+        // topojson-client sceglie l'overload Feature<Point> perché `topo` è il
+        // JSON grezzo della fetch: il world-atlas contiene una GeometryCollection
+        // di paesi, quindi il risultato è sempre una FeatureCollection.
+        const geo = feature(topo, topo.objects.countries) as unknown as GeoJSON.FeatureCollection;
+        const feats: CountryFeat[] = geo.features.map((f, idx) => {
           const path = geoToPath(f.geometry);
           const c = polyCentroid(f.geometry);
           const polygons = extractPolygons(f.geometry);
@@ -325,11 +328,11 @@ export function deriveCountryId(f: { id?: unknown; properties?: { name?: string 
   return `unknown-${index}`;
 }
 
-function geoToPath(geom: any): string {
+function geoToPath(geom: GeoJSON.Geometry | null | undefined): string {
   if (!geom) return "";
   if (geom.type === "Polygon") return polyToPath(geom.coordinates);
   if (geom.type === "MultiPolygon")
-    return geom.coordinates.map((poly: any) => polyToPath(poly)).join(" ");
+    return geom.coordinates.map(poly => polyToPath(poly)).join(" ");
   return "";
 }
 
@@ -375,7 +378,7 @@ function polyToPath(rings: number[][][]): string {
     .join(" ");
 }
 
-function polyCentroid(geom: any): [number, number] {
+function polyCentroid(geom: GeoJSON.Geometry): [number, number] {
   // Returns [lon, lat] approximate centroid
   let coords: number[][] = [];
   if (geom.type === "Polygon") coords = geom.coordinates[0];
@@ -393,7 +396,7 @@ function polyCentroid(geom: any): [number, number] {
   return [lon / coords.length, lat / coords.length];
 }
 
-function extractPolygons(geom: any): number[][][][] {
+function extractPolygons(geom: GeoJSON.Geometry | null | undefined): number[][][][] {
   if (!geom) return [];
   if (geom.type === "Polygon") return [geom.coordinates];
   if (geom.type === "MultiPolygon") return geom.coordinates;

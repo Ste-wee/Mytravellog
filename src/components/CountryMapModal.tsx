@@ -22,7 +22,11 @@ export function isGitLfsPointer(text: string): boolean {
   return text.trimStart().startsWith("version https://git-lfs");
 }
 
-async function fetchGithubRawJson(url: string): Promise<any | null> {
+// GeoJSON di geoBoundaries: poligoni regionali con le due proprietà che usiamo.
+type RegionGeometry = GeoJSON.Polygon | GeoJSON.MultiPolygon;
+type RegionFeature = GeoJSON.Feature<RegionGeometry, { shapeName?: string; shapeISO?: string | null }>;
+
+async function fetchGithubRawJson(url: string): Promise<{ features?: unknown } | null> {
   const parsed = parseGithubRawUrl(url);
   const directUrl = parsed
     ? `https://raw.githubusercontent.com/${parsed.owner}/${parsed.repo}/${parsed.ref}/${parsed.path}`
@@ -68,7 +72,7 @@ const ADM_LEVEL_BY_COUNTRY: Record<string, "ADM1" | "ADM2"> = {
   GR: "ADM2",
 };
 
-async function fetchCountryRegions(countryCode2: string): Promise<any[] | null> {
+async function fetchCountryRegions(countryCode2: string): Promise<RegionFeature[] | null> {
   const code2 = countryCode2?.toUpperCase();
   const iso3 = ISO2_TO_ISO3[code2];
   if (!iso3) return null;
@@ -82,7 +86,7 @@ async function fetchCountryRegions(countryCode2: string): Promise<any[] | null> 
     if (!geoUrl) return null;
     const geo = await fetchGithubRawJson(geoUrl);
     const features = geo?.features;
-    return Array.isArray(features) && features.length > 0 ? features : null;
+    return Array.isArray(features) && features.length > 0 ? (features as RegionFeature[]) : null;
   } catch {
     return null;
   }
@@ -198,12 +202,12 @@ const REGION_ALIASES: Record<string, Record<string, string>> = {
 // 60 richieste/ora senza autenticazione, quindi visitando molte mappe di
 // paesi "pesanti" nella stessa sessione si rischia di esaurirla e vedere
 // "Mappa non disponibile" per un paese in realtà supportato.
-const geoCache: Record<string, any> = {};
+const geoCache: Record<string, RegionFeature[]> = {};
 // v2: l'Italia ora scarica ADM2 (20 regioni) invece di ADM1 (5 macro-aree) —
 // le cache v1 esistenti tenevano i confini sbagliati, il bump le invalida.
 const GEO_LOCALSTORAGE_PREFIX = "geoBoundariesCache:v2:";
 
-function readPersistedFeatures(countryCode: string): any[] | null {
+function readPersistedFeatures(countryCode: string): RegionFeature[] | null {
   try {
     const raw = localStorage.getItem(GEO_LOCALSTORAGE_PREFIX + countryCode);
     if (!raw) return null;
@@ -214,7 +218,7 @@ function readPersistedFeatures(countryCode: string): any[] | null {
   }
 }
 
-function writePersistedFeatures(countryCode: string, features: any[]) {
+function writePersistedFeatures(countryCode: string, features: RegionFeature[]) {
   try {
     localStorage.setItem(GEO_LOCALSTORAGE_PREFIX + countryCode, JSON.stringify(features));
   } catch {
@@ -247,13 +251,16 @@ interface Props {
   onClose: () => void;
 }
 
-function projectGeoJSON(features: any[], W: number, H: number) {
+function projectGeoJSON(features: RegionFeature[], W: number, H: number) {
   let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
-  const visitCoords = (coords: any[]) => {
+  // Coordinate GeoJSON annidate a profondità variabile (Polygon/MultiPolygon).
+  type CoordTree = number[] | CoordTree[];
+  const visitCoords = (coords: CoordTree) => {
     if (typeof coords[0] === "number") {
-      minLon = Math.min(minLon, coords[0]); maxLon = Math.max(maxLon, coords[0]);
-      minLat = Math.min(minLat, coords[1]); maxLat = Math.max(maxLat, coords[1]);
-    } else coords.forEach(visitCoords);
+      const [lon, lat] = coords as number[];
+      minLon = Math.min(minLon, lon); maxLon = Math.max(maxLon, lon);
+      minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+    } else (coords as CoordTree[]).forEach(visitCoords);
   };
   features.forEach(f => visitCoords(f.geometry?.coordinates || []));
 
@@ -271,7 +278,7 @@ function projectGeoJSON(features: any[], W: number, H: number) {
   return { project };
 }
 
-function drawRing(ctx: CanvasRenderingContext2D, ring: any[], project: (lon: number, lat: number) => [number, number]) {
+function drawRing(ctx: CanvasRenderingContext2D, ring: GeoJSON.Position[], project: (lon: number, lat: number) => [number, number]) {
   if (!ring?.length) return;
   const [x0, y0] = project(ring[0][0], ring[0][1]);
   ctx.moveTo(x0, y0);
@@ -282,7 +289,7 @@ function drawRing(ctx: CanvasRenderingContext2D, ring: any[], project: (lon: num
   ctx.closePath();
 }
 
-function buildFeaturePath(ctx: CanvasRenderingContext2D, feature: any, project: (lon: number, lat: number) => [number, number]) {
+function buildFeaturePath(ctx: CanvasRenderingContext2D, feature: RegionFeature, project: (lon: number, lat: number) => [number, number]) {
   const geom = feature.geometry;
   if (!geom) return;
   ctx.beginPath();
@@ -417,7 +424,7 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
         const { project } = projectGeoJSON(features, W, H);
 
         const visited: string[] = [];
-        features.forEach((f: any) => {
+        features.forEach(f => {
           const geoName: string = f.properties?.shapeName ?? "";
           const geoCode: string | null = f.properties?.shapeISO ?? null;
           const isVisited = visitedList.some(v => regionMatches(v, geoName, geoCode, countryCode));

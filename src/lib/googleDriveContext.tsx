@@ -134,7 +134,7 @@ export function GoogleDriveProvider({ children }: { children: ReactNode }) {
     if (!token) { toExpired(); return; }
     try {
       await doSync(token);
-    } catch (e: any) {
+    } catch (e) {
       if (String(e?.message) === "unauthorized") toExpired();
       else if (mountedRef.current) setStatus("connected"); // errore transitorio: riproverà il watcher
     }
@@ -180,7 +180,7 @@ export function GoogleDriveProvider({ children }: { children: ReactNode }) {
     const em = await fetchUserEmail(token);
     if (mountedRef.current) setEmail(em);
     try { await initialSync(token); startWatcher(); }
-    catch (e: any) {
+    catch (e) {
       if (String(e?.message) === "unauthorized") toExpired();
       else if (mountedRef.current) { setStatus("error"); setErrorMsg("Sincronizzazione non riuscita."); }
     }

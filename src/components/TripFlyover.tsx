@@ -1,4 +1,14 @@
 import { useEffect, useMemo, useRef, useState, createElement } from "react";
+import type { ElementType } from "react";
+// SOLO i tipi: `import type` sparisce alla compilazione — maplibre-gl resta
+// caricato dinamicamente (import()) e fuori dal bundle iniziale.
+import type { Map as MapLibreMap, StyleSpecification } from "maplibre-gl";
+type MapLibreModule = typeof import("maplibre-gl");
+// Stessa deroga documentata di WorldMap: le ESPRESSIONI di stile MapLibre
+// (["interpolate",...], ["case",...]) non vanno tipizzate — i tipi tupla
+// ufficiali sono troppo rigidi per gli array letterali e any[] non basta.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type StyleExpr = any;
 import { createPortal } from "react-dom";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Trip, formatTripDate } from "@/lib/storage";
@@ -12,10 +22,10 @@ import { TRANSPORT } from "@/lib/transport";
 
 // Icona + colore del mezzo dalla fonte unica (@/lib/transport): il medaglione
 // sulla tappa finale usa la stessa simbologia di biglietto e globo.
-const TRANSPORT_MAP: Record<string, { color: string; Icon: any }> = TRANSPORT;
+const TRANSPORT_MAP: Record<string, { color: string; Icon: ElementType }> = TRANSPORT;
 
 /** Rasterizza un'icona (lucide o Motorcycle) in un'immagine, via SVG data URI. */
-function loadModeIcon(Icon: any, color: string): Promise<HTMLImageElement> {
+function loadModeIcon(Icon: ElementType, color: string): Promise<HTMLImageElement> {
   const svg = renderToStaticMarkup(createElement(Icon, { color, stroke: color, width: 48, height: 48, strokeWidth: 2.4 }));
   const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   return new Promise((resolve, reject) => {
@@ -32,7 +42,7 @@ const MAPTILER_KEY = "J3c87wVeji5QqN7DSqJX";
 type MapStyleMode = "satellite" | "constellation";
 
 /** Stile satellite (attuale): imagery MapTiler su globo inclinato. */
-async function buildSatelliteStyle(): Promise<any> {
+async function buildSatelliteStyle(): Promise<StyleSpecification> {
   const style = await fetchMapStyle();
   style.projection = { type: "globe" };
   style.glyphs = `https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_KEY}`;
@@ -42,10 +52,11 @@ async function buildSatelliteStyle(): Promise<any> {
 // Confini "a costellazione": tenui e sottili, per fare da
 // sfondo stellato senza rubare contrasto al tracciato/alle stelle. Pensata come
 // master di stampa (resina + LED): piatta dall'alto, alto contrasto b/n.
-const CONST_WIDTH = ["interpolate", ["linear"], ["zoom"], 1, 0.35, 4, 0.7, 8, 1.1];
+const CONST_WIDTH: StyleExpr = ["interpolate", ["linear"], ["zoom"], 1, 0.35, 4, 0.7, 8, 1.1];
 const CONST_COLOR = "rgba(255,255,255,0.32)";
+const CONST_BORDER_FILTER: StyleExpr = ["all", ["<=", ["get", "admin_level"], 2], ["!=", ["get", "maritime"], 1]];
 
-export function buildConstellationStyle(): any {
+export function buildConstellationStyle(): StyleSpecification {
   return {
     version: 8,
     glyphs: `https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_KEY}`,
@@ -61,7 +72,7 @@ export function buildConstellationStyle(): any {
       },
       {
         id: "country-borders", type: "line", source: "omt", "source-layer": "boundary",
-        filter: ["all", ["<=", ["get", "admin_level"], 2], ["!=", ["get", "maritime"], 1]],
+        filter: CONST_BORDER_FILTER,
         layout: { "line-cap": "round", "line-join": "round" },
         paint: { "line-color": CONST_COLOR, "line-width": CONST_WIDTH },
       },
@@ -216,8 +227,8 @@ function buildFlyoverRouteCoords(stops: { lat: number; lon: number }[], legs: Fl
 function canShareFile(file: File): boolean {
   try {
     return typeof navigator !== "undefined"
-      && typeof (navigator as any).canShare === "function"
-      && (navigator as any).canShare({ files: [file] });
+      && typeof navigator.canShare === "function"
+      && navigator.canShare({ files: [file] });
   } catch {
     return false;
   }
@@ -257,7 +268,7 @@ interface Props {
 export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
   const mountedRef = useRef(true);
   const allCoordsRef = useRef<[number, number][]>([]);
   // Segmenti del tracciato: uno per viaggio in modalità Mappa della vita (linee
@@ -335,7 +346,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   /** Inquadra l'intero tracciato con fitBounds: il percorso riempie sempre il
    *  frame allo stesso modo (margini fissi), qualunque sia la lunghezza.
    *  Inclinata (pitch 45) in entrambe le viste. */
-  const flyToOverview = (map: any, pitch = 45): Promise<void> => new Promise(resolve => {
+  const flyToOverview = (map: MapLibreMap, pitch = 45): Promise<void> => new Promise(resolve => {
     const coords = allCoordsRef.current;
     if (!coords.length) { resolve(); return; }
     let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
@@ -360,7 +371,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
    * personalizzati): le guardie `getSource`/`getLayer`/`hasImage` evitano i
    * doppioni al primo caricamento e ricreano tutto dopo un cambio stile.
    */
-  const addOverlayLayers = (map: any, mode: MapStyleMode) => {
+  const addOverlayLayers = (map: MapLibreMap, mode: MapStyleMode) => {
     const stops = stopsRef.current;
     if (!stops.length) return;
     const constellation = mode === "constellation";
@@ -369,7 +380,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       // separate, senza collegamenti), un solo segmento negli altri poster.
       map.addSource("flyover-route", {
         type: "geojson",
-        data: { type: "Feature", geometry: { type: "MultiLineString", coordinates: routeSegsRef.current } },
+        data: { type: "Feature", properties: {}, geometry: { type: "MultiLineString", coordinates: routeSegsRef.current } },
       });
     }
     if (!map.getLayer("flyover-route-casing")) {
@@ -707,10 +718,10 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       // Assicura i font della card (typewriter) prima di disegnarli su canvas:
       // senza, il primo snapshot userebbe un fallback monospazio.
       try {
-        if ((document as any).fonts?.load) {
+        if (document.fonts?.load) {
           await Promise.all([
-            (document as any).fonts.load('600 24px "Cormorant Garamond"'),
-            (document as any).fonts.load('italic 12px "Noto Serif"'),
+            document.fonts.load('600 24px "Cormorant Garamond"'),
+            document.fonts.load('italic 12px "Noto Serif"'),
           ]);
         }
       } catch { /* font non disponibili: si usa il fallback */ }
@@ -819,12 +830,12 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       return;
     }
 
-    let map: any;
+    let map: MapLibreMap | undefined;
 
     const init = async () => {
       try {
         const ml = await import("maplibre-gl");
-        const maplibregl = (ml as any).default || ml;
+        const maplibregl = ((ml as { default?: MapLibreModule }).default ?? ml) as MapLibreModule;
         if (cancelled) return;
 
         // Medaglione del mezzo sulla tappa finale: rasterizza l'icona del mezzo
@@ -865,9 +876,11 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
           center: [stops[0].lon, stops[0].lat],
           zoom: 2,
           attributionControl: false,
-          // Necessario per lo snapshot del poster (drawImage/toBlob dal canvas
-          // WebGL a mappa ferma): senza, il buffer si svuota → immagine nera.
-          preserveDrawingBuffer: true,
+          // NB: qui c'era `preserveDrawingBuffer: true` "per lo snapshot", ma in
+          // MapLibre 5 l'opzione top-level NON esiste più (andrebbe dentro
+          // canvasContextAttributes) ed era IGNORATA: il buffer non è mai stato
+          // preservato. Lo snapshot funziona comunque perché captureSnapshotBlob
+          // cattura il canvas nello stesso frame dell'evento "render".
         });
         if (cancelled) { map.remove(); return; }
         mapRef.current = map;
