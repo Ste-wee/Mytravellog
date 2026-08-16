@@ -6,7 +6,7 @@ import { loadTrips, parseLocalDate } from "@/lib/storage";
 import { transportColor, transportLabel } from "@/lib/transport";
 import { useSettings, formatDistanceKm, formatAltitudeM, formatTemperatureC } from "@/lib/settings";
 import { computeYearRecap, availableYears, YearRecap } from "@/lib/recap";
-import { canShareFile } from "@/lib/share";
+import { canShareFile, shareOrDownload } from "@/lib/share";
 import { RecapStories } from "@/components/RecapStories";
 
 const W = 1080, H = 1350;
@@ -263,13 +263,7 @@ const Recap = () => {
       const blob: Blob | null = await new Promise(res => c.toBlob(res, "image/png"));
       if (!blob) return;
       const file = new File([blob], `recap-${year}.png`, { type: "image/png" });
-      if (canShareFile(file)) {
-        try { await navigator.share({ files: [file], title: `Il mio ${year} di viaggi` }); } catch { /* annullato */ }
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a"); a.href = url; a.download = file.name; a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 10000);
-      }
+      await shareOrDownload(file, `Il mio ${year} di viaggi`);
     } catch { /* canvas non esportabile: niente crash */ }
   };
 

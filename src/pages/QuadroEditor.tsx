@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState, memo } f
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, ZoomIn, ZoomOut, Download, Hand, Move, RotateCcw, Undo2, Redo2, Loader2 } from "lucide-react";
 import { loadTrips } from "@/lib/storage";
+import { downloadBlob } from "@/lib/share";
 import { buildFlightPath } from "@/lib/flyover";
 import {
   EditorPanel, projectStopInPanel, panelGeoBounds, pickPanelIndex, panelBorderPath,
@@ -611,12 +612,8 @@ export default function QuadroEditor() {
   const buildFor = () =>
     buildEditorQuadroSvg({ panels, borders: borders!, links, stops, width: VBW, height: VBH, page: { width: fmt.w, height: fmt.h }, palette: { bg: pal.bg, ink: pal.ink } });
 
-  const triggerDownload = (blob: Blob, ext: string) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `mappa-della-vita-quadro.${ext}`; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
-  };
+  const triggerDownload = (blob: Blob, ext: string) =>
+    downloadBlob(blob, `mappa-della-vita-quadro.${ext}`);
 
   const downloadSvg = () => {
     if (!borders) return;

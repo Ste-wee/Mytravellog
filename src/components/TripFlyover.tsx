@@ -12,7 +12,7 @@ import { fetchMapStyle } from "@/components/WorldMap";
 import { saveReliefImage } from "@/lib/photoStorage";
 import { buildPosterSvg, loadCountryRings, routeBounds, unwrapSegments } from "@/lib/posterSvg";
 import { X, Share2, Loader2, Download, Frame } from "lucide-react";
-import { canShareFile } from "@/lib/share";
+import { canShareFile, downloadBlob, shareOrDownload } from "@/lib/share";
 import { useNavigate } from "react-router-dom";
 import { TRANSPORT } from "@/lib/transport";
 
@@ -754,14 +754,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     if (!blob) return;
     const name = lifeMap ? "mappa-della-vita" : (tripsCount === 1 ? trips[0].title : "viaggio").replace(/[^\w.-]+/g, "_").slice(0, 40) || "viaggio";
     const file = new File([blob], `${name}-3d.jpg`, { type: "image/jpeg" });
-    if (canShareFile(file)) {
-      try { await navigator.share({ files: [file], title: lifeMap ? posterTitle : (tripsCount > 1 ? "Il mio viaggio in 3D" : trips[0].title) }); } catch { /* annullato */ }
-    } else {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = file.name; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
-    }
+    await shareOrDownload(file, lifeMap ? posterTitle : (tripsCount > 1 ? "Il mio viaggio in 3D" : trips[0].title));
   };
 
   // "Esporta SVG" (solo Costellazione): master VETTORIALE a livelli per la stampa
@@ -783,10 +776,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       const svg = buildPosterSvg({ routeSegments: routeSegsRef.current, stops, borders: rings, title, dateLabel: lifeMap ? null : dateRangeLabel, stats, hideLabels: lifeMap });
       const blob = new Blob([svg], { type: "image/svg+xml" });
       const base = lifeMap ? "mappa-della-vita" : (tripsCount === 1 ? trips[0].title : "viaggio").replace(/[^\w.-]+/g, "_").slice(0, 40) || "viaggio";
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = `${base}-costellazione.svg`; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      downloadBlob(blob, `${base}-costellazione.svg`);
     } catch { /* export fallito: non bloccare */ }
     finally {
       if (mountedRef.current) setExportingSvg(false);
