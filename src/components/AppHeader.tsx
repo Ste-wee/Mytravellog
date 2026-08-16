@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Plane, PieChart, Settings, Plus, Menu, Upload, CalendarClock } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 
 interface Props {
@@ -45,7 +46,14 @@ export function AppHeader({ onTripsClick }: Props) {
               <Menu className="w-5 h-5"/>
             </button>
           </DropdownMenuTrigger>
+          {/* Ordine per SEZIONI (scelta di Stefano, 2026-08-16): dove vai →
+              cosa aggiungi → configurazione. Prima Impostazioni stava in mezzo
+              alla navigazione, sopra il separatore: la voce che si apre una
+              volta ogni tanto precedeva l'azione principale dell'app. */}
           <DropdownMenuContent align="end">
+            <DropdownMenuLabel style={{ fontSize: 11, letterSpacing: "0.08em", color: "rgba(255,255,255,0.45)", paddingBottom: 2 }}>
+              I tuoi viaggi
+            </DropdownMenuLabel>
             <DropdownMenuItem asChild>
               <Link to="/miei-viaggi" className="flex items-center gap-2 cursor-pointer">
                 <Plane className="w-4 h-4 text-primary"/> I miei viaggi
@@ -61,12 +69,10 @@ export function AppHeader({ onTripsClick }: Props) {
                 <PieChart className="w-4 h-4 text-primary"/> Statistiche
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to="/impostazioni" className="flex items-center gap-2 cursor-pointer">
-                <Settings className="w-4 h-4 text-muted-foreground"/> Impostazioni
-              </Link>
-            </DropdownMenuItem>
             <DropdownMenuSeparator/>
+            <DropdownMenuLabel style={{ fontSize: 11, letterSpacing: "0.08em", color: "rgba(255,255,255,0.45)", paddingBottom: 2 }}>
+              Aggiungi
+            </DropdownMenuLabel>
             <DropdownMenuItem asChild>
               <Link to="/nuovo-viaggio" className="flex items-center gap-2 cursor-pointer font-semibold" style={{ color: "#60a5fa" }}>
                 <Plus className="w-4 h-4"/> Nuovo viaggio
@@ -75,6 +81,12 @@ export function AppHeader({ onTripsClick }: Props) {
             <DropdownMenuItem asChild>
               <Link to="/importa-gpx" className="flex items-center gap-2 cursor-pointer">
                 <Upload className="w-4 h-4 text-primary"/> Importa da GPX
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator/>
+            <DropdownMenuItem asChild>
+              <Link to="/impostazioni" className="flex items-center gap-2 cursor-pointer">
+                <Settings className="w-4 h-4 text-muted-foreground"/> Impostazioni
               </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
