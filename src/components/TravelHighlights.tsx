@@ -168,7 +168,10 @@ export function TravelHighlights({ trips }: Props) {
         {(() => {
           // Colori, icone ed etichette dalla fonte unica (@/lib/transport);
           // qui la forma discorsiva "In aereo", che sta sotto i km.
-          const transportItems = TRANSPORT_MODES.map(m => {
+          // SOLO i mezzi davvero usati: prima c'erano sempre tutti e sette e
+          // con un viaggio in auto si scorreva fra sei schede da "0 km".
+          const usedModes = TRANSPORT_MODES.filter(m => byMode[m] > 0);
+          const transportItems = usedModes.map(m => {
             const t = TRANSPORT[m];
             return {
               icon: <t.Icon strokeWidth={1.5}/>, color: t.color,
@@ -177,35 +180,39 @@ export function TravelHighlights({ trips }: Props) {
               label: t.labelWith,
             };
           });
+          // Le frecce servono solo se c'è davvero qualcosa da scorrere: con
+          // uno o due mezzi resterebbero due comandi che non fanno nulla.
+          const scorrevole = transportItems.length > 3;
+          if (transportItems.length === 0) return null;
           return (
             <>
               {/* Mezzi — carosello unico ovunque (desktop = mobile): scroll
                   orizzontale con freccine ◀▶, icona grande senza badge. Prima su
                   desktop era una griglia a 7 colonne. */}
               <div className="relative mb-4">
-                <button type="button" onClick={() => scrollTransportBy(-1)} aria-label="Scorri a sinistra"
+                {scorrevole && <button type="button" onClick={() => scrollTransportBy(-1)} aria-label="Scorri a sinistra"
                   className="absolute left-0 top-1/2 z-10 flex items-center justify-center"
                   style={{ transform: "translateY(-50%)", width: 26, height: 26, borderRadius: "50%", background: "rgba(10,22,40,0.92)", border: "1px solid #1a2d4a" }}>
                   <ChevronLeft className="w-3.5 h-3.5"/>
-                </button>
-                <div ref={transportScrollRef} className="flex gap-2.5 overflow-x-auto" style={{ scrollbarWidth: "none", paddingLeft: 32, paddingRight: 32 }}>
-                  {transportItems.map(({ icon, color, km, val, label }) => {
-                    const used = km > 0;
-                    return (
-                      <div key={label} className="flex-shrink-0 flex flex-col items-center justify-center gap-1.5 rounded-xl border"
-                        style={{ width: 92, padding: "14px 8px", background: "#0a1628", borderColor: "#1a2d4a" }}>
-                        <span style={{color: used ? color : "rgba(255,255,255,0.2)"}}>{React.cloneElement(icon, { style: { width: 26, height: 26 } })}</span>
-                        <div className="text-sm font-extrabold font-mono" style={{color: used ? color : "rgba(255,255,255,0.25)"}}>{val}</div>
-                        <div style={{fontSize:10,letterSpacing:"0.3px",textTransform:"uppercase",fontWeight:700,textAlign:"center",color: used ? color : "rgba(255,255,255,0.2)"}}>{label}</div>
-                      </div>
-                    );
-                  })}
+                </button>}
+                {/* Senza frecce niente corsie laterali vuote: le schede
+                    partono dal bordo come il resto della pagina. */}
+                <div ref={transportScrollRef} className="flex gap-2.5 overflow-x-auto"
+                  style={{ scrollbarWidth: "none", paddingLeft: scorrevole ? 32 : 0, paddingRight: scorrevole ? 32 : 0 }}>
+                  {transportItems.map(({ icon, color, val, label }) => (
+                    <div key={label} className="flex-shrink-0 flex flex-col items-center justify-center gap-1.5 rounded-xl border"
+                      style={{ width: 92, padding: "14px 8px", background: "#0a1628", borderColor: "#1a2d4a" }}>
+                      <span style={{color}}>{React.cloneElement(icon, { style: { width: 26, height: 26 } })}</span>
+                      <div className="text-sm font-extrabold font-mono" style={{color}}>{val}</div>
+                      <div style={{fontSize:10,letterSpacing:"0.3px",textTransform:"uppercase",fontWeight:700,textAlign:"center",color}}>{label}</div>
+                    </div>
+                  ))}
                 </div>
-                <button type="button" onClick={() => scrollTransportBy(1)} aria-label="Scorri a destra"
+                {scorrevole && <button type="button" onClick={() => scrollTransportBy(1)} aria-label="Scorri a destra"
                   className="absolute right-0 top-1/2 z-10 flex items-center justify-center"
                   style={{ transform: "translateY(-50%)", width: 26, height: 26, borderRadius: "50%", background: "rgba(10,22,40,0.92)", border: "1px solid #1a2d4a" }}>
                   <ChevronRight className="w-3.5 h-3.5"/>
-                </button>
+                </button>}
               </div>
             </>
           );
@@ -214,9 +221,11 @@ export function TravelHighlights({ trips }: Props) {
         {/* Proportional bar */}
         <div>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground mb-1.5">
-            {/* Etichette in forma compatta ("Piedi"): la legenda è stretta. */}
-            {TRANSPORT_MODES.map(m => ({ color: TRANSPORT[m].color, label: TRANSPORT[m].labelShort, pct: byMode[m] })).map(x => (
-              <span key={x.label} className={"flex items-center gap-1 " + (x.pct > 0 ? "opacity-100" : "opacity-30")}>
+            {/* Etichette in forma compatta ("Piedi"): la legenda è stretta.
+                Solo i mezzi presenti nella barra: prima ne elencava sette, sei
+                dei quali sbiaditi al 30% per dire "questo non c'è". */}
+            {TRANSPORT_MODES.filter(m => byMode[m] > 0).map(m => ({ color: TRANSPORT[m].color, label: TRANSPORT[m].labelShort })).map(x => (
+              <span key={x.label} className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full inline-block" style={{background:x.color}}/>
                 {x.label}
               </span>

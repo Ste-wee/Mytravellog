@@ -37,14 +37,21 @@ function SegmentControl<T extends string>({
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
+          // L'opzione SCELTA è una pillola blu piena, come i pulsanti primari
+          // dell'app. Prima era quasi-nera (bg-background) e le NON scelte
+          // restavano azzurrine: la scelta sprofondava nella barra e da lontano
+          // sembrava attiva quella sbagliata.
           className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
             value === o.value
-              ? "bg-background text-foreground shadow-sm"
+              ? "bg-primary text-primary-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
           {o.label}
-          {o.hint && <span className="ml-1 text-xs text-muted-foreground">({o.hint})</span>}
+          {/* Sulla pillola blu il grigio-azzurro sparirebbe: sull'opzione
+              scelta il suggerimento diventa scuro come l'etichetta. */}
+          {o.hint && <span className={"ml-1 text-xs " + (value === o.value ? "" : "text-muted-foreground")}
+            style={value === o.value ? { color: "rgba(6,14,30,0.72)" } : undefined}>({o.hint})</span>}
         </button>
       ))}
     </div>

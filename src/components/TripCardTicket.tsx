@@ -397,7 +397,10 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
             border:"0.5px solid " + (spent > 0 ? "rgba(52,211,153,0.35)" : "#1a2d4a"),
             color: spent > 0 ? "#6ee7b7" : "rgba(255,255,255,0.55)", cursor:"pointer",
           }}>
-          💰 {spent > 0 ? `${CUR} ${spent.toLocaleString("it-IT")}` : "Spese"}
+          {/* Etichetta stabile: la cifra è già nella riga dei dati qui sopra,
+              accanto a km e temperatura — ripeterla nel pulsante la diceva due
+              volte a due centimetri. Il verde segnala che ci sono spese. */}
+          💰 Spese
         </button>
       </div>
 
