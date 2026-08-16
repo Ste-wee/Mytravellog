@@ -16,9 +16,11 @@ export const GOOGLE_CLIENT_ID =
   "238461152099-10eqsi1gobbvqnoibjk81pucicgp9a41.apps.googleusercontent.com";
 
 // ── Tipi minimi per Google Identity Services ─────────────────────────────────
-// Google non pubblica tipi per lo script gsi/client: descriviamo SOLO ciò che
-// usiamo, così il compilatore controlla i punti in cui parliamo con Google
-// (prima era tutto `any`, cioè zona cieca proprio attorno ai dati dell'utente).
+// Su DefinitelyTyped esiste @types/google.accounts, ma per uno script caricato
+// a runtime preferiamo descrivere a mano SOLO ciò che usiamo (scelta
+// deliberata: meno superficie, nessuna dipendenza in più); così il compilatore
+// controlla comunque i punti in cui parliamo con Google (prima era tutto
+// `any`, cioè zona cieca proprio attorno ai dati dell'utente).
 interface GisTokenResponse { access_token?: string; expires_in?: number | string; error?: string }
 interface GisTokenClient {
   callback: (resp: GisTokenResponse) => void;

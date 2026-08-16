@@ -1,5 +1,4 @@
-import { feature } from "topojson-client";
-import type { Topology } from "topojson-specification";
+import { loadWorldAtlasCountries, WorldAtlasResolution } from "./worldAtlas";
 import { LOGO_DATA_URI } from "./brandLogo";
 
 /**
@@ -81,32 +80,17 @@ function bboxIntersects(ring: [number, number][], b: { lonMin: number; lonMax: n
   return false;
 }
 
-// Cache in memoria (per sessione) del topojson per risoluzione: il file 50m
-// pesa ~1,4 MB e l'editor del quadro lo richiederebbe a ogni ingresso. Si
-// cache la PROMISE così anche richieste concorrenti condividono un solo fetch;
-// in caso di errore la voce viene rimossa (nessuna cache avvelenata).
-const topoCache = new Map<string, Promise<Topology>>();
-
 /**
- * Scarica i confini dei paesi (world-atlas) e ne estrae gli anelli [lon,lat][]
- * che intersecano il riquadro. `res` sceglie la risoluzione: 110m (leggero,
+ * Estrae dai confini world-atlas (fetch e cache in worldAtlas.ts) gli anelli
+ * [lon,lat][] che intersecano il riquadro. `resolution`: 110m (leggero,
  * default) o 50m (più dettagliato, per il quadro a pannelli dove serve che gli
  * stati si vedano bene).
  */
 export async function loadCountryRings(
   bounds: { lonMin: number; lonMax: number; latMin: number; latMax: number },
-  resolution: "110m" | "50m" = "110m",
+  resolution: WorldAtlasResolution = "110m",
 ): Promise<[number, number][][]> {
-  let topoP = topoCache.get(resolution);
-  if (!topoP) {
-    topoP = fetch(`https://cdn.jsdelivr.net/npm/world-atlas@2/countries-${resolution}.json`).then(r => r.json());
-    topoCache.set(resolution, topoP);
-    topoP.catch(() => { topoCache.delete(resolution); });
-  }
-  const topo = await topoP;
-  // Come in ContinentsMap: il world-atlas è una GeometryCollection di paesi,
-  // quindi il risultato è sempre una FeatureCollection (l'overload inferisce male).
-  const geo = feature(topo, topo.objects.countries) as unknown as GeoJSON.FeatureCollection;
+  const geo = await loadWorldAtlasCountries(resolution);
   const rings: [number, number][][] = [];
   for (const f of geo.features) {
     const g = f.geometry;

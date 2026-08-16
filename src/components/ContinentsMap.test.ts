@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { splitRingAtAntimeridian, deriveCountryId, allVisitedPoints, ContinentsMap, __clearCountryFeatsCache } from "./ContinentsMap";
+import { __clearWorldAtlasCache } from "@/lib/worldAtlas";
 import type { Trip } from "@/lib/storage";
 import { render, waitFor } from "@testing-library/react";
 import React from "react";
@@ -102,7 +103,7 @@ describe("splitRingAtAntimeridian", () => {
 });
 
 describe("ContinentsMap — cache dei confini tra i mount", () => {
-  beforeEach(() => __clearCountryFeatsCache());
+  beforeEach(() => { __clearCountryFeatsCache(); __clearWorldAtlasCache(); });
   afterEach(() => vi.restoreAllMocks());
 
   const fakeTopo = {
@@ -131,13 +132,23 @@ describe("ContinentsMap — cache dei confini tra i mount", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
-  it("__clearCountryFeatsCache forza un nuovo fetch al mount successivo", async () => {
+  it("azzerate ENTRAMBE le cache (feats + topojson condiviso), il mount successivo rifà il fetch", async () => {
     global.fetch = vi.fn().mockResolvedValue({ json: async () => fakeTopo });
     const first = renderMap();
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
     first.unmount();
 
+    // Due livelli: i feats calcolati (qui) e il topojson grezzo (worldAtlas,
+    // condiviso con posterSvg). Svuotare solo i feats NON rifà il fetch —
+    // è il punto della condivisione: il file viaggia una volta sola.
     __clearCountryFeatsCache();
+    const second = renderMap();
+    await new Promise(r => setTimeout(r, 10));
+    expect(fetch).toHaveBeenCalledTimes(1);
+    second.unmount();
+
+    __clearCountryFeatsCache();
+    __clearWorldAtlasCache();
     renderMap();
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
   });

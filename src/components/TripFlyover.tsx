@@ -1,14 +1,9 @@
 import { useEffect, useMemo, useRef, useState, createElement } from "react";
 import type { ElementType } from "react";
 // SOLO i tipi: `import type` sparisce alla compilazione — maplibre-gl resta
-// caricato dinamicamente (import()) e fuori dal bundle iniziale.
+// caricato dinamicamente (loadMapLibre) e fuori dal bundle iniziale.
 import type { Map as MapLibreMap, StyleSpecification } from "maplibre-gl";
-type MapLibreModule = typeof import("maplibre-gl");
-// Stessa deroga documentata di WorldMap: le ESPRESSIONI di stile MapLibre
-// (["interpolate",...], ["case",...]) non vanno tipizzate — i tipi tupla
-// ufficiali sono troppo rigidi per gli array letterali e any[] non basta.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type StyleExpr = any;
+import { loadMapLibre, StyleExpr } from "@/lib/maplibre";
 import { createPortal } from "react-dom";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Trip, formatTripDate } from "@/lib/storage";
@@ -17,6 +12,7 @@ import { fetchMapStyle } from "@/components/WorldMap";
 import { saveReliefImage } from "@/lib/photoStorage";
 import { buildPosterSvg, loadCountryRings, routeBounds, unwrapSegments } from "@/lib/posterSvg";
 import { X, Share2, Loader2, Download, Frame } from "lucide-react";
+import { canShareFile } from "@/lib/share";
 import { useNavigate } from "react-router-dom";
 import { TRANSPORT } from "@/lib/transport";
 
@@ -217,21 +213,6 @@ function buildFlyoverRouteCoords(stops: { lat: number; lon: number }[], legs: Fl
   const coords: [number, number][] = [[stops[0].lon, stops[0].lat]];
   for (const leg of legs) coords.push(...leg.pathCoords.slice(1));
   return coords;
-}
-
-/**
- * true solo se il browser supporta davvero la condivisione di un file (Web
- * Share API con `files`, tipicamente mobile) — su desktop `navigator.share`
- * spesso manca o non accetta file, quindi si ricade sul download.
- */
-function canShareFile(file: File): boolean {
-  try {
-    return typeof navigator !== "undefined"
-      && typeof navigator.canShare === "function"
-      && navigator.canShare({ files: [file] });
-  } catch {
-    return false;
-  }
 }
 
 /** Formatta un numero di km con separatore delle migliaia in stile italiano. */
@@ -848,8 +829,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
 
     const init = async () => {
       try {
-        const ml = await import("maplibre-gl");
-        const maplibregl = ((ml as { default?: MapLibreModule }).default ?? ml) as MapLibreModule;
+        const maplibregl = await loadMapLibre();
         if (cancelled) return;
 
         // Medaglione del mezzo sulla tappa finale: rasterizza l'icona del mezzo

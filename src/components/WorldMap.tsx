@@ -9,21 +9,8 @@ import { Play, Square, Hand } from "lucide-react";
 // SOLO i tipi: `import type` sparisce alla compilazione, quindi maplibre-gl
 // continua ad arrivare dall'import dinamico più sotto e non entra nel bundle
 // iniziale (il globo resta un pezzo a parte, caricato quando serve).
-import type { Map as MapLibreMap, Marker, MapMouseEvent, StyleSpecification, LayerSpecification, FilterSpecification, GeoJSONSource } from "maplibre-gl";
-
-/** Il modulo maplibre-gl caricato al volo: serve per `new maplibregl.Map(...)`. */
-type MapLibreModule = typeof import("maplibre-gl");
-/**
- * Espressione di stile MapLibre (`["match", ["get","transport"], "car", "#A855F7", …]`).
- * Resta un array libero: i tipi veri della libreria descrivono ogni forma
- * possibile con una precisione tale che scriverli a mano costa più di quanto
- * protegga — e qui un errore lo si vede subito, il pallino perde il colore.
- * Il nome però dice cosa sono, che con `any[]` non si capiva.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- vedi il commento qui sopra
-type StyleExpr = any;
-/** Evento di click su un layer: MapLibre allega le feature colpite. */
-type LayerClickEvent = MapMouseEvent & { features?: { properties: Record<string, unknown> }[] };
+import type { Map as MapLibreMap, Marker, MapMouseEvent, MapLayerMouseEvent, StyleSpecification, LayerSpecification, FilterSpecification, GeoJSONSource } from "maplibre-gl";
+import { loadMapLibre, MapLibreModule, StyleExpr } from "@/lib/maplibre";
 
 export interface CityInfo {
   name: string;
@@ -168,7 +155,6 @@ export function WorldMap({
   const containerRef  = useRef<HTMLDivElement>(null);
   const mapRef        = useRef<MapLibreMap | null>(null);
   const markersRef    = useRef<Marker[]>([]);
-  const popupsRef     = useRef<{ remove(): void }[]>([]);
   const rotTimerRef   = useRef<number | null>(null);
   const [playing, setPlaying] = useState(false);
   const [mapReady, setMapReady] = useState(false);
@@ -263,8 +249,7 @@ export function WorldMap({
     let prevWarn: typeof console.warn | null = null;
 
     const init = async () => {
-      const ml = await import("maplibre-gl");
-      const maplibregl = ((ml as { default?: MapLibreModule }).default ?? ml) as MapLibreModule;
+      const maplibregl = await loadMapLibre();
       if (cancelled) return;
 
       // CSS di MapLibre: bundlato globalmente (import in main.tsx) — la vecchia
@@ -389,8 +374,6 @@ export function WorldMap({
       stopRotation();
       markersRef.current.forEach(m => m.remove());
       markersRef.current = [];
-      popupsRef.current.forEach(p => p.remove());
-      popupsRef.current = [];
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -436,8 +419,6 @@ export function WorldMap({
     // Clean old markers
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
-    popupsRef.current.forEach(p => p.remove());
-    popupsRef.current = [];
 
     // Remove old layers/sources
     // Remove all route layers
@@ -577,7 +558,7 @@ export function WorldMap({
       // accumulerebbe — N selezioni, N flyTo per ogni click.
       if (!tripLayerHandlersRef.current.has(id)) {
         tripLayerHandlersRef.current.add(id);
-        map.on("click", id, (e: LayerClickEvent) => {
+        map.on("click", id, (e: MapLayerMouseEvent) => {
           if (!e.features?.length) return;
           const tripId = e.features[0].properties.id;
           const trip = orderedRef.current.find((t: Trip) => t.id === tripId);
@@ -826,7 +807,7 @@ export function WorldMap({
       });
 
       // Click on city label
-      map.on("click", `cities-t${tier}`, (e: LayerClickEvent) => {
+      map.on("click", `cities-t${tier}`, (e: MapLayerMouseEvent) => {
         if (!e.features?.length) return;
         // Le properties tornano da MapLibre senza tipi: la CityInfo si
         // ricostruisce dichiarando le conversioni, non fingendo che tornino.
@@ -849,8 +830,7 @@ export function WorldMap({
   // più frequente della Home) non deve rifare N+6 source/layer da zero.
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
-    import("maplibre-gl").then(ml => {
-      const maplibregl = ((ml as { default?: MapLibreModule }).default ?? ml) as MapLibreModule;
+    loadMapLibre().then(maplibregl => {
       addTripsToMap(mapRef.current, maplibregl);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps

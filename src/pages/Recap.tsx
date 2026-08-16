@@ -6,6 +6,7 @@ import { loadTrips, parseLocalDate } from "@/lib/storage";
 import { transportColor, transportLabel } from "@/lib/transport";
 import { useSettings, formatDistanceKm, formatAltitudeM, formatTemperatureC } from "@/lib/settings";
 import { computeYearRecap, availableYears, YearRecap } from "@/lib/recap";
+import { canShareFile } from "@/lib/share";
 import { RecapStories } from "@/components/RecapStories";
 
 const W = 1080, H = 1350;
@@ -203,12 +204,6 @@ function drawRecap(ctx: CanvasRenderingContext2D, r: YearRecap, fmt: Fmt, flag: 
   ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = '400 26px "Space Grotesk", sans-serif';
   ctx.fillText(`${r.monthsActive} ${r.monthsActive === 1 ? "mese" : "mesi"} in viaggio`, W - P, H - 58);
   ctx.textAlign = "left";
-}
-
-function canShareFile(file: File): boolean {
-  try {
-    return typeof navigator !== "undefined" && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] });
-  } catch { return false; }
 }
 
 const Recap = () => {

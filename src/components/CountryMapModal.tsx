@@ -253,16 +253,17 @@ interface Props {
 
 function projectGeoJSON(features: RegionFeature[], W: number, H: number) {
   let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
-  // Coordinate GeoJSON annidate a profondità variabile (Polygon/MultiPolygon).
-  type CoordTree = number[] | CoordTree[];
-  const visitCoords = (coords: CoordTree) => {
-    if (typeof coords[0] === "number") {
-      const [lon, lat] = coords as number[];
+  // La profondità è nota (RegionGeometry = Polygon|MultiPolygon): iterazione
+  // piatta e tipizzata, come buildFeaturePath qui sotto — niente ricorsione.
+  for (const f of features) {
+    const g = f.geometry;
+    if (!g) continue;
+    const polys = g.type === "Polygon" ? [g.coordinates] : g.coordinates;
+    for (const poly of polys) for (const ring of poly) for (const [lon, lat] of ring) {
       minLon = Math.min(minLon, lon); maxLon = Math.max(maxLon, lon);
       minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
-    } else (coords as CoordTree[]).forEach(visitCoords);
-  };
-  features.forEach(f => visitCoords(f.geometry?.coordinates || []));
+    }
+  }
 
   const pad = 20;
   const scaleX = (W - pad * 2) / (maxLon - minLon);

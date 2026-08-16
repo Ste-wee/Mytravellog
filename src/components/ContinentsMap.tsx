@@ -1,8 +1,8 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, X } from "lucide-react";
-import { feature } from "topojson-client";
 import { Trip as LocalTrip } from "@/lib/storage";
+import { loadWorldAtlasCountries } from "@/lib/worldAtlas";
 import { CountryMapModal } from "@/components/CountryMapModal";
 
 // Approximate continent bounding boxes (lat, lon)
@@ -124,14 +124,11 @@ export function ContinentsMap({ trips }: Props) {
   useEffect(() => {
     if (cachedCountryFeats) { setCountries(cachedCountryFeats); return; }
     let cancelled = false;
-    fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json")
-      .then((r) => r.json())
-      .then((topo) => {
+    // Fetch, cache e conversione topojson vivono in worldAtlas.ts (condivisi
+    // con posterSvg: prima lo stesso file veniva scaricato due volte a sessione).
+    loadWorldAtlasCountries("110m")
+      .then((geo) => {
         if (cancelled) return;
-        // topojson-client sceglie l'overload Feature<Point> perché `topo` è il
-        // JSON grezzo della fetch: il world-atlas contiene una GeometryCollection
-        // di paesi, quindi il risultato è sempre una FeatureCollection.
-        const geo = feature(topo, topo.objects.countries) as unknown as GeoJSON.FeatureCollection;
         const feats: CountryFeat[] = geo.features.map((f, idx) => {
           const path = geoToPath(f.geometry);
           const c = polyCentroid(f.geometry);

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ContinentsMap, __clearCountryFeatsCache } from "./ContinentsMap";
+import { __clearWorldAtlasCache } from "@/lib/worldAtlas";
 import type { Trip } from "@/lib/storage";
 import React from "react";
 
@@ -43,7 +44,7 @@ function makeTrip(overrides: Partial<Trip> = {}): Trip {
 }
 
 describe("ContinentsMap — click su un paese visitato", () => {
-  beforeEach(() => __clearCountryFeatsCache());
+  beforeEach(() => { __clearCountryFeatsCache(); __clearWorldAtlasCache(); });
   afterEach(() => vi.restoreAllMocks());
 
   const fakeTopo = { objects: { countries: {} } };
@@ -70,7 +71,7 @@ describe("ContinentsMap — click su un paese visitato", () => {
 });
 
 describe("ContinentsMap — errore nel caricamento dei confini", () => {
-  beforeEach(() => __clearCountryFeatsCache());
+  beforeEach(() => { __clearCountryFeatsCache(); __clearWorldAtlasCache(); });
   afterEach(() => vi.restoreAllMocks());
 
   it("mostra un messaggio invece di un'area vuota per sempre", async () => {
