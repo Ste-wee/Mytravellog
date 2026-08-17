@@ -143,10 +143,16 @@ export function buildRouteCoords(t: Trip): [number, number][] {
     if (stop.route && stop.route.length > 1) coords.push(...stop.route);
     else coords.push([stop.lon, stop.lat]);
   }
+  // Giunzioni: il tracciato stradale di una tratta RICOMINCIA dalla tappa
+  // precedente, che è già nell'elenco → la coordinata risultava doppia e
+  // produceva un segmento di lunghezza zero (invisibile, ma inutile: il poster
+  // già non ce l'ha). Si scartano i doppioni CONSECUTIVI, non tutti: una rotta
+  // può legittimamente ripassare da un punto già toccato.
+  const senzaDoppioni = coords.filter((c, i) => i === 0 || c[0] !== coords[i - 1][0] || c[1] !== coords[i - 1][1]);
   // Antimeridiano: una tratta Tokyo→Los Angeles verrebbe disegnata attraverso
   // Europa e Atlantico (il verso lungo). Srotolando, prende il Pacifico; le
   // longitudini oltre ±180 le avvolge MapLibre da sé.
-  return unwrapPath(coords);
+  return unwrapPath(senzaDoppioni);
 }
 
 export function WorldMap({
