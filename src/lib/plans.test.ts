@@ -14,7 +14,7 @@ describe("planCountdown", () => {
   });
 
   it("partenza ad anni di distanza → giorni col separatore delle migliaia", () => {
-    // ~2,9 anni dopo TODAY: senza fmtNumber si leggerebbe "tra 1024 giorni"
+    // ~2,9 anni dopo TODAY: senza fmtNumber si leggerebbe "tra 1025 giorni"
     expect(planCountdown(plan("2029-05-20"), TODAY).text).toBe("tra 1.025 giorni");
   });
 
