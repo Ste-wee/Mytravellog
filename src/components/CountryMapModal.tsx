@@ -31,12 +31,27 @@ export function isGitLfsPointer(text: string): boolean {
 type RegionGeometry = GeoJSON.Polygon | GeoJSON.MultiPolygon;
 type RegionFeature = GeoJSON.Feature<RegionGeometry, { shapeName?: string; shapeISO?: string | null }>;
 
+/**
+ * Perché i confini non sono arrivati. Serve a non mentire all'utente:
+ * "Mappa non disponibile per questo paese" andava bene solo per `assente`,
+ * mentre col limite di richieste (429 di raw.githubusercontent, che succede
+ * aprendo molte mappe di fila) il paese è supportatissimo.
+ */
+type MotivoErrore = "limite" | "offline" | "assente";
+class ErroreConfini extends Error {
+  constructor(public motivo: MotivoErrore) { super(motivo); }
+}
+
+/** 429 = ci hanno chiuso il rubinetto; vale per GitHub raw, media e API. */
+const seLimite = (r: Response) => { if (r.status === 429) throw new ErroreConfini("limite"); };
+
 async function fetchGithubRawJson(url: string): Promise<{ features?: unknown } | null> {
   const parsed = parseGithubRawUrl(url);
   const directUrl = parsed
     ? `https://raw.githubusercontent.com/${parsed.owner}/${parsed.repo}/${parsed.ref}/${parsed.path}`
     : url;
   const r = await fetch(directUrl);
+  seLimite(r);
   if (!r.ok) return null;
   const text = await r.text();
   if (!isGitLfsPointer(text)) return JSON.parse(text);
@@ -45,11 +60,13 @@ async function fetchGithubRawJson(url: string): Promise<{ features?: unknown } |
   // File tracciato con Git LFS: risolvi l'hash completo del commit e leggi
   // il contenuto reale da media.githubusercontent.com.
   const shaR = await fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits/${parsed.ref}`);
+  seLimite(shaR);
   if (!shaR.ok) return null;
   const fullSha = (await shaR.json())?.sha;
   if (!fullSha) return null;
   const mediaUrl = `https://media.githubusercontent.com/media/${parsed.owner}/${parsed.repo}/${fullSha}/${parsed.path}`;
   const mediaR = await fetch(mediaUrl);
+  seLimite(mediaR);
   if (!mediaR.ok) return null;
   return await mediaR.json();
 }
@@ -85,6 +102,7 @@ async function fetchCountryRegions(countryCode2: string): Promise<RegionFeature[
   try {
     const metaUrl = `https://www.geoboundaries.org/api/current/gbOpen/${iso3}/${admLevel}/`;
     const metaR = await fetch(metaUrl);
+    seLimite(metaR);
     if (!metaR.ok) return null;
     const meta = await metaR.json();
     const geoUrl: string | undefined = meta?.simplifiedGeometryGeoJSON || meta?.gjDownloadURL;
@@ -92,7 +110,12 @@ async function fetchCountryRegions(countryCode2: string): Promise<RegionFeature[
     const geo = await fetchGithubRawJson(geoUrl);
     const features = geo?.features;
     return Array.isArray(features) && features.length > 0 ? (features as RegionFeature[]) : null;
-  } catch {
+  } catch (e) {
+    // Il MOTIVO non va inghiottito: "troppe richieste" e "sei senza rete" non
+    // sono "questo paese non è supportato", e prima finivano tutti nello
+    // stesso messaggio. Senza rete lo dice il browser, non serve indovinarlo.
+    if (e instanceof ErroreConfini) throw e;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) throw new ErroreConfini("offline");
     return null;
   }
 }
@@ -378,14 +401,26 @@ function visitedPoints(trips: Trip[]): { lon: number; lat: number }[] {
   return pts;
 }
 
-function collectVisitedRegions(trips: Trip[]): { name: string; code: string | null }[] {
+function collectVisitedRegions(trips: Trip[], countryCode?: string): { name: string; code: string | null }[] {
   const seen = new Set<string>();
   const out: { name: string; code: string | null }[] = [];
+  const paese = (countryCode ?? "").toUpperCase();
   for (const t of trips) {
     const entries = t.region_details && t.region_details.length > 0
       ? t.region_details
       : (t.region ? t.region.split(",").map(r => ({ name: r.trim(), code: null as string | null })).filter(r => r.name) : []);
     for (const entry of entries) {
+      // SOLO le regioni di QUESTO paese. I viaggi arrivano qui perché toccano
+      // il paese, ma le loro region_details descrivono la destinazione: per
+      // l'Austria comparivano anche "Slovenia" e "Friuli-Venezia Giulia",
+      // regioni di altri stati. Il codice ISO 3166-2 porta il paese nel
+      // prefisso ("IT-36"); le voci vecchie senza codice si tengono solo se il
+      // viaggio stesso è di quel paese.
+      if (paese) {
+        const prefisso = entry.code?.split("-")[0]?.toUpperCase();
+        const ammessa = prefisso ? prefisso === paese : (t.country_code ?? "").toUpperCase() === paese;
+        if (!ammessa) continue;
+      }
       const key = entry.code ? `code:${entry.code.toUpperCase()}` : `name:${entry.name.toLowerCase()}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -398,11 +433,13 @@ function collectVisitedRegions(trips: Trip[]): { name: string; code: string | nu
 export function CountryMapModal({ countryCode, countryName, trips, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  // Non basta "c'è stato un errore": serve il PERCHÉ, per non dare la colpa
+  // al paese quando il problema è il limite di richieste o la rete.
+  const [error, setError] = useState<MotivoErrore | null>(null);
   const [visitedRegions, setVisitedRegions] = useState<string[]>([]);
   const [totalRegions, setTotalRegions] = useState(0);
 
-  const visitedList = collectVisitedRegions(trips);
+  const visitedList = collectVisitedRegions(trips, countryCode);
   const punti = visitedPoints(trips);
   // Focus dentro il pannello all'apertura, ciclo chiuso sul Tab, ritorno al
   // trigger alla chiusura: era l'ultimo overlay dell'app senza gestione focus.
@@ -465,10 +502,10 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
         setVisitedRegions(visited);
         setTotalRegions(features.length);
         setLoading(false);
-      } catch {
+      } catch (e) {
         if (cancelled) return;
         setLoading(false);
-        setError(true);
+        setError(e instanceof ErroreConfini ? e.motivo : "assente");
       }
     };
     load();
@@ -528,8 +565,12 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
           )}
           {error && (
             <div style={{ textAlign: "center", color: "rgba(255,255,255,0.6)", fontSize: 13 }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>🗺️</div>
-              <div>Mappa non disponibile per questo paese.</div>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>{error === "assente" ? "🗺️" : "⏳"}</div>
+              <div>
+                {error === "limite" ? (<>Troppe richieste al servizio dei confini.<br/><span style={{ color: "rgba(255,255,255,0.5)" }}>Riprova tra qualche minuto.</span></>)
+                  : error === "offline" ? (<>Sei senza connessione.<br/><span style={{ color: "rgba(255,255,255,0.5)" }}>I confini si scaricano quando torni online.</span></>)
+                  : "Mappa non disponibile per questo paese."}
+              </div>
               {visitedList.length > 0 && (
                 <div style={{ marginTop: 8, fontSize: 11 }}>
                   Regioni visitate: {visitedList.map(v => v.name).join(", ")}

@@ -141,9 +141,13 @@ describe("CountryMapModal — paese non supportato", () => {
   });
 
   it("mostra le regioni visitate nell'error state se ci sono", async () => {
+    // NB: il viaggio deve essere DI QUEL paese. Prima questo test passava un
+    // viaggio italiano e si aspettava "Bavaria" nel pannello della Germania:
+    // era il difetto segnalato da Stefano (regioni di altri stati in elenco).
+    global.fetch = vi.fn().mockRejectedValue(new Error("boom"));
     renderModal({
-      countryCode: "XX",
-      trips: [makeTrip({ region: "Bavaria" })],
+      countryCode: "DE", countryName: "Germania",
+      trips: [makeTrip({ country: "Germania", country_code: "DE", region: "Bavaria" })],
     });
     await waitFor(() => expect(screen.getByText(/Bavaria/)).toBeInTheDocument());
   });
@@ -629,5 +633,53 @@ describe("CountryMapModal — regioni riconosciute dalle TAPPE (coordinate)", ()
       })],
     });
     expect(await screen.findByText(/0 regioni su 2/i)).toBeInTheDocument();
+  });
+});
+
+// Segnalato da Stefano con la console aperta: per l'AUSTRIA il pannello
+// elencava anche "Slovenia" e "Friuli-Venezia Giulia" (regioni di altri
+// stati, arrivate dalle region_details di altri viaggi che toccano l'Austria),
+// e diceva "Mappa non disponibile per questo paese" mentre il vero motivo era
+// un 429 del servizio dei confini.
+describe("CountryMapModal — quando i confini non arrivano", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const viaggioAustria = () => makeTrip({
+    country: "Austria", country_code: "AT", city: "Vienna",
+    region: null, region_details: [{ name: "Vienna", code: "AT-9" }],
+  });
+  const viaggioItalia = () => makeTrip({
+    country: "Italia", country_code: "IT", city: "Trieste",
+    region: null, region_details: [{ name: "Friuli-Venezia Giulia", code: "IT-36" }],
+  });
+
+  it("elenca solo le regioni DI QUEL paese", async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error("boom"));
+    renderModal({ countryCode: "AT", countryName: "Austria", trips: [viaggioAustria(), viaggioItalia()] });
+    expect(await screen.findByText(/Regioni visitate/)).toBeInTheDocument();
+    expect(screen.getByText(/Vienna/)).toBeInTheDocument();
+    expect(screen.queryByText(/Friuli/)).not.toBeInTheDocument();
+  });
+
+  it("con un 429 dice che sono troppe richieste, non che il paese non è supportato", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 429, json: async () => ({}), text: async () => "" });
+    renderModal({ countryCode: "AT", countryName: "Austria", trips: [viaggioAustria()] });
+    expect(await screen.findByText(/troppe richieste/i)).toBeInTheDocument();
+    expect(screen.queryByText(/non disponibile per questo paese/i)).not.toBeInTheDocument();
+  });
+
+  it("senza rete lo dice, invece di dare la colpa al paese", async () => {
+    const onLine = Object.getOwnPropertyDescriptor(window.navigator, "onLine");
+    Object.defineProperty(window.navigator, "onLine", { value: false, configurable: true });
+    global.fetch = vi.fn().mockRejectedValue(new Error("offline"));
+    renderModal({ countryCode: "AT", countryName: "Austria", trips: [viaggioAustria()] });
+    expect(await screen.findByText(/senza connessione/i)).toBeInTheDocument();
+    if (onLine) Object.defineProperty(window.navigator, "onLine", onLine);
+  });
+
+  it("un paese davvero non supportato mantiene il messaggio di prima", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}), text: async () => "" });
+    renderModal({ countryCode: "XX", countryName: "Paese Ignoto", trips: [] });
+    expect(await screen.findByText(/non disponibile per questo paese/i)).toBeInTheDocument();
   });
 });
