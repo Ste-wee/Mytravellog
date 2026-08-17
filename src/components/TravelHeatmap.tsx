@@ -98,6 +98,8 @@ export function TravelHeatmap({ trips }: Props) {
   // Riassunto del mese: si apre/chiude cliccando una cella (niente hover —
   // su touch non esiste, e così l'interazione è identica su ogni dispositivo).
   const [selectedCell, setSelectedCell] = useState<{ year: number; month: number } | null>(null);
+  // C'è ancora griglia oltre il bordo destro? Guida la sfumatura-indizio.
+  const [scrollabile, setScrollabile] = useState(false);
   const selectedMonthTrips = useMemo(
     () => selectedCell ? tripsTouchingMonth(trips, selectedCell.year, selectedCell.month) : [],
     [trips, selectedCell]
@@ -132,8 +134,16 @@ export function TravelHeatmap({ trips }: Props) {
 
       {/* Larghezza minima + scroll orizzontale: su schermi stretti le celle
           altrimenti si comprimono sotto i ~17px, troppo piccole per un tap
-          preciso — meglio scorrere che rimpicciolire all'infinito. */}
-      <div style={{ overflowX: "auto" }}>
+          preciso — meglio scorrere che rimpicciolire all'infinito. La
+          SFUMATURA sul bordo destro dice che c'è altro oltre il taglio
+          ("Lug A…" troncato sembrava un difetto): sparisce a fine corsa. */}
+      <div style={{ position: "relative" }}>
+        <div style={{ overflowX: "auto" }} onScroll={e => {
+          const el = e.currentTarget;
+          setScrollabile(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+        }} ref={el => {
+          if (el) setScrollabile(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+        }}>
         <div style={{ display: "grid", gridTemplateColumns: "34px repeat(12,1fr)", gap: 4, alignItems: "center", minWidth: 460 }}>
           <div />
           {MONTH_LABELS.map(m => (
@@ -167,6 +177,11 @@ export function TravelHeatmap({ trips }: Props) {
             </Fragment>
           ))}
         </div>
+        </div>
+        {scrollabile && (
+          <div aria-hidden style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 28,
+            pointerEvents: "none", background: "linear-gradient(to right, rgba(10,22,40,0), #0a1628)" }}/>
+        )}
       </div>
 
       {years.length > 0 && (

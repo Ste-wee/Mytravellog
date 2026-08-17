@@ -1,6 +1,6 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, X } from "lucide-react";
+import { Check } from "lucide-react";
 import { Trip as LocalTrip } from "@/lib/storage";
 import { loadWorldAtlasCountries, polygonsOf } from "@/lib/worldAtlas";
 import { CountryMapModal } from "@/components/CountryMapModal";
@@ -314,7 +314,9 @@ export function ContinentsMap({ trips }: Props) {
               }`}
             >
               <span>{c}</span>
-              {v ? <Check className="w-3.5 h-3.5" aria-hidden /> : <X className="w-3.5 h-3.5 opacity-50" aria-hidden />}
+              {/* La ✓ resta sui visitati; la × sui non visitati sembrava un
+                  bottone per rimuoverli — il chip spento dice già tutto. */}
+              {v && <Check className="w-3.5 h-3.5" aria-hidden />}
             </div>
           );
         })}

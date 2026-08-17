@@ -237,6 +237,9 @@ function HomeInner() {
                     <button type="button" className="flex flex-col items-center w-full py-1.5 gap-0.5"
                       aria-label={statsOpen ? "Nascondi le tue statistiche" : "Mostra le tue statistiche"}>
                       <span style={{width:30,height:3,borderRadius:2,background:"rgba(255,255,255,0.25)"}}/>
+                      {/* Etichetta VISIBILE, non solo aria-label: chi vede era
+                          informato peggio di chi ascolta (maniglia muta). */}
+                      <span style={{fontSize:9, letterSpacing:".08em", textTransform:"uppercase", color:"rgba(255,255,255,0.6)"}}>Statistiche</span>
                       <ChevronDown className="w-3 h-3 transition-transform" style={{ color:"rgba(255,255,255,0.6)", transform: statsOpen ? "rotate(180deg)" : "none" }}/>
                     </button>
                   </CollapsibleTrigger>

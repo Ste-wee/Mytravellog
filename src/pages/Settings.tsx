@@ -122,9 +122,10 @@ function HomeCityPicker({ value, onChange }: { value: HomeCity; onChange: (v: Ho
       </div>
       {value && query === value.label && (
         <div className="mt-1.5 flex items-center gap-2 text-sm text-primary">
+          {/* Niente nome ripetuto: è già scritto nell'input qui sopra. Il pin
+              e le coordinate confermano che la città è agganciata davvero. */}
           <MapPin className="w-3.5 h-3.5"/>
-          <span className="font-medium">{value.label}</span>
-          <span className="text-muted-foreground text-xs">({value.lat.toFixed(2)}, {value.lon.toFixed(2)})</span>
+          <span className="text-muted-foreground text-xs">posizione agganciata ({value.lat.toFixed(2)}, {value.lon.toFixed(2)})</span>
         </div>
       )}
       {results.length > 0 && (

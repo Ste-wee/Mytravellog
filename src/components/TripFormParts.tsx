@@ -478,7 +478,7 @@ export function ItineraryPanel(props: RouteHeroProps) {
         <div>
           <div className="font-display" style={{ fontSize:15, fontWeight:700, color:"#f0f4ff" }}>Itinerario</div>
           <div style={{ fontSize:11, color:"rgba(255,255,255,0.6)", marginTop:1 }}>
-            Clicca 🏠 per cambiare città di partenza
+            Tocca 🏠 per cambiare città di partenza
           </div>
         </div>
       </div>
@@ -510,7 +510,7 @@ export function TripFormFields({
       {/* Nome */}
       <div style={{ background:"#0a1628", border:"0.5px solid #1a2d4a", borderRadius:8, padding:"14px 16px" }}>
         <label style={{ fontSize:9, color:"rgba(255,255,255,0.6)", letterSpacing:"1.5px",
-          textTransform:"uppercase", display:"block", marginBottom:6 }}>Nome del viaggio</label>
+          textTransform:"uppercase", display:"block", marginBottom:6 }}>Nome del viaggio <span style={{ opacity:0.4, fontSize:9, textTransform:"none" }}>(opzionale)</span></label>
         <input style={{ background:"#060e1e", border:"0.5px solid #1a2d4a", borderRadius:8,
           padding:"9px 12px", fontSize:13, color:"#f0f4ff", width:"100%",
           outline:"none", boxSizing:"border-box" }}
