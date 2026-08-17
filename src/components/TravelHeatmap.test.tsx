@@ -46,4 +46,19 @@ describe("TravelHeatmap — dettaglio del mese", () => {
     apriMese();
     expect(screen.getByText(/15 giu 2024/)).toBeInTheDocument();
   });
+
+  // La catena NON si tronca: l'ellipsis si mangiava proprio l'arrivo
+  // ("Vienn…") e la data che stava sulla stessa riga. jsdom non disegna,
+  // quindi il taglio non si può "vedere": si inchioda lo stile che lo
+  // causava e la data su una riga separata.
+  it("la catena va a capo invece di troncarsi, e la data vive su una riga sua", () => {
+    render(<TravelHeatmap trips={[trip({ waypoints: [tappa("Innsbruck"), tappa("Salisburgo")] })]} />);
+    apriMese();
+    const catena = screen.getByText(/Milano → Innsbruck → Salisburgo → Vienna/);
+    expect(catena.style.textOverflow).not.toBe("ellipsis");
+    expect(catena.style.whiteSpace).not.toBe("nowrap");
+    const data = screen.getByText(/15 giu 2024/);
+    expect(data).not.toBe(catena);
+    expect(data.textContent).not.toContain("Vienna");
+  });
 });

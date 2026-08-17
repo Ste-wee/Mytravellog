@@ -338,8 +338,11 @@ function HomeInner() {
                       {/* Con le tappe si legge l'itinerario, non solo l'arrivo:
                           prima un Milano→Trieste→Ljubljana→Vienna diceva
                           "Vienna, Austria" e le tappe di passaggio sparivano.
-                          Senza tappe non c'è percorso da dire: resta città+paese. */}
-                      <div style={{fontSize:11, color:"rgba(255,255,255,0.6)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>
+                          Senza tappe non c'è percorso da dire: resta città+paese.
+                          E la catena VA A CAPO invece di troncarsi: l'ellipsis
+                          si rimangiava l'arrivo ("Vienn…") — la card cresce di
+                          una riga quando serve. */}
+                      <div style={{fontSize:11, color:"rgba(255,255,255,0.6)", lineHeight:1.5}}>
                         {stopChain(selectedTrip) ?? `${selectedTrip.city}, ${selectedTrip.country}`}
                       </div>
                     </div>
