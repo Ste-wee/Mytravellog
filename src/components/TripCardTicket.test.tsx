@@ -305,13 +305,13 @@ describe("TripCardTicket — distanza e temperatura", () => {
 
   it("mostra la temperatura se temperature_c è presente", () => {
     renderCard(makeTrip({ temperature_c: 24 }));
-    expect(screen.getByText("24.0°C")).toBeInTheDocument();
+    expect(screen.getByText("24°C")).toBeInTheDocument();
   });
 
   it("mostra sia il mezzo che la temperatura quando la distanza manca", () => {
     renderCard(makeTrip({ transport_mode: "plane", distance_from_home_km: null, temperature_c: 24 }));
     expect(screen.getByText("Aereo")).toBeInTheDocument();
-    expect(screen.getByText("24.0°C")).toBeInTheDocument();
+    expect(screen.getByText("24°C")).toBeInTheDocument();
   });
 });
 
@@ -348,5 +348,23 @@ describe("TripCardTicket — flyover 3D", () => {
     fireEvent.click(screen.getByText("Rivivi in 3D"));
     fireEvent.click(screen.getByRole("button", { name: "Chiudi" }));
     expect(screen.queryByRole("button", { name: "Chiudi" })).not.toBeInTheDocument();
+  });
+});
+
+// Mezzo, km e temperatura viaggiano insieme: quando il flex va a capo la
+// temperatura restava orfana con un divisore spaiato davanti ("| 24.0°C").
+describe("TripCardTicket — blocco solidale delle metriche", () => {
+  it("temperatura e km stanno nello stesso blocco nowrap del mezzo", () => {
+    renderCard(makeTrip({ transport_mode: "car", temperature_c: 24, latitude: 48.21, longitude: 16.37, home_latitude: 45.46, home_longitude: 9.19 }));
+    const temp = screen.getByText("24°C");
+    const blocco = temp.closest("span[style*='nowrap']");
+    expect(blocco).not.toBeNull();
+    expect(blocco!.textContent).toContain("km");
+    expect(blocco!.textContent).toContain("24°C");
+  });
+
+  it("la temperatura decimale si legge con la virgola", () => {
+    renderCard(makeTrip({ temperature_c: 18.5 }));
+    expect(screen.getByText("18,5°C")).toBeInTheDocument();
   });
 });

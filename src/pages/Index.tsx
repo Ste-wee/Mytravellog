@@ -10,7 +10,7 @@ import { stopChain } from "@/lib/stops";
 import { fmtDistance, useSettings } from "@/lib/settings";
 import { TRANSPORT, isTransportMode } from "@/lib/transport";
 import { Route, Globe, MapPin, Pencil, Plane, Plus, Video, X, ChevronDown } from "lucide-react";
-import { WorldMap, CityInfo } from "@/components/WorldMap";
+import { WorldMap, CityInfo, hasTimeBar } from "@/components/WorldMap";
 import { StarField, StarFieldController } from "@/components/StarField";
 import { TripFlyover } from "@/components/TripFlyover";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -280,6 +280,7 @@ function HomeInner() {
               onSelectTrip={(t) => setSelectedId(t.id)}
               onSelectCity={(city) => setSelectedCity(city)}
               autoRotateSetting={autoRotate}
+              selectionOpen={!!selectedTrip}
             />
 
             {/* Primo avvio: senza viaggi il globo era muto (zeri e nessun
@@ -317,9 +318,12 @@ function HomeInner() {
             )}
 
             {/* Mini-card del viaggio selezionato: flottante (non modale) così
-                la rotta evidenziata sul globo resta visibile dietro. */}
+                la rotta evidenziata sul globo resta visibile dietro. Quando
+                c'è la barra del tempo la card si alza SOPRA di lei (prima ci
+                finiva sotto e copriva "Rivivi in 3D"/"Modifica"); zoom e
+                legenda intanto si nascondono (selectionOpen su WorldMap). */}
             {selectedTrip && (
-              <div style={{position:"absolute", left:12, right:12, bottom:12, zIndex:30, display:"flex", justifyContent:"center", pointerEvents:"none"}}>
+              <div style={{position:"absolute", left:12, right:12, bottom: hasTimeBar(trips) ? 90 : 12, zIndex:30, display:"flex", justifyContent:"center", pointerEvents:"none"}}>
                 <div style={{
                   pointerEvents:"auto", width:"100%", maxWidth:380,
                   background:"rgba(10,22,40,0.92)", border:"0.5px solid #1a2d4a",

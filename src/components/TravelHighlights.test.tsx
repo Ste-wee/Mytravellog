@@ -129,7 +129,7 @@ describe("TravelHighlights — hottest / coldest", () => {
       makeTrip({ hottest_temp_c: 30, temperature_c: 28 }),
     ];
     renderHighlights(trips);
-    expect(screen.getAllByText("38.0°C").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("38°C").length).toBeGreaterThanOrEqual(1);
   });
 
   it("usa temperature_c se hottest_temp_c è null", () => {
@@ -138,7 +138,7 @@ describe("TravelHighlights — hottest / coldest", () => {
       makeTrip({ hottest_temp_c: null, temperature_c: 20 }),
     ];
     renderHighlights(trips);
-    expect(screen.getAllByText("33.0°C").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("33°C").length).toBeGreaterThanOrEqual(1);
   });
 
   it("mostra la temperatura più bassa (coldest_temp_c prioritario)", () => {
@@ -147,7 +147,7 @@ describe("TravelHighlights — hottest / coldest", () => {
       makeTrip({ coldest_temp_c: 2,   temperature_c: 8 }),
     ];
     renderHighlights(trips);
-    expect(screen.getAllByText("-10.0°C").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("-10°C").length).toBeGreaterThanOrEqual(1);
   });
 });
 

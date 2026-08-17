@@ -280,25 +280,31 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
             <span style={{fontSize:11,color:ts.color,fontWeight:600}}> · {days}g</span>
           )}
         </div>
-        {trip.transport_mode && (
-          <>
-            <div style={{width:1,height:10,background:"#1a2d4a"}}/>
-            <span style={{display:"inline-flex",alignItems:"center",gap:3,fontSize:10,padding:"2px 8px",borderRadius:99,background:ts.bg,color:ts.color,fontWeight:500}}>
-              <ts.Icon style={{width:10,height:10}}/> {ts.label}
-            </span>
-          </>
-        )}
-        {tripKm > 0 && (
-          <>
-            <div style={{width:1,height:10,background:"#1a2d4a"}}/>
-            <span style={{fontSize:11,color:"rgba(255,255,255,0.75)"}}>{fmtDistance(tripKm, distanceUnit)}</span>
-          </>
-        )}
-        {trip.temperature_c != null && (
-          <>
-            <div style={{width:1,height:10,background:"#1a2d4a"}}/>
-            <span style={{fontSize:11,color:"rgba(255,255,255,0.75)"}}>{fmtTemp(trip.temperature_c, temperatureUnit)}</span>
-          </>
+        {/* Mezzo, km e temperatura viaggiano INSIEME (blocco nowrap): con
+            l'andata a capo del flex la temperatura restava orfana su una riga
+            sua con un divisore spaiato davanti ("| 24.0°C"). Ora o stanno
+            tutte in riga con le date o scendono in gruppo. Il divisore prima
+            della pill non serve: la pill si delimita da sola. */}
+        {(trip.transport_mode || tripKm > 0 || trip.temperature_c != null) && (
+          <span style={{display:"inline-flex",alignItems:"center",gap:10,whiteSpace:"nowrap"}}>
+            {trip.transport_mode && (
+              <span style={{display:"inline-flex",alignItems:"center",gap:3,fontSize:10,padding:"2px 8px",borderRadius:99,background:ts.bg,color:ts.color,fontWeight:500}}>
+                <ts.Icon style={{width:10,height:10}}/> {ts.label}
+              </span>
+            )}
+            {tripKm > 0 && (
+              <>
+                {trip.transport_mode && <div style={{width:1,height:10,background:"#1a2d4a"}}/>}
+                <span style={{fontSize:11,color:"rgba(255,255,255,0.75)"}}>{fmtDistance(tripKm, distanceUnit)}</span>
+              </>
+            )}
+            {trip.temperature_c != null && (
+              <>
+                {(trip.transport_mode || tripKm > 0) && <div style={{width:1,height:10,background:"#1a2d4a"}}/>}
+                <span style={{fontSize:11,color:"rgba(255,255,255,0.75)"}}>{fmtTemp(trip.temperature_c, temperatureUnit)}</span>
+              </>
+            )}
+          </span>
         )}
       </div>
 

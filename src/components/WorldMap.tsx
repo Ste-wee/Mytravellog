@@ -27,6 +27,18 @@ interface Props {
   onSelectTrip?: (t: Trip) => void;
   onSelectCity?: (city: CityInfo) => void;
   autoRotateSetting?: AutoRotate;
+  /** La mini-card del viaggio è aperta sopra il globo: zoom e legenda CASA si
+   *  nascondono per non accavallarsi (a 390px le coprivano i bottoni). */
+  selectionOpen?: boolean;
+}
+
+/**
+ * La barra del tempo compare con ≥2 viaggi con data valida — la STESSA
+ * condizione del timeRange interno. Esportata perché chi posa overlay sul
+ * globo (la mini-card in Index) deve sapere se in basso c'è la barra.
+ */
+export function hasTimeBar(trips: Trip[]): boolean {
+  return trips.filter(t => Number.isFinite(new Date(t.trip_date + "T00:00:00").getTime())).length >= 2;
 }
 
 const MAPTILER_KEY = "J3c87wVeji5QqN7DSqJX";
@@ -156,7 +168,7 @@ export function buildRouteCoords(t: Trip): [number, number][] {
 }
 
 export function WorldMap({
-  trips, selectedId, onSelectTrip, onSelectCity, autoRotateSetting = "on"
+  trips, selectedId, onSelectTrip, onSelectCity, autoRotateSetting = "on", selectionOpen = false
 }: Props) {
   const containerRef  = useRef<HTMLDivElement>(null);
   const mapRef        = useRef<MapLibreMap | null>(null);
@@ -218,11 +230,12 @@ export function WorldMap({
   // identico a prima finché non si trascina.
   const dayNum = (iso: string) => new Date(iso + "T00:00:00").getTime();
   const timeRange = useMemo(() => {
-    if (ordered.length < 2) return null; // <2 viaggi: niente barra del tempo
+    // La condizione di esistenza è hasTimeBar (esportata: Index la usa per
+    // alzare la mini-card sopra la barra) — qui si aggiunge solo min/max.
     // Le date malformate vanno scartate: un solo NaN rendeva min/max NaN e
     // lo scrubber (input range, label, riga degli anni) moriva per TUTTI.
+    if (!hasTimeBar(ordered)) return null;
     const ts = ordered.map(t => dayNum(t.trip_date)).filter(Number.isFinite);
-    if (ts.length < 2) return null;
     return { min: Math.min(...ts), max: Math.max(...ts) };
   }, [ordered]);
   const [cursor, setCursor] = useState<number>(Infinity);
@@ -921,20 +934,23 @@ export function WorldMap({
     <div className="relative w-full h-full overflow-hidden">
       <div ref={containerRef} style={{ position:"absolute", inset:0 }} />
 
-      {/* Zoom (si alza sopra la barra del tempo quando presente) */}
-      <div className="absolute right-3 flex flex-col gap-1 z-40" style={{ bottom: timeRange ? 112 : 64 }}>
-        <button onClick={() => mapRef.current?.zoomIn()}
-          className="w-8 h-8 bg-black/60 backdrop-blur border border-white/15 rounded-lg text-white text-lg font-bold flex items-center justify-center hover:bg-white/10 transition-colors select-none">+</button>
-        <button onClick={() => mapRef.current?.zoomOut()}
-          className="w-8 h-8 bg-black/60 backdrop-blur border border-white/15 rounded-lg text-white text-lg font-bold flex items-center justify-center hover:bg-white/10 transition-colors select-none">−</button>
-      </div>
+      {/* Zoom (si alza sopra la barra del tempo quando presente). Con la
+          mini-card aperta sparisce: a 390px si accavallava ai suoi bottoni. */}
+      {!selectionOpen && (
+        <div className="absolute right-3 flex flex-col gap-1 z-40" style={{ bottom: timeRange ? 112 : 64 }}>
+          <button onClick={() => mapRef.current?.zoomIn()}
+            className="w-8 h-8 bg-black/60 backdrop-blur border border-white/15 rounded-lg text-white text-lg font-bold flex items-center justify-center hover:bg-white/10 transition-colors select-none">+</button>
+          <button onClick={() => mapRef.current?.zoomOut()}
+            className="w-8 h-8 bg-black/60 backdrop-blur border border-white/15 rounded-lg text-white text-lg font-bold flex items-center justify-center hover:bg-white/10 transition-colors select-none">−</button>
+        </div>
+      )}
 
-
-
-      {/* Legend */}
-      <div className="absolute right-3 bg-black/50 backdrop-blur border border-white/10 rounded-lg px-3 py-2 flex items-center gap-3 text-[10px] font-mono uppercase tracking-wider text-white/60 z-40" style={{ bottom: timeRange ? 76 : 12 }}>
-        <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-amber-400"/>Casa</div>
-      </div>
+      {/* Legend — anche lei si fa da parte quando la card è aperta */}
+      {!selectionOpen && (
+        <div className="absolute right-3 bg-black/50 backdrop-blur border border-white/10 rounded-lg px-3 py-2 flex items-center gap-3 text-[10px] font-mono uppercase tracking-wider text-white/60 z-40" style={{ bottom: timeRange ? 76 : 12 }}>
+          <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-amber-400"/>Casa</div>
+        </div>
+      )}
 
       {/* Hint drag-per-ruotare: solo al primo caricamento (flag in localStorage) */}
       {globeHint !== "hidden" && (

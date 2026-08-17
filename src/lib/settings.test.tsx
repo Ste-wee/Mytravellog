@@ -7,6 +7,7 @@ import {
   fmtNumber,
   fmtDistance,
   fmtAltitude,
+  fmtTemp,
   MARKER_SCALE_MIN,
   MARKER_SCALE_MAX,
   type Settings,
@@ -130,5 +131,25 @@ describe("fmtNumber / fmtDistance / fmtAltitude — separatore delle migliaia", 
     expect(fmtDistance(10000, "imperial")).toBe("6.214 mi");
     expect(fmtAltitude(8848, "metric")).toBe("8.848 m");
     expect(fmtAltitude(3466, "imperial")).toBe("11.371 ft");
+  });
+});
+
+// Temperature: niente ".0" di rumore, e il decimale vero si scrive con la
+// VIRGOLA (il vecchio toFixed(1) dava "24.0°C" col punto, sempre).
+describe("fmtTemp — decimale solo quando esiste, virgola all'italiana", () => {
+  it("intero → senza decimale", () => {
+    expect(fmtTemp(24, "celsius")).toBe("24°C");
+    expect(fmtTemp(0, "celsius")).toBe("0°C");
+    expect(fmtTemp(-5, "celsius")).toBe("-5°C");
+  });
+  it("decimale vero → con la virgola", () => {
+    expect(fmtTemp(18.5, "celsius")).toBe("18,5°C");
+    expect(fmtTemp(24, "fahrenheit")).toBe("75,2°F"); // 75.2 esatti
+  });
+  it("il fahrenheit intero resta senza decimale", () => {
+    expect(fmtTemp(25, "fahrenheit")).toBe("77°F");
+  });
+  it("null → em dash come le altre fmt", () => {
+    expect(fmtTemp(null, "celsius")).toBe("—");
   });
 });

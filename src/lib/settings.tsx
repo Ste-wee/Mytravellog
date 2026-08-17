@@ -108,8 +108,13 @@ export function fmtAltitude(m: number | null | undefined, unit: DistanceUnit): s
 
 export function fmtTemp(c: number | null | undefined, unit: TemperatureUnit): string {
   if (c == null) return "—";
-  if (unit === "fahrenheit") return `${(c * 9 / 5 + 32).toFixed(1)}°F`;
-  return `${c.toFixed(1)}°C`;
+  const v = unit === "fahrenheit" ? c * 9 / 5 + 32 : c;
+  // Il decimale solo quando esiste: "24.0°C" era rumore su ogni biglietto.
+  // E quando c'è si scrive all'italiana, con la VIRGOLA: il vecchio
+  // toFixed(1) usava il punto ("18.5°C") in un'app tutta in italiano.
+  const r = Math.round(v * 10) / 10;
+  const testo = Number.isInteger(r) ? String(r) : r.toFixed(1).replace(".", ",");
+  return `${testo}°${unit === "fahrenheit" ? "F" : "C"}`;
 }
 
 // ── Backwards-compatible aliases (used by older components) ──────────────────

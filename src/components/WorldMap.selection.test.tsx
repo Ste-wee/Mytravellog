@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/react";
-import { WorldMap } from "./WorldMap";
+import { WorldMap, hasTimeBar } from "./WorldMap";
 import type { Trip } from "@/lib/storage";
 
 /**
@@ -240,5 +240,39 @@ describe("WorldMap — anche le tappe aprono il viaggio", () => {
     map.fire("click", { point: { x: 1, y: 1 }, lngLat: { lng: 0, lat: 0 } });
     expect(interrogati.some(l => l.includes("trips-waypoints"))).toBe(true);
     expect(interrogati.some(l => l.includes("trips-waypoints-icons"))).toBe(true);
+  });
+});
+
+// Con la mini-card aperta i controlli si fanno da parte: a 390px zoom e
+// legenda CASA si accavallavano ai bottoni della card (e la barra del tempo
+// la copriva: per quella la card si ALZA, vedi Index + hasTimeBar).
+describe("WorldMap — selectionOpen nasconde zoom e legenda", () => {
+  beforeEach(() => { lastMap = null; });
+
+  it("con la card chiusa zoom e CASA ci sono", async () => {
+    const { getByText, container } = render(<WorldMap trips={TRIPS} selectedId={null} />);
+    await settle();
+    expect(getByText("+")).toBeInTheDocument();
+    expect(getByText("Casa")).toBeInTheDocument();
+    expect(container.querySelector('input[type="range"]')).not.toBeNull(); // 2 viaggi → barra
+  });
+
+  it("con la card aperta spariscono, ma la barra del tempo resta", async () => {
+    const { queryByText, container } = render(<WorldMap trips={TRIPS} selectedId="secco" selectionOpen />);
+    await settle();
+    expect(queryByText("+")).toBeNull();
+    expect(queryByText("Casa")).toBeNull();
+    expect(container.querySelector('input[type="range"]')).not.toBeNull();
+  });
+});
+
+describe("hasTimeBar — la stessa condizione della barra del tempo", () => {
+  it("due viaggi con date valide → true; uno solo → false", () => {
+    expect(hasTimeBar(TRIPS)).toBe(true);
+    expect(hasTimeBar([TRIPS[0]])).toBe(false);
+  });
+  it("le date malformate non contano (come per lo scrubber)", () => {
+    const rotto = { ...TRIPS[1], trip_date: "boh" };
+    expect(hasTimeBar([TRIPS[0], rotto])).toBe(false);
   });
 });

@@ -56,20 +56,20 @@ describe("fmtAltitude", () => {
 });
 
 describe("fmtTemp", () => {
-  it("0°C celsius → '0.0°C'", () => {
-    expect(fmtTemp(0, "celsius")).toBe("0.0°C");
+  it("0°C celsius → '0°C' (niente decimale di rumore)", () => {
+    expect(fmtTemp(0, "celsius")).toBe("0°C");
   });
 
-  it("0°C fahrenheit → '32.0°F'", () => {
-    expect(fmtTemp(0, "fahrenheit")).toBe("32.0°F");
+  it("0°C fahrenheit → '32°F'", () => {
+    expect(fmtTemp(0, "fahrenheit")).toBe("32°F");
   });
 
-  it("100°C fahrenheit → '212.0°F'", () => {
-    expect(fmtTemp(100, "fahrenheit")).toBe("212.0°F");
+  it("100°C fahrenheit → '212°F'", () => {
+    expect(fmtTemp(100, "fahrenheit")).toBe("212°F");
   });
 
-  it("-40°C fahrenheit → '-40.0°F' (punto fisso scala C/F)", () => {
-    expect(fmtTemp(-40, "fahrenheit")).toBe("-40.0°F");
+  it("-40°C fahrenheit → '-40°F' (punto fisso scala C/F)", () => {
+    expect(fmtTemp(-40, "fahrenheit")).toBe("-40°F");
   });
 
   it("null → '—'", () => {
@@ -77,8 +77,8 @@ describe("fmtTemp", () => {
     expect(fmtTemp(undefined, "fahrenheit")).toBe("—");
   });
 
-  it("arrotonda a 1 decimale in celsius", () => {
-    expect(fmtTemp(22.567, "celsius")).toBe("22.6°C");
+  it("arrotonda a 1 decimale in celsius (con la virgola)", () => {
+    expect(fmtTemp(22.567, "celsius")).toBe("22,6°C");
   });
 });
 
