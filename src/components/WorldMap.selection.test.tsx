@@ -195,3 +195,50 @@ describe("WorldMap — la selezione non ricostruisce i layer", () => {
     expect(map.flyToCount).toBe(1);
   });
 });
+
+// Le TAPPE intermedie aprono la mini-card del loro viaggio: prima toccare
+// Trieste sul globo non faceva nulla, perché l'apertura era registrata solo
+// sui pallini di destinazione e le feature delle tappe non portavano l'id.
+describe("WorldMap — anche le tappe aprono il viaggio", () => {
+  beforeEach(() => { lastMap = null; });
+
+  it("le feature delle tappe portano l'id del viaggio", async () => {
+    render(<WorldMap trips={TRIPS} selectedId={null} />);
+    await settle();
+    const src = lastMap!.getSource("trips-waypoints");
+    expect(src).toBeTruthy();
+    const props = src.data.features.map((f: any) => f.properties);
+    expect(props.every((p: any) => p.id === "multi")).toBe(true);
+  });
+
+  it("il click su una tappa seleziona il suo viaggio", async () => {
+    const onSelectTrip = vi.fn();
+    render(<WorldMap trips={TRIPS} selectedId={null} onSelectTrip={onSelectTrip} />);
+    await settle();
+    lastMap!.fire("click:trips-waypoints", { features: [{ properties: { id: "multi" } }] });
+    expect(onSelectTrip).toHaveBeenCalledWith(expect.objectContaining({ id: "multi" }));
+  });
+
+  it("il click sull'icona del mezzo sulla tappa funziona uguale", async () => {
+    const onSelectTrip = vi.fn();
+    render(<WorldMap trips={TRIPS} selectedId={null} onSelectTrip={onSelectTrip} />);
+    await settle();
+    lastMap!.fire("click:trips-waypoints-icons", { features: [{ properties: { id: "multi" } }] });
+    expect(onSelectTrip).toHaveBeenCalledWith(expect.objectContaining({ id: "multi" }));
+  });
+
+  // La trappola scoperta dal vivo: rese cliccabili le tappe, il tocco apriva
+  // ANCHE il popup città "Aggiungi come viaggio" (un pannello a tutto schermo
+  // che poi mangiava ogni tocco successivo). I layer delle tappe devono stare
+  // nella guardia del click generico sulla mappa.
+  it("le tappe sono fra i layer che silenziano il popup città", async () => {
+    render(<WorldMap trips={TRIPS} selectedId={null} onSelectCity={vi.fn()} />);
+    await settle();
+    const map = lastMap!;
+    const interrogati: string[][] = [];
+    map.queryRenderedFeatures = (_p?: any, opts?: any) => { if (opts?.layers) interrogati.push(opts.layers); return []; };
+    map.fire("click", { point: { x: 1, y: 1 }, lngLat: { lng: 0, lat: 0 } });
+    expect(interrogati.some(l => l.includes("trips-waypoints"))).toBe(true);
+    expect(interrogati.some(l => l.includes("trips-waypoints-icons"))).toBe(true);
+  });
+});

@@ -340,7 +340,13 @@ export function WorldMap({
         // quei layer hanno già il proprio handler (che apre la card con dati
         // puliti). Senza le città nella guardia, il tap su una città lanciava
         // ANCHE questo reverse-geocode che ~1s dopo sovrascriveva la selezione.
-        const handledLayers = ["trips-single", "trips-single-icons", "trips-multi", "trips-multi-icons", "cities-t1", "cities-t2", "cities-t3"]
+        // Le TAPPE stanno in questo elenco da quando aprono anch'esse la
+        // mini-card: senza, il tocco su Trieste apriva la card E il popup
+        // "Aggiungi come viaggio" di Trieste — un pannello a tutto schermo
+        // sopra la card, che poi si mangiava ogni tocco successivo. Assurdo
+        // anche nel merito: quella città l'hai già visitata, è nel viaggio.
+        const handledLayers = ["trips-single", "trips-single-icons", "trips-multi", "trips-multi-icons",
+          "trips-waypoints", "trips-waypoints-icons", "cities-t1", "cities-t2", "cities-t3"]
           .filter(id => map.getLayer(id));
         if (handledLayers.length > 0 && map.queryRenderedFeatures(e.point, { layers: handledLayers }).length > 0) return;
         const { lng, lat } = e.lngLat;
@@ -558,24 +564,30 @@ export function WorldMap({
         id: iconId, type: "symbol", source: id,
         layout: { "icon-image": ICON_MATCH_EXPR, "icon-size": 1, "icon-allow-overlap": true, "icon-ignore-placement": true },
       });
-      // Handler registrati UNA volta per layer id e per istanza mappa:
-      // map.on(evento, layerId) sopravvive a removeLayer/addLayer, quindi
-      // ri-registrarli a ogni ridisegno (= ogni cambio selezione) li
-      // accumulerebbe — N selezioni, N flyTo per ogni click.
-      if (!tripLayerHandlersRef.current.has(id)) {
-        tripLayerHandlersRef.current.add(id);
-        map.on("click", id, (e: MapLayerMouseEvent) => {
-          if (!e.features?.length) return;
-          const tripId = e.features[0].properties.id;
-          const trip = orderedRef.current.find((t: Trip) => t.id === tripId);
-          // Niente flyTo qui: ci pensa l'effect su selectedId (prima partivano
-          // DUE animazioni sovrapposte per lo stesso click, 800ms + 1000ms).
-          if (trip) onSelectTripRef.current?.(trip);
-        });
-        map.on("mouseenter", id, () => { map.getCanvas().style.cursor = "pointer"; });
-        map.on("mouseleave", id, () => { map.getCanvas().style.cursor = ""; });
-      }
+      registraApertura(id);
     };
+
+    /**
+     * Tocco su un punto del viaggio → si apre la sua mini-card.
+     * Handler registrati UNA volta per layer id e per istanza mappa:
+     * map.on(evento, layerId) sopravvive a removeLayer/addLayer, quindi
+     * ri-registrarli a ogni ridisegno (= ogni cambio selezione) li
+     * accumulerebbe — N selezioni, N flyTo per ogni click.
+     */
+    function registraApertura(id: string) {
+      if (tripLayerHandlersRef.current.has(id)) return;
+      tripLayerHandlersRef.current.add(id);
+      map.on("click", id, (e: MapLayerMouseEvent) => {
+        if (!e.features?.length) return;
+        const tripId = e.features[0].properties.id;
+        const trip = orderedRef.current.find((t: Trip) => t.id === tripId);
+        // Niente flyTo qui: ci pensa l'effect su selectedId (prima partivano
+        // DUE animazioni sovrapposte per lo stesso click, 800ms + 1000ms).
+        if (trip) onSelectTripRef.current?.(trip);
+      });
+      map.on("mouseenter", id, () => { map.getCanvas().style.cursor = "pointer"; });
+      map.on("mouseleave", id, () => { map.getCanvas().style.cursor = ""; });
+    }
 
     addCircleLayer("trips-single", singleFeatures, TRANSPORT_MATCH_EXPR);
     addCircleLayer("trips-multi",  multiFeatures,  TRANSPORT_MATCH_EXPR);
@@ -611,7 +623,10 @@ export function WorldMap({
         .filter((w) => hasCoords(w.lat, w.lon))
         .map((w) => ({
           type: "Feature" as const,
-          properties: { transport: w.transport_mode ?? "plane", td: dayNum(t.trip_date) },
+          // `id` = il VIAGGIO a cui appartiene la tappa: senza, toccare Trieste
+          // sul globo non apriva nulla (il gestore del click legge l'id dalla
+          // feature). I pallini di destinazione ce l'avevano, le tappe no.
+          properties: { id: t.id, transport: w.transport_mode ?? "plane", td: dayNum(t.trip_date) },
           geometry: { type: "Point" as const, coordinates: [w.lon, w.lat] }
         }))
     );
@@ -637,6 +652,12 @@ export function WorldMap({
         id: "trips-waypoints-icons", type: "symbol", source: "trips-waypoints",
         layout: { "icon-image": ICON_MATCH_EXPR, "icon-size": 1, "icon-allow-overlap": true, "icon-ignore-placement": true },
       });
+      // Anche le TAPPE aprono la mini-card del loro viaggio: prima il tocco su
+      // Trieste non faceva nulla (l'apertura era registrata solo sui pallini di
+      // destinazione). Su entrambi i layer, perché l'emoji del mezzo sta sopra
+      // il cerchio e il dito può capitare sull'una o sull'altro.
+      registraApertura("trips-waypoints");
+      registraApertura("trips-waypoints-icons");
     }
 
     // Layer nuovi di zecca: la selezione va riapplicata da zero.
