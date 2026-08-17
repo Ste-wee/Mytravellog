@@ -180,20 +180,33 @@ export function ContinentsMap({ trips }: Props) {
   // tap non faceva assolutamente nulla. Il match è geometrico (stesso
   // pointInCountry di visitedCountryIds), non per nome/codice paese: i confini
   // del world-atlas non condividono un identificatore con trip.country_code.
-  const tripsByCountryId = useMemo(() => {
+  // Nello stesso giro geometrico si registra anche NOME e CODICE del paese,
+  // presi dal punto che ci è caduto dentro (tappa o destinazione).
+  //
+  // Prima si usava il primo viaggio dell'elenco: per un paese attraversato solo
+  // di passaggio era il viaggio SBAGLIATO. Un Milano→Trieste→Vienna faceva
+  // aprire, toccando l'ITALIA, un pannello intestato "Austria" con bandiera
+  // austriaca e confini austriaci scaricati — cioè la mappa di un altro paese.
+  const { tripsByCountryId, infoByCountryId } = useMemo(() => {
     const map = new Map<string, LocalTrip[]>();
-    if (!countries.length) return map;
+    const info = new Map<string, { name: string; code: string }>();
+    if (!countries.length) return { tripsByCountryId: map, infoByCountryId: info };
     for (const t of trips) {
       const points = [
-        { lat: t.latitude, lon: t.longitude },
-        ...(t.waypoints ?? []).filter(w => w.lat != null && w.lon != null).map(w => ({ lat: w.lat!, lon: w.lon! })),
+        { lat: t.latitude, lon: t.longitude, name: t.country, code: t.country_code },
+        ...(t.waypoints ?? []).filter(w => w.lat != null && w.lon != null)
+          .map(w => ({ lat: w.lat!, lon: w.lon!, name: w.country, code: w.country_code })),
       ];
       const touchedIds = new Set<string>();
       for (const p of points) {
         for (const c of countries) {
           if (touchedIds.has(c.id)) continue;
           if (p.lon < c.bbox[0] || p.lon > c.bbox[2] || p.lat < c.bbox[1] || p.lat > c.bbox[3]) continue;
-          if (pointInCountry(p.lon, p.lat, c.polygons)) touchedIds.add(c.id);
+          if (!pointInCountry(p.lon, p.lat, c.polygons)) continue;
+          touchedIds.add(c.id);
+          // Il primo punto che cade qui dà il nome: è nella lingua dell'utente
+          // e col codice alpha-2, che il topojson non ha (nomi inglesi, id M49).
+          if (!info.has(c.id) && p.name) info.set(c.id, { name: p.name, code: p.code ?? "" });
         }
       }
       for (const id of touchedIds) {
@@ -202,18 +215,19 @@ export function ContinentsMap({ trips }: Props) {
         map.set(id, arr);
       }
     }
-    return map;
+    return { tripsByCountryId: map, infoByCountryId: info };
   }, [trips, countries]);
+
+  /** Nome del paese come lo chiama l'utente; ripiego sul topojson (inglese). */
+  const nomePaese = (c: CountryFeat) => infoByCountryId.get(c.id)?.name ?? c.name;
 
   const handleCountryClick = (c: CountryFeat) => {
     const countryTrips = tripsByCountryId.get(c.id);
     if (!countryTrips || countryTrips.length === 0) return; // paese non visitato: nessun viaggio da mostrare
-    // Nome e codice del paese vengono dal viaggio stesso (lingua e alpha-2
-    // dell'utente), non dal topojson (nomi in inglese, id numerici ISO M49).
-    const first = countryTrips[0];
+    const info = infoByCountryId.get(c.id);
     setSelectedCountry({
-      code: first.country_code ?? "",
-      name: first.country,
+      code: info?.code ?? "",
+      name: info?.name ?? c.name,
       trips: countryTrips.slice().sort((a, b) => b.trip_date.localeCompare(a.trip_date)),
     });
   };
@@ -268,9 +282,12 @@ export function ContinentsMap({ trips }: Props) {
                   tabIndex={isVisited ? 0 : undefined}
                   style={{ cursor: isVisited ? "pointer" : "default" }}
                   role={isVisited ? "button" : undefined}
-                  aria-label={isVisited ? `Viaggi in ${c.name}` : undefined}
+                  aria-label={isVisited ? `Viaggi in ${nomePaese(c)}` : undefined}
                 >
-                  {isVisited && <title>{c.name}</title>}
+                  {/* Nome nella lingua dell'utente: il tooltip e il lettore di
+                      schermo dicevano "Italy" mentre il resto dell'app dice
+                      "Italia" (il topojson dei confini è in inglese). */}
+                  {isVisited && <title>{nomePaese(c)}</title>}
                 </path>
               );
             })}

@@ -53,13 +53,34 @@ describe("ContinentsMap — click su un paese visitato", () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => fakeTopo });
     render(<ContinentsMap trips={[makeTrip()]} />);
 
-    const country = await waitFor(() => screen.getByRole("button", { name: "Viaggi in Italy" }));
+    // L'etichetta è nella lingua dell'utente: il topojson dice "Italy", il
+    // viaggio dice "Italia" — e il tooltip/lettore di schermo devono dire quella.
+    const country = await waitFor(() => screen.getByRole("button", { name: "Viaggi in Italia" }));
     fireEvent.click(country);
 
     // "Italia"/"IT" vengono dal viaggio stesso (lingua dell'utente), non
     // "Italy" dal topojson — prima il tap non apriva nulla.
     expect(screen.getByText("Italia (IT)")).toBeInTheDocument();
     expect(screen.getByText("1 viaggi")).toBeInTheDocument();
+  });
+
+  // IL BUG: nome e codice venivano dal PRIMO viaggio che tocca il paese. Per un
+  // paese solo attraversato era il viaggio sbagliato — toccando l'Italia si
+  // apriva "Austria", con bandiera e CONFINI austriaci scaricati.
+  it("un paese toccato solo da una TAPPA prende il nome della tappa, non della destinazione", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => fakeTopo });
+    const viennaViaTrieste = makeTrip({
+      city: "Vienna", country: "Austria", country_code: "AT",
+      latitude: 48.21, longitude: 16.37,   // FUORI dal quadrato "Italia"
+      waypoints: [{ id: "w1", city: "Trieste", country: "Italia", country_code: "IT",
+        transport_mode: "train", lat: 45.65, lon: 13.77 }],
+    });
+    render(<ContinentsMap trips={[viennaViaTrieste]} />);
+
+    const italia = await waitFor(() => screen.getByRole("button", { name: "Viaggi in Italia" }));
+    fireEvent.click(italia);
+    expect(screen.getByText("Italia (IT)")).toBeInTheDocument();
+    expect(screen.queryByText(/Austria/)).not.toBeInTheDocument();
   });
 
   it("un paese senza viaggi non è cliccabile (nessun bottone/ruolo)", async () => {
