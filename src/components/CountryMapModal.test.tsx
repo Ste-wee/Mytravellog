@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { render, screen, waitFor, configure } from "@testing-library/react";
-import { CountryMapModal, __clearGeoCache, __clearMemoryCache, parseGithubRawUrl, isGitLfsPointer } from "./CountryMapModal";
+import { render, screen, waitFor, configure, fireEvent } from "@testing-library/react";
+import { CountryMapModal, __clearGeoCache, __clearMemoryCache, __clearElencoLocale, parseGithubRawUrl, isGitLfsPointer } from "./CountryMapModal";
 import type { Trip } from "@/lib/storage";
 import React from "react";
 
 // Default 1000ms is troppo stretto sotto carico (suite in parallelo).
 configure({ asyncUtilTimeout: 5000 });
 
-beforeEach(() => __clearGeoCache());
+beforeEach(() => { __clearGeoCache(); __clearElencoLocale(); });
 
 // ── GeoJSON fixture helpers ──────────────────────────────────────────────────
 // geoBoundaries usa sempre "shapeName" (nome) e "shapeISO" (codice ISO 3166-2).
@@ -696,6 +696,43 @@ describe("CountryMapModal — quando i confini non arrivano", () => {
     renderModal({ countryCode: "XX", countryName: "Paese Ignoto", trips: [] });
     expect(await screen.findByText(/non disponibile per questo paese/i)).toBeInTheDocument();
   });
+
+  // "Riprova tra qualche minuto" senza un pulsante per riprovare: la sola
+  // strada era chiudere e riaprire il pannello.
+  it("il pulsante Riprova ricarica davvero, e al secondo giro la mappa compare", async () => {
+    let primoGiro = true;
+    global.fetch = vi.fn((input: any) => {
+      const u = String(input);
+      if (u.includes("/confini/")) return Promise.resolve({ ok: false, status: 404 } as any);
+      if (primoGiro) return Promise.resolve({ ok: false, status: 429, json: async () => ({}), text: async () => "" } as any);
+      if (u.includes("geoboundaries.org")) return Promise.resolve({ ok: true, json: async () => ({ simplifiedGeometryGeoJSON: "https://fake/geo.json" }) } as any);
+      return Promise.resolve({ ok: true, text: async () => JSON.stringify({ type: "FeatureCollection", features: AUSTRIA_FEATURES }) } as any);
+    }) as any;
+    renderModal({ countryCode: "AT", countryName: "Austria", trips: [viaggioAustria()] });
+    const bottone = await screen.findByRole("button", { name: "Riprova" });
+    primoGiro = false;
+    fireEvent.click(bottone);
+    await waitFor(() => expect(screen.getByText("1 regione su 9")).toBeInTheDocument());
+    expect(screen.queryByText(/troppe richieste/i)).not.toBeInTheDocument();
+  });
+
+  it("su un paese senza suddivisioni il pulsante non compare: insistere non cambia nulla", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}), text: async () => "" });
+    renderModal({ countryCode: "XX", countryName: "Paese Ignoto", trips: [] });
+    expect(await screen.findByText(/non disponibile per questo paese/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Riprova" })).not.toBeInTheDocument();
+  });
+
+  // Il filtro per paese non deve mangiarsi le regioni dei viaggi più vecchi:
+  // senza codice ISO E senza country_code non c'è nulla che dica che siano di
+  // un altro stato, e prima venivano scartate.
+  it("una regione senza codice, su un viaggio senza paese, resta nell'elenco", async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error("boom"));
+    const vecchio = makeTrip({ country: "", country_code: "", city: "Vienna", region: "Wien", region_details: null });
+    renderModal({ countryCode: "AT", countryName: "Austria", trips: [vecchio] });
+    expect(await screen.findByText(/Regioni visitate/)).toBeInTheDocument();
+    expect(screen.getByText(/Wien/)).toBeInTheDocument();
+  });
 });
 
 // I confini che ospitiamo noi (public/confini/<ISO2>.json, generati con
@@ -704,16 +741,65 @@ describe("CountryMapModal — quando i confini non arrivano", () => {
 describe("CountryMapModal — confini ospitati da noi", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("se il paese è nel pacchetto locale, NON tocca la rete", async () => {
-    const locali = JSON.stringify({ type: "FeatureCollection", features: ITALY_FEATURES });
+  /** Il pacchetto locale con dentro i paesi indicati nel manifest. */
+  function mockPacchettoLocale(paesi: string[], features: any[] = ITALY_FEATURES) {
     global.fetch = vi.fn((input: any) => {
       const u = String(input);
-      if (u.includes("/confini/IT.json")) return Promise.resolve({ ok: true, json: async () => JSON.parse(locali) } as any);
+      if (u.includes("/confini/index.json")) return Promise.resolve({ ok: true, json: async () => ({ paesi }) } as any);
+      if (/\/confini\/[A-Z]{2}\.json/.test(u)) return Promise.resolve({ ok: true, json: async () => ({ type: "FeatureCollection", features }) } as any);
       return Promise.reject(new Error("la rete non doveva servire"));
     }) as any;
+  }
+
+  it("se il paese è nel pacchetto locale, NON tocca la rete", async () => {
+    mockPacchettoLocale(["IT"]);
     renderModal({ countryCode: "IT", trips: [makeTrip({ region: "Lazio" })] });
     await waitFor(() => expect(screen.getByText("1 regione su 5")).toBeInTheDocument());
     expect(chiamateDiRete()).toHaveLength(0);
+  });
+
+  // I confini locali NON vanno duplicati in localStorage: sono già serviti dal
+  // nostro dominio e cacheati dal service worker, e quello spazio (5 MB in
+  // tutto) è lo stesso in cui vivono i viaggi. Bastavano pochi paesi pesanti
+  // per riempirlo e non poter più salvare un viaggio.
+  it("i confini del pacchetto locale non finiscono in localStorage", async () => {
+    mockPacchettoLocale(["IT"]);
+    renderModal({ countryCode: "IT", trips: [makeTrip({ region: "Lazio" })] });
+    await waitFor(() => expect(screen.getByText("1 regione su 5")).toBeInTheDocument());
+    expect(localStorage.getItem("geoBoundariesCache:v2:IT")).toBeNull();
+  });
+
+  it("i confini presi dalla rete invece sì: risparmiano un fetch limitato", async () => {
+    mockGeoBoundaries(ITALY_FEATURES);
+    renderModal({ countryCode: "IT", trips: [makeTrip({ region: "Lazio" })] });
+    await waitFor(() => expect(screen.getByText("1 regione su 5")).toBeInTheDocument());
+    expect(localStorage.getItem("geoBoundariesCache:v2:IT")).not.toBeNull();
+  });
+
+  // Senza manifest ogni apertura di un paese non incluso sparava un 404.
+  it("un paese fuori dal manifest non viene nemmeno chiesto al pacchetto locale", async () => {
+    global.fetch = vi.fn((input: any) => {
+      const u = String(input);
+      if (u.includes("/confini/index.json")) return Promise.resolve({ ok: true, json: async () => ({ paesi: ["IT"] }) } as any);
+      if (u.includes("geoboundaries.org")) return Promise.resolve({ ok: true, json: async () => ({ simplifiedGeometryGeoJSON: "https://fake/geo.json" }) } as any);
+      return Promise.resolve({ ok: true, text: async () => JSON.stringify({ type: "FeatureCollection", features: AUSTRIA_FEATURES }) } as any);
+    }) as any;
+    renderModal({ countryCode: "AT", countryName: "Austria", trips: [] });
+    await waitFor(() => expect(screen.getByText(/regioni? su 9/)).toBeInTheDocument());
+    const chiamate = (fetch as any).mock.calls.map((c: any[]) => String(c[0]));
+    expect(chiamate.some((u: string) => /\/confini\/AT\.json/.test(u))).toBe(false);
+  });
+
+  it("il manifest si legge una volta sola, non a ogni apertura", async () => {
+    mockPacchettoLocale(["IT"]);
+    const primo = renderModal({ countryCode: "IT", trips: [] });
+    await waitFor(() => expect(screen.getByText(/su 5/)).toBeInTheDocument());
+    primo.unmount();
+    __clearMemoryCache();
+    renderModal({ countryCode: "IT", trips: [] });
+    await waitFor(() => expect(screen.getByText(/su 5/)).toBeInTheDocument());
+    const manifest = (fetch as any).mock.calls.filter((c: any[]) => String(c[0]).includes("index.json"));
+    expect(manifest).toHaveLength(1);
   });
 
   it("se il paese NON è nel pacchetto, ricade sulla rete come prima", async () => {
@@ -723,9 +809,61 @@ describe("CountryMapModal — confini ospitati da noi", () => {
     expect(chiamateDiRete().length).toBeGreaterThan(0);
   });
 
+  // Stessa trappola di loadGis: un fallimento in cache resta per sempre. Se
+  // l'app parte offline il manifest non arriva, e cachearne il fallimento
+  // vorrebbe dire ignorare per tutta la sessione un pacchetto locale che il
+  // service worker avrebbe in cache.
+  it("un manifest caduto per errore di rete viene richiesto di nuovo alla prossima apertura", async () => {
+    let manifestRotto = true;
+    global.fetch = vi.fn((input: any) => {
+      const u = String(input);
+      if (u.includes("/confini/index.json")) {
+        return manifestRotto
+          ? Promise.reject(new Error("offline"))
+          : Promise.resolve({ ok: true, json: async () => ({ paesi: ["IT"] }) } as any);
+      }
+      if (/\/confini\/IT\.json/.test(u)) return Promise.resolve({ ok: true, json: async () => ({ type: "FeatureCollection", features: ITALY_FEATURES }) } as any);
+      if (u.includes("geoboundaries.org")) return Promise.resolve({ ok: true, json: async () => ({ simplifiedGeometryGeoJSON: "https://fake/geo.json" }) } as any);
+      return Promise.resolve({ ok: true, text: async () => JSON.stringify({ type: "FeatureCollection", features: ITALY_FEATURES }) } as any);
+    }) as any;
+
+    const primo = renderModal({ countryCode: "IT", trips: [] });
+    await waitFor(() => expect(screen.getByText(/su 5/)).toBeInTheDocument());
+    primo.unmount();
+
+    manifestRotto = false;
+    __clearMemoryCache();
+    __clearGeoCache();
+    renderModal({ countryCode: "IT", trips: [makeTrip({ region: "Lazio" })] });
+    await waitFor(() => expect(screen.getByText("1 regione su 5")).toBeInTheDocument());
+    const chiamate = (fetch as any).mock.calls.map((c: any[]) => String(c[0]));
+    expect(chiamate.filter((u: string) => u.includes("index.json"))).toHaveLength(2);
+    // e al secondo giro il pacchetto locale è tornato utilizzabile
+    expect(chiamate.some((u: string) => /\/confini\/IT\.json/.test(u))).toBe(true);
+  });
+
+  it("un manifest assente (404) invece non si richiede più: è una risposta definitiva", async () => {
+    global.fetch = vi.fn((input: any) => {
+      const u = String(input);
+      if (u.includes("/confini/")) return Promise.resolve({ ok: false, status: 404 } as any);
+      if (u.includes("geoboundaries.org")) return Promise.resolve({ ok: true, json: async () => ({ simplifiedGeometryGeoJSON: "https://fake/geo.json" }) } as any);
+      return Promise.resolve({ ok: true, text: async () => JSON.stringify({ type: "FeatureCollection", features: ITALY_FEATURES }) } as any);
+    }) as any;
+    const primo = renderModal({ countryCode: "IT", trips: [] });
+    await waitFor(() => expect(screen.getByText(/su 5/)).toBeInTheDocument());
+    primo.unmount();
+    __clearMemoryCache();
+    __clearGeoCache();
+    renderModal({ countryCode: "IT", trips: [] });
+    await waitFor(() => expect(screen.getByText(/su 5/)).toBeInTheDocument());
+    const manifest = (fetch as any).mock.calls.filter((c: any[]) => String(c[0]).includes("index.json"));
+    expect(manifest).toHaveLength(1);
+  });
+
   it("un file locale corrotto non blocca nulla: si va in rete", async () => {
     global.fetch = vi.fn((input: any) => {
       const u = String(input);
+      if (u.includes("/confini/index.json")) return Promise.resolve({ ok: true, json: async () => ({ paesi: ["IT"] }) } as any);
       if (u.includes("/confini/")) return Promise.resolve({ ok: true, json: async () => { throw new Error("json rotto"); } } as any);
       if (u.includes("geoboundaries.org")) return Promise.resolve({ ok: true, json: async () => ({ simplifiedGeometryGeoJSON: "https://fake/geo.json" }) } as any);
       return Promise.resolve({ ok: true, text: async () => JSON.stringify({ type: "FeatureCollection", features: ITALY_FEATURES }) } as any);

@@ -95,6 +95,44 @@ const ADM_LEVEL_BY_COUNTRY: Record<string, "ADM1" | "ADM2"> = {
 };
 
 /**
+ * L'elenco dei paesi presenti nel pacchetto locale, letto UNA volta per
+ * sessione da `confini/index.json` (lo scrive `npm run confini`).
+ *
+ * Senza elenco ogni apertura di un paese non incluso sparava una richiesta
+ * destinata al 404 — rumore negli strumenti di rete e, su GitHub Pages, una
+ * pagina d'errore intera scaricata per nulla. Se il manifest non c'è (nessun
+ * paese ancora generato) l'insieme è vuoto e il pacchetto locale viene
+ * saltato del tutto: si va in rete come prima.
+ */
+let elencoLocale: Promise<Set<string>> | null = null;
+function paesiNelPacchetto(): Promise<Set<string>> {
+  if (!elencoLocale) {
+    elencoLocale = fetch(`${import.meta.env.BASE_URL}confini/index.json`)
+      .then(r => {
+        if (r.ok) return r.json();
+        // 404 = il pacchetto non esiste: è una risposta definitiva, si tiene.
+        if (r.status === 404) return null;
+        throw new Error(`manifest ${r.status}`);
+      })
+      .then(j => new Set<string>(Array.isArray(j?.paesi) ? j.paesi.map((c: string) => String(c).toUpperCase()) : []))
+      .catch(() => {
+        // Un errore di RETE non si cristallizza (la lezione di loadGis): se il
+        // manifest non è arrivato perché l'app è partita offline, tenerlo in
+        // cache significherebbe ignorare il pacchetto locale — che il service
+        // worker avrebbe — per tutto il resto della sessione.
+        elencoLocale = null;
+        return new Set<string>();
+      });
+  }
+  return elencoLocale;
+}
+
+/** Test-only: dimentica il manifest dei confini locali. */
+export function __clearElencoLocale() {
+  elencoLocale = null;
+}
+
+/**
  * I confini ospitati da NOI (`public/confini/<ISO2>.json`, generati una volta
  * con `npm run confini`). Stesso dominio dell'app: nessun limite di richieste,
  * nessun CORS, e il service worker li tiene offline.
@@ -104,6 +142,7 @@ const ADM_LEVEL_BY_COUNTRY: Record<string, "ADM1" | "ADM2"> = {
  */
 async function fetchConfiniLocali(code2: string): Promise<RegionFeature[] | null> {
   try {
+    if (!(await paesiNelPacchetto()).has(code2)) return null;
     const r = await fetch(`${import.meta.env.BASE_URL}confini/${code2}.json`);
     if (!r.ok) return null;
     const j = await r.json();
@@ -114,12 +153,22 @@ async function fetchConfiniLocali(code2: string): Promise<RegionFeature[] | null
   }
 }
 
-async function fetchCountryRegions(countryCode2: string): Promise<RegionFeature[] | null> {
+/**
+ * I confini del paese e la loro PROVENIENZA. Chi chiama deve saperlo: i
+ * confini presi dalla rete vale la pena persisterli in localStorage (evitano
+ * un fetch limitato), quelli del pacchetto locale no — sarebbero una seconda
+ * copia degli stessi dati, nello spazio (5 MB in tutto) che l'app condivide
+ * con i viaggi: bastano tre o quattro paesi per rischiare di non poter più
+ * salvare un viaggio. Il file locale è già cache del service worker.
+ */
+type EsitoConfini = { features: RegionFeature[]; locale: boolean };
+
+async function fetchCountryRegions(countryCode2: string): Promise<EsitoConfini | null> {
   const code2 = countryCode2?.toUpperCase();
   const iso3 = ISO2_TO_ISO3[code2];
   if (!iso3) return null;
   const locali = await fetchConfiniLocali(code2);
-  if (locali) return locali;
+  if (locali) return { features: locali, locale: true };
   const admLevel = ADM_LEVEL_BY_COUNTRY[code2] ?? "ADM1";
   try {
     const metaUrl = `https://www.geoboundaries.org/api/current/gbOpen/${iso3}/${admLevel}/`;
@@ -131,7 +180,8 @@ async function fetchCountryRegions(countryCode2: string): Promise<RegionFeature[
     if (!geoUrl) return null;
     const geo = await fetchGithubRawJson(geoUrl);
     const features = geo?.features;
-    return Array.isArray(features) && features.length > 0 ? (features as RegionFeature[]) : null;
+    if (!Array.isArray(features) || features.length === 0) return null;
+    return { features: features as RegionFeature[], locale: false };
   } catch (e) {
     // Il MOTIVO non va inghiottito: "troppe richieste" e "sei senza rete" non
     // sono "questo paese non è supportato", e prima finivano tutti nello
@@ -437,10 +487,14 @@ function collectVisitedRegions(trips: Trip[], countryCode?: string): { name: str
       // l'Austria comparivano anche "Slovenia" e "Friuli-Venezia Giulia",
       // regioni di altri stati. Il codice ISO 3166-2 porta il paese nel
       // prefisso ("IT-36"); le voci vecchie senza codice si tengono solo se il
-      // viaggio stesso è di quel paese.
+      // viaggio stesso è di quel paese — e se nemmeno il viaggio dichiara un
+      // paese non si butta nulla: non c'è NIENTE che dica che la regione sia
+      // di un altro stato, e scartarla farebbe sparire dall'elenco le regioni
+      // dei viaggi più vecchi (scritti prima del codice ISO) senza motivo.
       if (paese) {
         const prefisso = entry.code?.split("-")[0]?.toUpperCase();
-        const ammessa = prefisso ? prefisso === paese : (t.country_code ?? "").toUpperCase() === paese;
+        const paeseViaggio = (t.country_code ?? "").toUpperCase();
+        const ammessa = prefisso ? prefisso === paese : (paeseViaggio ? paeseViaggio === paese : true);
         if (!ammessa) continue;
       }
       const key = entry.code ? `code:${entry.code.toUpperCase()}` : `name:${entry.name.toLowerCase()}`;
@@ -460,6 +514,10 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
   const [error, setError] = useState<MotivoErrore | null>(null);
   const [visitedRegions, setVisitedRegions] = useState<string[]>([]);
   const [totalRegions, setTotalRegions] = useState(0);
+  // Il contatore dei tentativi: cambiarlo rilancia il caricamento. Serve per
+  // "Riprova" — il messaggio invitava a riprovare senza darne il modo, e la
+  // sola strada era chiudere e riaprire il pannello.
+  const [tentativo, setTentativo] = useState(0);
 
   const visitedList = collectVisitedRegions(trips, countryCode);
   const punti = visitedPoints(trips);
@@ -484,11 +542,14 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
           if (features) geoCache[countryCode] = features;
         }
         if (!features) {
-          features = await fetchCountryRegions(countryCode);
+          const esito = await fetchCountryRegions(countryCode);
           if (cancelled) return; // modal chiuso o paese cambiato durante il fetch
-          if (!features) throw new Error("Nessuna suddivisione disponibile");
+          if (!esito) throw new Error("Nessuna suddivisione disponibile");
+          features = esito.features;
           geoCache[countryCode] = features;
-          writePersistedFeatures(countryCode, features);
+          // Solo i confini scaricati dalla rete: quelli del pacchetto locale
+          // sono già serviti dal nostro dominio e cacheati dal service worker.
+          if (!esito.locale) writePersistedFeatures(countryCode, features);
         }
         if (cancelled) return;
 
@@ -533,7 +594,13 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
     load();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [countryCode]);
+  }, [countryCode, tentativo]);
+
+  const riprova = () => {
+    setError(null);
+    setLoading(true);
+    setTentativo(n => n + 1);
+  };
 
   const pct = totalRegions > 0 ? Math.round((visitedRegions.length / totalRegions) * 100) : 0;
 
@@ -589,10 +656,19 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
             <div style={{ textAlign: "center", color: "rgba(255,255,255,0.6)", fontSize: 13 }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>{error === "assente" ? "🗺️" : "⏳"}</div>
               <div>
-                {error === "limite" ? (<>Troppe richieste al servizio dei confini.<br/><span style={{ color: "rgba(255,255,255,0.5)" }}>Riprova tra qualche minuto.</span></>)
+                {error === "limite" ? (<>Troppe richieste al servizio dei confini.<br/><span style={{ color: "rgba(255,255,255,0.5)" }}>Aspetta qualche minuto.</span></>)
                   : error === "offline" ? (<>Sei senza connessione.<br/><span style={{ color: "rgba(255,255,255,0.5)" }}>I confini si scaricano quando torni online.</span></>)
                   : "Mappa non disponibile per questo paese."}
               </div>
+              {/* "Riprova" solo dove riprovare ha senso: se il paese non ha
+                  suddivisioni, insistere darebbe sempre lo stesso esito. */}
+              {error !== "assente" && (
+                <button onClick={riprova} style={{
+                  marginTop: 12, padding: "6px 14px", borderRadius: 8,
+                  border: "1px solid rgba(96,165,250,0.45)", background: "rgba(96,165,250,0.12)",
+                  color: "rgba(191,219,254,0.95)", fontSize: 12, cursor: "pointer",
+                }}>Riprova</button>
+              )}
               {visitedList.length > 0 && (
                 <div style={{ marginTop: 8, fontSize: 11 }}>
                   Regioni visitate: {visitedList.map(v => v.name).join(", ")}

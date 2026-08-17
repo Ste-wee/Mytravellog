@@ -46,12 +46,12 @@ const dorme = ms => new Promise(r => setTimeout(r, ms));
 const isLfs = t => t.trimStart().startsWith("version https://git-lfs");
 
 /** GET con ritentativi sul 429: il limite si supera aspettando, non insistendo. */
-async function prendi(url, tentativi = 4) {
+async function prendi(url, tentativi = 3) {
   for (let i = 0; i < tentativi; i++) {
     const r = await fetch(url);
     if (r.status !== 429) return r;
-    const attesa = 20000 * (i + 1);
-    console.log(`    429, aspetto ${attesa / 1000}s…`);
+    const attesa = 15000 * (i + 1);
+    console.log(`    limite di richieste raggiunto: aspetto ${attesa / 1000}s (tentativo ${i + 1}/${tentativi})…`);
     await dorme(attesa);
   }
   return fetch(url);
@@ -62,23 +62,47 @@ function arrotonda(geom, dec = 3) {
   return { ...geom, coordinates: f(geom.coordinates) };
 }
 
-/** Douglas-Peucker: butta i vertici che non cambiano la forma a questa scala. */
+/**
+ * Douglas-Peucker: butta i vertici che non cambiano la forma a questa scala.
+ * ITERATIVO con pila esplicita: la versione ricorsiva, su anelli da decine di
+ * migliaia di vertici quasi allineati (Italia ADM2 è il caso peggiore),
+ * può arrivare a profondità O(n) e far esplodere lo stack — proprio sul paese
+ * che ci serve più di tutti.
+ */
 function dp(punti, eps) {
-  if (punti.length < 3) return punti;
-  const [ax, ay] = punti[0], [bx, by] = punti[punti.length - 1];
-  let max = 0, idx = 0;
-  for (let i = 1; i < punti.length - 1; i++) {
-    const [x, y] = punti[i];
+  const n = punti.length;
+  if (n < 3) return punti;
+  const tieni = new Uint8Array(n);
+  tieni[0] = tieni[n - 1] = 1;
+  const pila = [[0, n - 1]];
+  while (pila.length) {
+    const [a, b] = pila.pop();
+    if (b - a < 2) continue;
+    const [ax, ay] = punti[a], [bx, by] = punti[b];
     const den = Math.hypot(by - ay, bx - ax) || 1e-12;
-    const d = Math.abs((by - ay) * x - (bx - ax) * y + bx * ay - by * ax) / den;
-    if (d > max) { max = d; idx = i; }
+    let max = 0, idx = -1;
+    for (let i = a + 1; i < b; i++) {
+      const [x, y] = punti[i];
+      const d = Math.abs((by - ay) * x - (bx - ax) * y + bx * ay - by * ax) / den;
+      if (d > max) { max = d; idx = i; }
+    }
+    if (idx !== -1 && max > eps) {
+      tieni[idx] = 1;
+      pila.push([a, idx], [idx, b]);
+    }
   }
-  if (max <= eps) return [punti[0], punti[punti.length - 1]];
-  return [...dp(punti.slice(0, idx + 1), eps).slice(0, -1), ...dp(punti.slice(idx), eps)];
+  return punti.filter((_, i) => tieni[i]);
 }
 function semplifica(geom, eps = 0.004) {
-  // Un anello sotto i 5 punti è già minimo: toccarlo lo farebbe degenerare.
-  const anello = r => (r.length > 4 ? dp(r, eps) : r);
+  // Un anello sotto i 5 punti è già minimo. E se la semplificazione lo riduce
+  // sotto i 4 punti si tiene l'ORIGINALE: un "poligono" di 2-3 punti non è
+  // un'area — verrebbe disegnato come una linea e pointInPolygon non lo
+  // riconoscerebbe mai come visitato (succede a regioni minute e isole).
+  const anello = r => {
+    if (r.length <= 4) return r;
+    const s = dp(r, eps);
+    return s.length >= 4 ? s : r;
+  };
   const poly = p => p.map(anello);
   return { ...geom, coordinates: geom.type === "Polygon" ? poly(geom.coordinates) : geom.coordinates.map(poly) };
 }
@@ -142,5 +166,16 @@ for (const iso2 of lista) {
   await dorme(1500); // gentili col servizio: è gratuito e senza chiave
 }
 
-console.log(`\nTotale: ${kb(totale)} sul disco, ${kb(totaleGz)} come li serve GitHub Pages`);
+// Il manifest: l'app lo legge una volta e tenta il file locale SOLO per i
+// paesi che ci sono, invece di sparare un 404 per ogni paese non incluso.
+// Si ricostruisce dai file presenti nella cartella, non dalla lista di questo
+// giro: così generare un paese alla volta non cancella gli altri.
+const presenti = fs.readdirSync(DEST)
+  .filter(f => /^[A-Z]{2}\.json$/.test(f))
+  .map(f => f.slice(0, 2))
+  .sort();
+fs.writeFileSync(path.join(DEST, "index.json"), JSON.stringify({ paesi: presenti }));
+console.log(`\nManifest: ${presenti.length} paesi in public/confini/index.json`);
+
+console.log(`Totale: ${kb(totale)} sul disco, ${kb(totaleGz)} come li serve GitHub Pages`);
 if (falliti.length) console.log(`Non generati (${falliti.length}):\n  ` + falliti.join("\n  "));
