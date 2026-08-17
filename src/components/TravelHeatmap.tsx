@@ -1,5 +1,6 @@
 import { useMemo, useState, Fragment } from "react";
 import { Trip, parseLocalDate, formatTripDate } from "@/lib/storage";
+import { stopChain } from "@/lib/stops";
 import { Hourglass, CalendarDays, X } from "lucide-react";
 
 const MONTH_LABELS = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
@@ -194,10 +195,16 @@ export function TravelHeatmap({ trips }: Props) {
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {selectedMonthTrips.map(t => (
               <div key={t.id} style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
-                {t.city}
-                <span style={{ color: "rgba(255,255,255,0.6)" }}>
-                  {" · " + formatTripDate(t.trip_date)}
-                  {t.date_end && t.date_end !== t.trip_date ? ` → ${formatTripDate(t.date_end)}` : ""}
+                {/* La catena delle tappe, come la fila sul biglietto: prima si
+                    leggeva solo la destinazione, quindi un Milano→Trieste→
+                    Ljubljana→Vienna nominava una meta su quattro. Con una sola
+                    meta resta il nome nudo (non c'è nessun percorso da dire). */}
+                <span style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {stopChain(t) ?? t.city}
+                  <span style={{ color: "rgba(255,255,255,0.6)" }}>
+                    {" · " + formatTripDate(t.trip_date)}
+                    {t.date_end && t.date_end !== t.trip_date ? ` → ${formatTripDate(t.date_end)}` : ""}
+                  </span>
                 </span>
               </div>
             ))}

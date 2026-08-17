@@ -6,6 +6,7 @@ import { loadTrips, updateTrip, formatTripDate, Trip } from "@/lib/storage";
 import { distanceKm } from "@/lib/geo";
 import { hasCoords } from "@/lib/coords";
 import { tripTotalKm } from "@/lib/flyover";
+import { stopChain } from "@/lib/stops";
 import { fmtDistance, useSettings } from "@/lib/settings";
 import { TRANSPORT, isTransportMode } from "@/lib/transport";
 import { Route, Globe, MapPin, Pencil, Plane, Plus, Video, X, ChevronDown } from "lucide-react";
@@ -334,7 +335,13 @@ function HomeInner() {
                       <div style={{fontSize:13, fontWeight:700, color:"#f0f4ff", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>
                         {selectedTrip.title && selectedTrip.title !== selectedTrip.city ? selectedTrip.title : selectedTrip.city}
                       </div>
-                      <div style={{fontSize:11, color:"rgba(255,255,255,0.6)"}}>{selectedTrip.city}, {selectedTrip.country}</div>
+                      {/* Con le tappe si legge l'itinerario, non solo l'arrivo:
+                          prima un Milano→Trieste→Ljubljana→Vienna diceva
+                          "Vienna, Austria" e le tappe di passaggio sparivano.
+                          Senza tappe non c'è percorso da dire: resta città+paese. */}
+                      <div style={{fontSize:11, color:"rgba(255,255,255,0.6)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>
+                        {stopChain(selectedTrip) ?? `${selectedTrip.city}, ${selectedTrip.country}`}
+                      </div>
                     </div>
                     <button onClick={() => setSelectedId(null)} aria-label="Chiudi scheda viaggio"
                       style={{width:24, height:24, background:"none", border:"none", cursor:"pointer", color:"rgba(255,255,255,0.6)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0}}>
