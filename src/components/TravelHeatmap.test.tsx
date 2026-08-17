@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { TravelHeatmap } from "./TravelHeatmap";
 import type { Trip } from "@/lib/storage";
 
@@ -45,6 +45,25 @@ describe("TravelHeatmap — dettaglio del mese", () => {
     render(<TravelHeatmap trips={[trip({ waypoints: [tappa("Trieste")] })]} />);
     apriMese();
     expect(screen.getByText(/15 giu 2024/)).toBeInTheDocument();
+  });
+
+  // Il fade-indizio dello scroll deve ricalcolarsi anche al RESIZE: ruotando
+  // il telefono la griglia può iniziare (o smettere) di scorrere senza che
+  // nessuno la tocchi. jsdom non misura: si fingono le dimensioni e si spara
+  // l'evento — se il listener sparisce, il fade non compare mai.
+  it("il fade compare dopo un resize che rende la griglia scorrevole", async () => {
+    const { container } = render(<TravelHeatmap trips={[trip()]} />);
+    const scroller = [...container.querySelectorAll("div")].find(d => d.style.overflowX === "auto")!;
+    // Il fade si riconosce dal fratello aria-hidden con pointer-events none:
+    // jsdom SCARTA il background linear-gradient (cssstyle non lo supporta),
+    // quindi non si può cercare per gradiente come nel browser vero.
+    const fade = () => [...scroller.parentElement!.children].find(
+      c => c !== scroller && c.getAttribute("aria-hidden") !== null);
+    expect(fade()).toBeUndefined(); // jsdom: misure a 0, niente da scorrere
+    Object.defineProperty(scroller, "scrollWidth", { value: 460, configurable: true });
+    Object.defineProperty(scroller, "clientWidth", { value: 320, configurable: true });
+    await act(async () => { window.dispatchEvent(new Event("resize")); });
+    expect(fade()).toBeDefined();
   });
 
   // La catena NON si tronca: l'ellipsis si mangiava proprio l'arrivo

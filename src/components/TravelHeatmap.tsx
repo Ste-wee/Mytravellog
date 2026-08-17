@@ -1,4 +1,4 @@
-import { useMemo, useState, Fragment } from "react";
+import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Trip, parseLocalDate, formatTripDate } from "@/lib/storage";
 import { stopChain } from "@/lib/stops";
 import { Hourglass, CalendarDays, X } from "lucide-react";
@@ -99,7 +99,20 @@ export function TravelHeatmap({ trips }: Props) {
   // su touch non esiste, e così l'interazione è identica su ogni dispositivo).
   const [selectedCell, setSelectedCell] = useState<{ year: number; month: number } | null>(null);
   // C'è ancora griglia oltre il bordo destro? Guida la sfumatura-indizio.
+  // Si ricalcola su scroll, al mount/cambio viaggi E al RESIZE: ruotando il
+  // telefono la griglia può entrare tutta (o smettere di entrare) senza che
+  // nessuno scrolli, e lo stato resterebbe stantio fino al primo tocco.
   const [scrollabile, setScrollabile] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const aggiorna = () => {
+      const el = scrollRef.current;
+      if (el) setScrollabile(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+    };
+    aggiorna();
+    window.addEventListener("resize", aggiorna);
+    return () => window.removeEventListener("resize", aggiorna);
+  }, [trips]);
   const selectedMonthTrips = useMemo(
     () => selectedCell ? tripsTouchingMonth(trips, selectedCell.year, selectedCell.month) : [],
     [trips, selectedCell]
@@ -138,11 +151,9 @@ export function TravelHeatmap({ trips }: Props) {
           SFUMATURA sul bordo destro dice che c'è altro oltre il taglio
           ("Lug A…" troncato sembrava un difetto): sparisce a fine corsa. */}
       <div style={{ position: "relative" }}>
-        <div style={{ overflowX: "auto" }} onScroll={e => {
+        <div style={{ overflowX: "auto" }} ref={scrollRef} onScroll={e => {
           const el = e.currentTarget;
           setScrollabile(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
-        }} ref={el => {
-          if (el) setScrollabile(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
         }}>
         <div style={{ display: "grid", gridTemplateColumns: "34px repeat(12,1fr)", gap: 4, alignItems: "center", minWidth: 460 }}>
           <div />
