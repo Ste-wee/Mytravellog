@@ -49,13 +49,22 @@ describe("computeYearRecap", () => {
     expect(r.km).toBeLessThan(345);
   });
 
-  it("una date_end assurda (anno 9999) non gonfia i giorni oltre 366", () => {
+  it("una date_end assurda (anno 9999) non conta niente, invece di regalare 366 giorni finti", () => {
     const trips = [
-      makeTrip({ trip_date: "2026-06-01", date_end: "9999-12-31" }),
+      makeTrip({ trip_date: "2026-06-01", date_end: "9999-12-31" }), // span assurdo → saltato
       makeTrip({ trip_date: "2026-07-01", date_end: "2026-07-02" }), // 2 giorni
     ];
     const r = computeYearRecap(trips, 2026);
-    expect(r.days).toBe(366 + 2);
+    expect(r.days).toBe(2);
+  });
+
+  it("IL BUG dei giorni condivisi: torni il 5 e riparti il 5, quel giorno conta UNA volta", () => {
+    const trips = [
+      makeTrip({ trip_date: "2026-06-01", date_end: "2026-06-05" }), // 5 giorni
+      makeTrip({ trip_date: "2026-06-05", date_end: "2026-06-07" }), // 3 giorni, il 5 condiviso
+    ];
+    const r = computeYearRecap(trips, 2026);
+    expect(r.days).toBe(7); // 5 + 3 - 1, non 8
   });
 
   it("individua i record (più lontano/alto/caldo/freddo) e il paese top", () => {

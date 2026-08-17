@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Trip, parseLocalDate, formatTripDate } from "@/lib/storage";
+import { calendarDayKeys } from "@/lib/travelDays";
 import { stopChain } from "@/lib/stops";
 import { Hourglass, CalendarDays, X } from "lucide-react";
 import { fmtNumber } from "@/lib/settings";
@@ -12,23 +13,14 @@ const MONTH_LABELS = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "S
  * due mesi/anni contribuisce a entrambi in proporzione ai giorni effettivi.
  */
 export function computeMonthlyTravelDays(trips: Trip[]): Map<string, number> {
+  // I giorni si contano UNICI (calendarDayKeys): prima due viaggi che
+  // condividevano un giorno — torni il 21 e riparti il 21 — lo contavano due
+  // volte, gonfiando cella del mese e totale (una cella poteva pure superare
+  // i giorni del mese). Le guardie sulle date malformate vivono nell'helper.
   const map = new Map<string, number>();
-  const MAX_SPAN_DAYS = 366 * 30; // ~30 anni: oltre è quasi certamente una data corrotta
-  for (const t of trips) {
-    const start = parseLocalDate(t.trip_date);
-    const end = t.date_end ? parseLocalDate(t.date_end) : start;
-    if (end < start) continue;
-    // Guardia: una data malformata (es. anno a 5 cifre "20250-06-01") produce
-    // uno span enorme e il while sotto itererebbe centinaia di migliaia di
-    // volte, congelando la UI. NaN (data non valida) non è finito → saltato.
-    const spanDays = (end.getTime() - start.getTime()) / 86400000;
-    if (!Number.isFinite(spanDays) || spanDays > MAX_SPAN_DAYS) continue;
-    const cur = new Date(start);
-    while (cur <= end) {
-      const key = `${cur.getFullYear()}-${cur.getMonth()}`;
-      map.set(key, (map.get(key) ?? 0) + 1);
-      cur.setDate(cur.getDate() + 1);
-    }
+  for (const key of calendarDayKeys(trips)) {
+    const meseKey = key.slice(0, key.lastIndexOf("-"));
+    map.set(meseKey, (map.get(meseKey) ?? 0) + 1);
   }
   return map;
 }

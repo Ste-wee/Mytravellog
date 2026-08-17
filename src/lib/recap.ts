@@ -1,4 +1,5 @@
 import { Trip } from "@/lib/storage";
+import { calendarDayKeys } from "@/lib/travelDays";
 import { tripTotalKm } from "@/lib/flyover";
 import { computeKmByTransportMode } from "@/components/TravelHighlights";
 
@@ -74,16 +75,14 @@ export function computeYearRecap(allTrips: Trip[], year: number): YearRecap {
   }
 
   const km = trips.reduce((s, t) => s + tripTotalKm(t), 0);
-  const days = trips.reduce((s, t) => {
-    if (!t.date_end || t.date_end === t.trip_date) return s + 1;
-    const d = Math.round((new Date(t.date_end).getTime() - new Date(t.trip_date).getTime()) / 86400000);
-    // date_end malformata → d = NaN: senza guardia, un solo viaggio corrotto
-    // rendeva NaN i giorni dell'INTERO anno ("NaN giorni" nel recap).
-    // Cap a 366: una date_end valida ma assurda (es. anno 9999) gonfiava il
-    // recap a milioni di giorni; più di un anno intero in un recap ANNUALE
-    // non ha comunque senso.
-    return s + (Number.isFinite(d) ? Math.min(Math.max(1, d + 1), 366) : 1); // inclusivo, come TripCardTicket/heatmap
-  }, 0);
+  // Giorni di calendario UNICI (calendarDayKeys, la stessa fonte della
+  // heatmap): la vecchia somma per-viaggio contava due volte i giorni
+  // condivisi (torni il 21, riparti il 21) e poteva divergere dal totale
+  // mostrato in Statistiche. Le guardie su date malformate/ritorni prima
+  // della partenza vivono nell'helper; resta il tetto a 366 di prima —
+  // più di un anno intero in un recap ANNUALE non ha senso (ci si arriva
+  // solo con un viaggio a cavallo d'anno dalle date assurde).
+  const days = Math.min(Math.max(trips.length > 0 ? 1 : 0, calendarDayKeys(trips).size), 366);
 
   const byMode = computeKmByTransportMode(trips) as unknown as Record<string, number>;
   const topMode = Object.entries(byMode).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;

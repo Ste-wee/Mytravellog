@@ -173,6 +173,16 @@ describe("TravelHeatmap — render", () => {
     expect(screen.getByText("0")).toBeInTheDocument();
   });
 
+  it("i giorni condivisi da due viaggi contano UNA volta anche nel totale della heatmap", () => {
+    render(React.createElement(TravelHeatmap, {
+      trips: [
+        makeTrip({ trip_date: "2024-06-15", date_end: "2024-06-21" }), // 7 giorni
+        makeTrip({ trip_date: "2024-06-21", date_end: "2024-06-25" }), // 5, il 21 condiviso
+      ],
+    }));
+    expect(screen.getByText("11")).toBeInTheDocument(); // 7 + 5 - 1, non 12
+  });
+
   it("mostra il totale corretto di giorni in viaggio (conteggio inclusivo, non differenza di date)", () => {
     render(React.createElement(TravelHeatmap, {
       trips: [
