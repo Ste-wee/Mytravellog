@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Trip } from "@/lib/storage";
 import { polygonsOf } from "@/lib/worldAtlas";
+import { pointInPolygons } from "@/lib/pointInPolygon";
+import { hasCoords } from "@/lib/coords";
+import { useModalFocus } from "@/lib/useModalFocus";
 import { ISO2_TO_ISO3 } from "@/lib/iso3166";
 import { X } from "lucide-react";
 
@@ -356,6 +360,24 @@ function regionMatches(
  * salvati prima di quel campo, ricade sul parsing del vecchio campo region
  * (stringa con nomi separati da virgola, nessun codice).
  */
+/**
+ * Tutti i punti toccati dai viaggi: destinazione E tappe intermedie.
+ * Il dato di regione (`region_details`) l'app lo calcola SOLO per la
+ * destinazione finale, quindi un Milano→Trieste→Vienna non faceva risultare
+ * visitata nessuna regione italiana pur passando da Trieste. Con le coordinate
+ * si risale alla regione dai confini che stiamo già disegnando.
+ */
+function visitedPoints(trips: Trip[]): { lon: number; lat: number }[] {
+  const pts: { lon: number; lat: number }[] = [];
+  for (const t of trips) {
+    if (hasCoords(t.latitude, t.longitude)) pts.push({ lon: t.longitude, lat: t.latitude });
+    for (const w of t.waypoints ?? []) {
+      if (hasCoords(w.lat, w.lon)) pts.push({ lon: w.lon!, lat: w.lat! });
+    }
+  }
+  return pts;
+}
+
 function collectVisitedRegions(trips: Trip[]): { name: string; code: string | null }[] {
   const seen = new Set<string>();
   const out: { name: string; code: string | null }[] = [];
@@ -381,6 +403,10 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
   const [totalRegions, setTotalRegions] = useState(0);
 
   const visitedList = collectVisitedRegions(trips);
+  const punti = visitedPoints(trips);
+  // Focus dentro il pannello all'apertura, ciclo chiuso sul Tab, ritorno al
+  // trigger alla chiusura: era l'ultimo overlay dell'app senza gestione focus.
+  const panelRef = useModalFocus<HTMLDivElement>();
 
   // Esc chiude il modale (prima solo click fuori / X).
   useEffect(() => {
@@ -420,7 +446,10 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
         features.forEach(f => {
           const geoName: string = f.properties?.shapeName ?? "";
           const geoCode: string | null = f.properties?.shapeISO ?? null;
-          const isVisited = visitedList.some(v => regionMatches(v, geoName, geoCode, countryCode));
+          // Visitata per NOME/codice (destinazione con region_details) oppure
+          // perché una tappa cade dentro i suoi confini (Trieste & co.).
+          const isVisited = visitedList.some(v => regionMatches(v, geoName, geoCode, countryCode))
+            || punti.some(p => pointInPolygons(p.lon, p.lat, polygonsOf(f.geometry)));
           if (isVisited) visited.push(geoName);
 
           ctx.save();
@@ -449,17 +478,22 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
 
   const pct = totalRegions > 0 ? Math.round((visitedRegions.length / totalRegions) * 100) : 0;
 
-  return (
-    <div style={{
+  // Portal sul body: il modale vive dentro la card di Statistiche, che ha
+  // .animate-fade-up — e un antenato con `transform` diventa il riferimento
+  // dei discendenti `position:fixed`. Così il pannello si ancorava alla card e
+  // si sovrapponeva alla sezione sotto invece di coprire lo schermo.
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-label={`Mappa di ${countryName}`} style={{
       position: "fixed", inset: 0, zIndex: 100,
       background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
       display: "flex", alignItems: "center", justifyContent: "center",
       padding: 20,
     }} onClick={onClose}>
-      <div style={{
+      <div ref={panelRef} tabIndex={-1} style={{
         background: "#0a1628", border: "0.5px solid #1a2d4a", borderRadius: 16,
         width: "100%", maxWidth: 580, maxHeight: "90vh",
         display: "flex", flexDirection: "column", overflow: "hidden",
+        outline: "none",
       }} onClick={e => e.stopPropagation()}>
 
         {/* Header */}
@@ -510,6 +544,7 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

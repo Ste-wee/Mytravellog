@@ -566,3 +566,68 @@ describe("CountryMapModal — abbinamento regioni greche (nome greco → traslit
     await waitFor(() => expect(screen.getByText("1 regione su 3")).toBeInTheDocument());
   });
 });
+
+// IL CASO SEGNALATO DA STEFANO: un viaggio multi-tappa che passa da Trieste
+// dava "0 regioni su 20" per l'Italia. Il dato di regione (region_details)
+// l'app lo calcola SOLO per la destinazione finale (Vienna), quindi le tappe
+// intermedie non contavano nulla — pur facendo comparire l'Italia nell'elenco
+// dei paesi, che invece usa le coordinate. Ora una regione conta come visitata
+// anche se una tappa cade dentro i suoi confini.
+describe("CountryMapModal — regioni riconosciute dalle TAPPE (coordinate)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  /** Regione quadrata attorno a un punto, per distinguerle nello spazio. */
+  function regioneAttorno(name: string, code: string, lon: number, lat: number) {
+    return {
+      type: "Feature",
+      properties: { shapeName: name, shapeISO: code },
+      geometry: { type: "Polygon", coordinates: [[
+        [lon - 1, lat - 1], [lon + 1, lat - 1], [lon + 1, lat + 1], [lon - 1, lat + 1], [lon - 1, lat - 1],
+      ]] },
+    };
+  }
+  // Friuli attorno a Trieste (13.77, 45.65), Lazio attorno a Roma (12.5, 41.9)
+  const DUE_REGIONI = [
+    regioneAttorno("Friuli-Venezia Giulia", "IT-36", 13.77, 45.65),
+    regioneAttorno("Lazio", "IT-62", 12.5, 41.9),
+  ];
+
+  it("una TAPPA a Trieste fa risultare visitato il Friuli", async () => {
+    mockGeoBoundaries(DUE_REGIONI);
+    renderModal({
+      trips: [makeTrip({
+        city: "Vienna", country: "Austria", country_code: "AT",
+        latitude: 48.21, longitude: 16.37,          // destinazione FUORI dall'Italia
+        region: null, region_details: null,          // nessun dato di regione italiano
+        waypoints: [{ id: "w1", city: "Trieste", country: "Italia", country_code: "IT",
+          transport_mode: "car", lat: 45.65, lon: 13.77 }],
+      })],
+    });
+    // NB: nel caso normale i nomi delle regioni non sono scritti (si vedono
+    // colorate sulla mappa); l'elenco testuale esiste solo nello stato d'errore.
+    expect(await screen.findByText(/1 regione su 2/i)).toBeInTheDocument();
+    expect(screen.getByText(/50%/)).toBeInTheDocument();
+  });
+
+  it("le regioni non toccate restano fuori dal conteggio", async () => {
+    mockGeoBoundaries(DUE_REGIONI);
+    renderModal({
+      trips: [makeTrip({
+        latitude: 45.65, longitude: 13.77, region: null, region_details: null, // Trieste come destinazione
+      })],
+    });
+    expect(await screen.findByText(/1 regione su 2/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Lazio/)).not.toBeInTheDocument();
+  });
+
+  it("una tappa senza coordinate non inventa regioni", async () => {
+    mockGeoBoundaries(DUE_REGIONI);
+    renderModal({
+      trips: [makeTrip({
+        latitude: 48.21, longitude: 16.37, region: null, region_details: null,
+        waypoints: [{ id: "w1", city: "Trieste", country: "Italia", country_code: "IT", transport_mode: "car" }],
+      })],
+    });
+    expect(await screen.findByText(/0 regioni su 2/i)).toBeInTheDocument();
+  });
+});
