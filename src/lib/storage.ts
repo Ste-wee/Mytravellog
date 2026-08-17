@@ -139,8 +139,20 @@ function persist(key: string, value: string): boolean {
   }
 }
 
+/**
+ * Toglie il campo `budget` (rimosso dall'app il 2026-08-16). Applicato su OGNI
+ * scrittura: così il dato sparisce da solo, senza bisogno di dichiarare "questo
+ * record è più recente" — che nel merge di Drive farebbe vincere una copia
+ * vecchia e riesumare i viaggi cancellati altrove.
+ */
+export function stripBudget<T extends object>(t: T): T {
+  if (!t || !("budget" in t)) return t;
+  const { budget: _via, ...rest } = t as T & { budget?: unknown };
+  return rest as T;
+}
+
 export function saveTrips(trips: Trip[]): boolean {
-  return persist(KEY, JSON.stringify(trips));
+  return persist(KEY, JSON.stringify(trips.map(stripBudget)));
 }
 
 /**
@@ -206,24 +218,25 @@ export function countTripsWithoutHome(): number {
 }
 
 /**
- * Cancella per sempre i budget salvati in viaggi e piani (scelta di Stefano
- * del 2026-08-16: l'app non tiene conti). Non è una semplice pulizia di
- * facciata: timbra `updated_at` sui record toccati, così il merge di Drive
- * porta la cancellazione anche sugli altri dispositivi invece di rimandare
- * indietro i vecchi importi. Idempotente: al secondo giro non trova nulla.
- * Ritorna quanti record ha ripulito (per i test).
+ * Cancella i budget salvati in viaggi e piani (scelta di Stefano del
+ * 2026-08-16: l'app non tiene conti). Idempotente; ritorna quanti record ha
+ * ripulito (per i test).
+ *
+ * NB: NON tocca `updated_at`. La prima versione lo timbrava per "far
+ * propagare la cancellazione", ed era un'arma carica: il merge di Drive
+ * confronta i record INTERI per data, quindi una copia locale vecchia
+ * dichiarata "appena modificata" (a) riportava indietro titoli, note, diario e
+ * itinerario modificati su un altro dispositivo, e (b) batteva la lapide di un
+ * viaggio cancellato altrove, facendolo resuscitare ovunque. La cancellazione
+ * si propaga senza bugie perché `saveTrips`/`savePlans` e `mergeTrips`
+ * tolgono il campo a ogni scrittura.
  */
 export function dropBudgetData(): number {
   let n = 0;
-  const strip = (list: Trip[]) => list.map(t => {
-    if (!("budget" in t)) return t;
-    n++;
-    const { budget: _dropped, ...rest } = t as Trip & { budget?: unknown };
-    return { ...rest, updated_at: new Date().toISOString() } as Trip;
-  });
-  const trips = strip(loadTrips());
-  const plans = strip(loadPlans());
-  if (n > 0) { saveTrips(trips); savePlans(plans); }
+  const conta = (list: Trip[]) => { n += list.filter(t => "budget" in t).length; return list; };
+  const trips = conta(loadTrips());
+  const plans = conta(loadPlans());
+  if (n > 0) { saveTrips(trips); savePlans(plans); } // lo strip lo fanno loro
   return n;
 }
 
@@ -252,7 +265,7 @@ export function loadPlans(): Trip[] {
 }
 
 export function savePlans(plans: Trip[]): boolean {
-  return persist(KEY_PLANS, JSON.stringify(plans));
+  return persist(KEY_PLANS, JSON.stringify(plans.map(stripBudget)));
 }
 
 export function addPlan(t: Omit<Trip, "id" | "created_at" | "status">, id?: string): Trip {
@@ -293,7 +306,11 @@ export function promotePlanToTrip(id: string): Trip | null {
   // dispositivi. È per bucket, quindi non tocca il viaggio con lo stesso id che
   // stiamo creando qui nel diario.
   recordTombstone("plans", id);
-  const done: Trip = { ...plan, status: "done", updated_at: new Date().toISOString() };
+  // `booked` è roba da viaggio in programma: un viaggio già fatto non è
+  // "prenotato". Senza toglierlo qui resterebbe appiccicato per sempre al
+  // ricordo (e nel backup) come campo-fossile che nessuno legge.
+  const { booked: _prenotato, ...senzaBooked } = plan;
+  const done: Trip = { ...senzaBooked, status: "done", updated_at: new Date().toISOString() };
   const trips = loadTrips();
   trips.unshift(done);
   saveTrips(trips);

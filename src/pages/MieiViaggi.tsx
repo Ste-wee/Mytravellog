@@ -330,7 +330,7 @@ export default function MieiViaggi() {
         <TripFlyover lifeMap onClose={() => setCompanionMap(null)}
           trips={trips.filter(t => (t.companions ?? []).some(c => c.toLowerCase() === companionMap.toLowerCase()))} />
       )}
-      {/* Budget e cose da organizzare del viaggio in programma, senza cambiare
+      {/* Cose da organizzare del viaggio in programma, senza cambiare
           pagina. onChanged ricarica ANCHE i viaggi: "Segna come fatto" sposta
           il piano nel diario, e la lista qui sotto deve accorgersene. */}
       {openPlanId && plans.some(p => p.id === openPlanId) && (

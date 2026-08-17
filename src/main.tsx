@@ -41,16 +41,18 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 // Spazio di localStorage esaurito: prima il salvataggio falliva in silenzio e
 // l'utente credeva di aver salvato. Un toast persistente lo dice chiaramente e
 // suggerisce l'unica via d'uscita utile (liberare spazio / backup su Drive).
-// I budget non esistono più (2026-08-16): si cancellano una volta per tutte
-// all'avvio, prima che l'app legga i viaggi. Idempotente e silenzioso.
-try { dropBudgetData(); } catch { /* storage non disponibile: si riprova al prossimo avvio */ }
-
 setStorageErrorHandler(() => {
   toast.error("Spazio del browser esaurito: il viaggio NON è stato salvato.", {
     description: "Libera spazio eliminando qualche viaggio o foto; se hai il backup su Drive i dati restano lì.",
     duration: Infinity,
   });
 });
+
+// I budget non esistono più (2026-08-16): si cancellano all'avvio. DOPO
+// setStorageErrorHandler, non prima: con la memoria del browser piena la
+// scrittura fallisce, e prima l'avviso non era ancora installato — la pulizia
+// falliva in perfetto silenzio.
+try { dropBudgetData(); } catch { /* storage non disponibile: si riprova al prossimo avvio */ }
 
 function RouteFallback() {
   return (

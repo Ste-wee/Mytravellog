@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Trip, formatTripDate, updatePlan } from "@/lib/storage";
 import { planCountdown } from "@/lib/plans";
 import { MapPin, Check, CircleCheck, Circle } from "lucide-react";
@@ -28,6 +28,11 @@ export function PlanCard({ plan: p, onOpen }: { plan: Trip; onOpen: () => void }
   // La spunta si salva da sé: così le due pagine che usano questa card non
   // devono passare nulla (e "I miei viaggi" resta intoccato).
   const [booked, setBooked] = useState(!!p.booked);
+  // …ma deve anche ASCOLTARE: se la spunta cambia su un altro dispositivo, il
+  // sync di Drive riscrive i piani senza rimontare la card. Senza questo la
+  // card mostrerebbe il valore vecchio e il tocco successivo calcolerebbe il
+  // contrario di un valore stantio (sembra che la spunta non risponda).
+  useEffect(() => { setBooked(!!p.booked); }, [p.booked]);
 
   const toggleBooked = () => {
     const next = !booked;

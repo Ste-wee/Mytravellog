@@ -54,6 +54,17 @@ describe("PlanCard — spunta prenotato", () => {
     expect(onOpen).toHaveBeenCalled();
   });
 
+  // Se la spunta cambia su un altro dispositivo, il sync di Drive riscrive i
+  // piani senza rimontare la card: senza l'allineamento alla prop mostrerebbe
+  // il valore vecchio e il tocco dopo calcolerebbe il contrario di uno stantio.
+  it("si allinea quando il piano cambia da fuori (sync)", () => {
+    const p = plan();
+    const { rerender } = render(<PlanCard plan={p} onOpen={() => {}} />);
+    expect(screen.getByRole("button", { name: /Da prenotare/i })).toBeInTheDocument();
+    rerender(<PlanCard plan={{ ...p, booked: true }} onOpen={() => {}} />);
+    expect(screen.getByRole("button", { name: /Prenotato/i })).toBeInTheDocument();
+  });
+
   it("non mostra più nulla di economico", () => {
     render(<PlanCard plan={plan({ checklist: [{ text: "Volo", done: true }] })} onOpen={() => {}} />);
     expect(screen.queryByText(/budget/i)).not.toBeInTheDocument();

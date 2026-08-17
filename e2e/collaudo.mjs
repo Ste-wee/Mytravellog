@@ -118,16 +118,24 @@ await prova("mappa_della_vita",
 
 // I budget del seed devono essere stati cancellati da dropBudgetData:
 // nessun importo a schermo e nessuna traccia nello storage.
+// NB polarità: qui OGNI chiave vale "true = va bene", come nel resto del file.
+// La prima versione aveva `restaNelloStorage` (true = ROTTO) e una regex senza
+// backslash (/€s?d/), che non poteva fallire mai: due verifiche finte.
 esito.budgetCancellati = {
-  nessunImporto: await page.evaluate(() => !/€s?d/.test(document.body.innerText)),
-  restaNelloStorage: await page.evaluate(() =>
-    ((localStorage.getItem("atlas.trips.v1") || "") + (localStorage.getItem("atlas.plans.v1") || "")).includes("budget")),
+  nessunImporto: await page.evaluate(() => !/€\s?\d/.test(document.body.innerText)),
+  nessunResiduoNelloStorage: await page.evaluate(() =>
+    !((localStorage.getItem("atlas.trips.v1") || "") + (localStorage.getItem("atlas.plans.v1") || "")).includes("budget")),
 };
 
 await browser.close();
 fs.writeFileSync(`${OUT}/collaudo.json`, JSON.stringify(esito, null, 2));
+// Regola del filtro: QUALUNQUE booleano falso è un problema. Prima erano
+// elencate a mano solo `mostra`/`pannello`/`aperta`, quindi ogni verifica
+// nuova (la spunta, i budget cancellati) veniva raccolta e poi ignorata: lo
+// script diceva "tutto a posto" anche con la spunta rotta.
 const problemi = Object.entries(esito).filter(([, v]) =>
-  (v.errori?.length ?? 0) > 0 || Object.values(v.mostra ?? {}).some(x => x === false) ||
-  v.pannello === false || v.aperta === false);
+  (v.errori?.length ?? 0) > 0 ||
+  Object.entries(v).some(([k, x]) => k !== "errori" && x === false) ||
+  Object.values(v.mostra ?? {}).some(x => x === false));
 console.log(JSON.stringify(esito, null, 2));
 console.log(problemi.length ? "\n⚠️  DA GUARDARE: " + problemi.map(p => p[0]).join(", ") : "\n✅ tutto a posto");

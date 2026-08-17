@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Trip, updatePlan, deletePlan, promotePlanToTrip } from "@/lib/storage";
@@ -23,10 +23,6 @@ const DEFAULT_CHECKLIST: ChecklistRow[] = [
   { text: "Prenota alloggio", done: false },
   { text: "Documenti / passaporto", done: false },
 ];
-
-function fmt(n: number): string {
-  return n.toLocaleString("it-IT");
-}
 
 /**
  * Pannello di pianificazione di un viaggio "in programma": itinerario con i

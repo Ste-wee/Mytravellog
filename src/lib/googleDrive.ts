@@ -1,4 +1,4 @@
-import { Trip, Tombstone } from "@/lib/storage";
+import { Trip, Tombstone, stripBudget } from "@/lib/storage";
 
 /**
  * Integrazione Google Drive (client-only, app statica su GitHub Pages).
@@ -304,7 +304,11 @@ export function mergeTrips(
   for (const [id, v] of byId) {
     const at = deletedAt.get(id);
     if (at != null && at >= v.ts) continue; // cancellato dopo l'ultima modifica
-    out.push(v.trip);
+    // I budget sono stati rimossi dall'app: se un record remoto ne porta
+    // ancora (backup scritto da una versione precedente, o da un dispositivo
+    // non ancora aggiornato) il campo muore qui, prima di tornare in locale e
+    // prima di essere riscritto sul backup. Nessuna data falsificata.
+    out.push(stripBudget(v.trip));
   }
   return out;
 }

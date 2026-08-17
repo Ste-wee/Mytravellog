@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   addPlan, loadPlans, updatePlan, deletePlan, promotePlanToTrip,
-  loadTrips, dropBudgetData, type Trip,
+  loadTrips, saveTrips, savePlans, dropBudgetData, type Trip,
 } from "./storage";
 
 function basePlan(over: Partial<Omit<Trip, "id" | "created_at" | "status">> = {}): Omit<Trip, "id" | "created_at" | "status"> {
@@ -62,6 +62,15 @@ describe("plans bucket (viaggi in programma)", () => {
     expect(trips[0].checklist).toEqual([{ text: "x", done: false }]);
   });
 
+  it("promotePlanToTrip NON si porta dietro la spunta prenotato", () => {
+    // "prenotato" ha senso su un viaggio da fare; su un ricordo è un fossile
+    // che resterebbe per sempre nel dato e nel backup.
+    const p = addPlan(basePlan({ booked: true }));
+    const done = promotePlanToTrip(p.id);
+    expect(done && "booked" in done).toBe(false);
+    expect("booked" in loadTrips()[0]).toBe(false);
+  });
+
   it("promotePlanToTrip ritorna null se l'id non esiste", () => {
     expect(promotePlanToTrip("inesistente")).toBeNull();
   });
@@ -104,13 +113,26 @@ describe("dropBudgetData — i budget spariscono per davvero", () => {
     expect(trips.find((t: Trip) => t.id === "t2").updated_at).toBeUndefined();
   });
 
-  it("timbra updated_at sui record ripuliti, così Drive propaga la cancellazione", () => {
+  // La prima versione timbrava `updated_at` "per far propagare la
+  // cancellazione". Era un'arma carica: nel merge di Drive vince il record
+  // INTERO più recente, quindi una copia locale vecchia dichiarata appena
+  // modificata riportava indietro titoli/note/diario cambiati altrove, e
+  // batteva perfino la lapide di un viaggio cancellato (che resuscitava).
+  it("NON tocca updated_at: nessuna data falsificata", () => {
     localStorage.setItem("atlas.trips.v1", JSON.stringify([
       { id: "t1", title: "Roma", budget: [{ label: "Volo", amount: 400 }], updated_at: "2020-01-01T00:00:00.000Z" },
     ]));
     dropBudgetData();
     const t = JSON.parse(localStorage.getItem("atlas.trips.v1")!)[0];
-    expect(t.updated_at > "2020-01-01T00:00:00.000Z").toBe(true);
+    expect(t.updated_at).toBe("2020-01-01T00:00:00.000Z");
+    expect("budget" in t).toBe(false);
+  });
+
+  it("saveTrips e savePlans tolgono il budget da sole, a ogni scrittura", () => {
+    saveTrips([{ id: "t1", title: "Roma", budget: [{ label: "Volo", amount: 9 }] } as unknown as Trip]);
+    savePlans([{ id: "p1", title: "Barcellona", status: "planned", budget: [{ label: "Hotel", amount: 9 }] } as unknown as Trip]);
+    expect(localStorage.getItem("atlas.trips.v1")).not.toContain("budget");
+    expect(localStorage.getItem("atlas.plans.v1")).not.toContain("budget");
   });
 
   it("è idempotente: al secondo giro non trova più nulla", () => {

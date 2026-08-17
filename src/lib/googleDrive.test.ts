@@ -148,3 +148,24 @@ describe("loadGis — il fallimento non resta in cache", () => {
     expect(scripts.length).toBe(2); // prima del fix: 1 (fallimento cacheato)
   });
 });
+
+// I budget sono stati rimossi dall'app: un backup scritto da una versione
+// precedente (o da un dispositivo non ancora aggiornato) non deve poterli
+// rimettere in circolo passando dal merge.
+describe("mergeTrips — i budget remoti non tornano indietro", () => {
+  it("toglie il budget dai record che arrivano dal backup", () => {
+    const remoto = [{ id: "r1", title: "Roma", updated_at: "2026-08-20T10:00:00.000Z",
+      budget: [{ label: "Volo", amount: 400 }] } as unknown as Trip];
+    const out = mergeTrips([], 0, remoto, Date.parse("2026-08-20T10:00:00.000Z"));
+    expect(out).toHaveLength(1);
+    expect("budget" in out[0]).toBe(false);
+    expect(out[0].title).toBe("Roma"); // il resto del record resta intatto
+  });
+
+  it("non inventa date: il record remoto conserva il suo updated_at", () => {
+    const remoto = [{ id: "r1", updated_at: "2026-08-20T10:00:00.000Z",
+      budget: [{ label: "x", amount: 1 }] } as unknown as Trip];
+    const out = mergeTrips([], 0, remoto, Date.parse("2026-08-20T10:00:00.000Z"));
+    expect(out[0].updated_at).toBe("2026-08-20T10:00:00.000Z");
+  });
+});
