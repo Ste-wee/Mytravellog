@@ -264,10 +264,15 @@ export function ContinentsMap({ trips }: Props) {
               const isVisited = visitedCountryIds.has(c.id);
               const countryContinent = classifyContinent(c.centroid[1], c.centroid[0]);
               const continentVisited = countryContinent ? visitedContinents.has(countryContinent) : false;
+              // Il continente visitato è CONTESTO: la scala dei contrasti
+              // dell'app dà 0.45 a questo ruolo (0.75 dati, 0.6 etichette), e
+              // 0.22 era metà della soglia — l'Europa si doveva cercare. A 0.42
+              // si legge a colpo d'occhio senza toccare la gerarchia: il blu
+              // pieno resta l'unico segno del paese davvero visitato.
               const fill = isVisited
                 ? "#0ea5e9"
                 : continentVisited
-                  ? "rgba(96,165,250,0.22)"
+                  ? "rgba(96,165,250,0.42)"
                   : "#16233d";
               return (
                 <path
