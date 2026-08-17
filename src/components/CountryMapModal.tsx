@@ -57,8 +57,14 @@ async function fetchGithubRawJson(url: string): Promise<{ features?: unknown } |
   if (!isGitLfsPointer(text)) return JSON.parse(text);
   if (!parsed) return null;
 
-  // File tracciato con Git LFS: risolvi l'hash completo del commit e leggi
-  // il contenuto reale da media.githubusercontent.com.
+  // File tracciato con Git LFS: media.githubusercontent accetta il ref COSÌ
+  // COM'È nell'URL (anche lo sha corto) — niente api.github.com, che a 60
+  // richieste/ora anonime era la vera causa dei 403 dopo qualche mappa.
+  // L'API resta solo come ripiego se media rifiutasse il ref.
+  const direttoR = await fetch(`https://media.githubusercontent.com/media/${parsed.owner}/${parsed.repo}/${parsed.ref}/${parsed.path}`);
+  seLimite(direttoR);
+  if (direttoR.ok) return await direttoR.json();
+
   const shaR = await fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits/${parsed.ref}`);
   seLimite(shaR);
   if (!shaR.ok) return null;
@@ -87,11 +93,17 @@ async function fetchGithubRawJson(url: string): Promise<{ features?: unknown } |
 //    le 20 regioni vere (Lazio, Toscana, …) sono in ADM2.
 //  - Grecia: ADM1 = 8 raggruppamenti macro; le 13 periferie vere (Attica,
 //    Creta, …) + Monte Athos sono in ADM2.
+//  - Belgio: ADM1 = le 3 regioni politiche (Fiandre, Vallonia, Bruxelles);
+//    su una mappa dei viaggi sono povere, le 11 province stanno in ADM2.
+//    (La Slovenia invece resta ADM1 nonostante dia solo 2 macro-aree:
+//    l'ADM2 sono 212 comuni, illeggibili — le 12 regioni statistiche vere
+//    in geoBoundaries non esistono.)
 // Senza override la mappa mostrerebbe i blocchi macro e "0 regioni" perché i
 // nomi salvati dai viaggi non combaciano con quelli delle macro-aree.
 const ADM_LEVEL_BY_COUNTRY: Record<string, "ADM1" | "ADM2"> = {
   IT: "ADM2",
   GR: "ADM2",
+  BE: "ADM2",
 };
 
 /**

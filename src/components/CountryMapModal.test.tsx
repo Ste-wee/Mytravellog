@@ -437,7 +437,7 @@ describe("isGitLfsPointer", () => {
 describe("CountryMapModal — file tracciati con Git LFS (paesi con confini più grandi/complessi)", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("risolve il contenuto reale da media.githubusercontent.com quando raw.githubusercontent.com ritorna solo il puntatore LFS", async () => {
+  it("risolve il contenuto reale da media.githubusercontent.com col ref così com'è, SENZA passare dall'API (60/h)", async () => {
     const lfsPointer = "version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 123\n";
     const realBody = JSON.stringify({ type: "FeatureCollection", features: ITALY_FEATURES });
     global.fetch = vi.fn((input: any) => {
@@ -445,14 +445,33 @@ describe("CountryMapModal — file tracciati con Git LFS (paesi con confini più
       if (u.includes("/confini/")) return Promise.resolve({ ok: false, status: 404 } as any);
       if (u.includes("geoboundaries.org")) return Promise.resolve({ ok: true, json: async () => ({ gjDownloadURL: "https://github.com/wmgeolab/geoBoundaries/raw/9469f09/releaseData/gbOpen/DEU/ADM1/geoBoundaries-DEU-ADM1.geojson" }) } as any);
       if (u.includes("raw.githubusercontent.com")) return Promise.resolve({ ok: true, text: async () => lfsPointer } as any);
-      if (u.includes("api.github.com")) return Promise.resolve({ ok: true, json: async () => ({ sha: "9469f09592ced973a3448cf66b6100b741b64c0d" }) } as any);
+      if (u.includes("api.github.com")) return Promise.reject(new Error("l'API contingentata non doveva servire"));
       return Promise.resolve({ ok: true, json: async () => JSON.parse(realBody) } as any); // media.githubusercontent.com
     }) as any;
 
     renderModal({ countryCode: "DE", countryName: "Germania" });
     await waitFor(() => expect(screen.getByText(/regioni? su 5/)).toBeInTheDocument());
-    expect(chiamateDiRete()).toHaveLength(4);
-    const mediaCall = chiamateDiRete()[3][0];
+    expect(chiamateDiRete()).toHaveLength(3); // metadati, raw (puntatore), media diretto
+    const mediaCall = chiamateDiRete()[2][0];
+    expect(mediaCall).toContain("media.githubusercontent.com/media/wmgeolab/geoBoundaries/9469f09/");
+  });
+
+  it("se media rifiuta il ref corto, ripiega sull'API per l'hash completo", async () => {
+    const lfsPointer = "version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 123\n";
+    const realBody = JSON.stringify({ type: "FeatureCollection", features: ITALY_FEATURES });
+    global.fetch = vi.fn((input: any) => {
+      const u = String(input);
+      if (u.includes("/confini/")) return Promise.resolve({ ok: false, status: 404 } as any);
+      if (u.includes("geoboundaries.org")) return Promise.resolve({ ok: true, json: async () => ({ gjDownloadURL: "https://github.com/wmgeolab/geoBoundaries/raw/9469f09/x.geojson" }) } as any);
+      if (u.includes("raw.githubusercontent.com")) return Promise.resolve({ ok: true, text: async () => lfsPointer } as any);
+      if (u.includes("api.github.com")) return Promise.resolve({ ok: true, json: async () => ({ sha: "9469f09592ced973a3448cf66b6100b741b64c0d" }) } as any);
+      if (u.includes("/media/wmgeolab/geoBoundaries/9469f09/")) return Promise.resolve({ ok: false, status: 404 } as any); // ref corto rifiutato
+      return Promise.resolve({ ok: true, json: async () => JSON.parse(realBody) } as any); // media con hash completo
+    }) as any;
+
+    renderModal({ countryCode: "DE", countryName: "Germania" });
+    await waitFor(() => expect(screen.getByText(/regioni? su 5/)).toBeInTheDocument());
+    const mediaCall = chiamateDiRete()[4][0];
     expect(mediaCall).toContain("media.githubusercontent.com/media/wmgeolab/geoBoundaries/9469f09592ced973a3448cf66b6100b741b64c0d/");
   });
 
@@ -464,7 +483,7 @@ describe("CountryMapModal — file tracciati con Git LFS (paesi con confini più
       if (u.includes("/confini/")) return Promise.resolve({ ok: false, status: 404 } as any);
       if (u.includes("geoboundaries.org")) return Promise.resolve({ ok: true, json: async () => ({ gjDownloadURL: "https://github.com/wmgeolab/geoBoundaries/raw/9469f09/x.geojson" }) } as any);
       if (u.includes("raw.githubusercontent.com")) return Promise.resolve({ ok: true, text: async () => "version https://git-lfs.github.com/spec/v1\n" } as any);
-      return Promise.resolve({ ok: false, json: async () => ({}) } as any); // api.github.com fallisce
+      return Promise.resolve({ ok: false, json: async () => ({}) } as any); // media e api.github.com falliscono
     }) as any;
     renderModal({ countryCode: "DE", countryName: "Germania" });
     await waitFor(() => expect(screen.getByText(/mappa non disponibile/i)).toBeInTheDocument());
@@ -533,6 +552,15 @@ describe("CountryMapModal — livello ADM per paese", () => {
     await waitFor(() => expect(chiamateDiRete().length).toBeGreaterThan(0));
     const metaUrl = chiamateDiRete()[0][0];
     expect(metaUrl).toContain("/GRC/ADM2/");
+    expect(metaUrl).not.toContain("/ADM1/");
+  });
+
+  it("il Belgio scarica ADM2 (11 province), non ADM1 (3 regioni politiche)", async () => {
+    mockGeoBoundaries(ITALY_FEATURES);
+    renderModal({ countryCode: "BE", countryName: "Belgio", trips: [] });
+    await waitFor(() => expect(chiamateDiRete().length).toBeGreaterThan(0));
+    const metaUrl = chiamateDiRete()[0][0];
+    expect(metaUrl).toContain("/BEL/ADM2/");
     expect(metaUrl).not.toContain("/ADM1/");
   });
 
