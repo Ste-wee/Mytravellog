@@ -56,6 +56,9 @@ await page.reload({ waitUntil: "load" });
 await page.waitForTimeout(2000);
 
 const esito = {};
+// I budget nel seed sono VOLUTI: l'app li cancella all'avvio (dropBudgetData),
+// quindi qui si verifica che nessun importo sopravviva a schermo.
+
 const visita = async (nome, hash, attese) => {
   errori = [];
   await page.goto("http://localhost:8080/" + hash, { waitUntil: "load" });
@@ -69,9 +72,9 @@ const visita = async (nome, hash, attese) => {
 };
 
 await visita("home", "#/", ["NAV·TA"]);
-await visita("miei-viaggi", "#/miei-viaggi", ["IN PROGRAMMA", "Barcellona", "Roma", "€ 630", "Diario", "Vacanza"]);
+await visita("miei-viaggi", "#/miei-viaggi", ["IN PROGRAMMA", "Barcellona", "Roma", "Diario", "Vacanza", "Da prenotare"]);
 await visita("statistiche", "#/statistiche", ["Highlights di viaggio", "Distanze", "Anni e mesi"]);
-await visita("in-programma", "#/in-programma", ["Barcellona", "BUDGET PREVENTIVO", "DA ORGANIZZARE"]);
+await visita("in-programma", "#/in-programma", ["Barcellona", "DA ORGANIZZARE", "Da prenotare"]);
 await visita("nuovo-viaggio", "#/nuovo-viaggio", ["Itinerario", "Periodo", "Valutazione", "Compagni"]);
 await visita("importa-gpx", "#/importa-gpx", ["Importa da GPX"]);
 await visita("impostazioni", "#/impostazioni", ["Unità di misura", "Account"]);
@@ -92,9 +95,14 @@ const prova = async (nome, apri, verifica) => {
   await page.waitForTimeout(700);
 };
 
-await prova("apre_spese",
-  () => page.getByRole("button", { name: /Apri le spese/i }).first().click(),
-  async () => ({ pannello: await page.evaluate(() => /Quanto è costato/.test(document.body.innerText)) }));
+// La spunta "prenotato" ha preso il posto delle spese: un tocco cambia stato
+// e SALVA subito nel piano, senza aprire nessun pannello.
+await prova("spunta_prenotato",
+  () => page.getByRole("button", { name: /Da prenotare/i }).first().click(),
+  async () => ({
+    diventaPrenotato: await page.evaluate(() => /Prenotato/.test(document.body.innerText)),
+    salvato: await page.evaluate(() => (localStorage.getItem("atlas.plans.v1") || "").includes('"booked":true')),
+  }));
 
 await prova("apre_diario",
   () => page.getByRole("button", { name: /Apri il diario/i }).first().click(),
@@ -102,11 +110,19 @@ await prova("apre_diario",
 
 await prova("apre_piano",
   () => page.getByRole("button", { name: /Barcellona/i }).first().click(),
-  async () => ({ pannello: await page.evaluate(() => /Budget|organizzare/i.test(document.body.innerText)) }));
+  async () => ({ pannello: await page.evaluate(() => /organizzare/i.test(document.body.innerText)) }));
 
 await prova("mappa_della_vita",
   () => page.getByRole("button", { name: /mappa della mia vita/i }).click(),
   async () => ({ aperta: await page.evaluate(() => !!document.querySelector("canvas.maplibregl-canvas")) }));
+
+// I budget del seed devono essere stati cancellati da dropBudgetData:
+// nessun importo a schermo e nessuna traccia nello storage.
+esito.budgetCancellati = {
+  nessunImporto: await page.evaluate(() => !/€s?d/.test(document.body.innerText)),
+  restaNelloStorage: await page.evaluate(() =>
+    ((localStorage.getItem("atlas.trips.v1") || "") + (localStorage.getItem("atlas.plans.v1") || "")).includes("budget")),
+};
 
 await browser.close();
 fs.writeFileSync(`${OUT}/collaudo.json`, JSON.stringify(esito, null, 2));

@@ -9,8 +9,6 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { useNavigate } from "react-router-dom";
 import { TripFlyover } from "@/components/TripFlyover";
 import { TripDiary, DiaryEntry } from "@/components/TripDiary";
-import { TripExpenses, totalSpent, type ExpenseRow } from "@/components/TripExpenses";
-import { CUR } from "@/lib/plans";
 import { getReliefImage } from "@/lib/photoStorage";
 import { tripTotalKm } from "@/lib/flyover";
 
@@ -70,10 +68,6 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
   const [showFlyover, setShowFlyover] = useState(false);
   const [notesExpanded, setNotesExpanded] = useState(false);
   const [showDiary, setShowDiary] = useState(false);
-  const [showExpenses, setShowExpenses] = useState(false);
-  // Spese: come per il diario, lo stato locale evita di rileggere lo storage
-  // dopo il salvataggio (la prop trip resterebbe quella vecchia).
-  const [expenses, setExpenses] = useState<ExpenseRow[]>(trip.budget ?? []);
   const [diary, setDiary] = useState<DiaryEntry[]>(trip.diary ?? []);
   // Miniatura del "rilievo 3D" salvato a fine flyover (snapshot in IndexedDB):
   // appare come linguetta sul bordo destro della card; click → si ingrandisce.
@@ -149,10 +143,6 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
   }, [trip]);
   // Km percorsi: stradali reali dove disponibile (coerente con Home/Statistiche/poster).
   const tripKm = tripTotalKm(trip);
-  // Quanto e' costato davvero: somma di cio' che e' uscito (colonna "pagato"),
-  // ereditata dal preventivo se il viaggio nasce da un programma.
-  const spent = totalSpent({ budget: expenses });
-
   const stops = hasWaypoints
     ? [trip.home_label?.split(",")[0] ?? "Casa", ...trip.waypoints!.map(w => w.city), trip.city]
     : null;
@@ -310,13 +300,6 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
             <span style={{fontSize:11,color:"rgba(255,255,255,0.75)"}}>{fmtTemp(trip.temperature_c, temperatureUnit)}</span>
           </>
         )}
-        {/* Quanto è costato: un dato del viaggio come i km o la temperatura. */}
-        {spent > 0 && (
-          <>
-            <div style={{width:1,height:10,background:"#1a2d4a"}}/>
-            <span style={{fontSize:11,color:"#6ee7b7",fontWeight:600}}>{CUR} {spent.toLocaleString("it-IT")}</span>
-          </>
-        )}
       </div>
 
       {/* Note del viaggio: prima erano visibili solo riaprendo il form di
@@ -389,19 +372,6 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
           }}>
           📖 {diary.length ? `Diario · ${diary.length} ${diary.length === 1 ? "giorno" : "giorni"}` : "Diario"}
         </button>
-        <button type="button" onClick={() => setShowExpenses(true)}
-          aria-label={spent > 0 ? `Apri le spese (${CUR} ${spent} spesi)` : "Aggiungi le spese del viaggio"}
-          style={{
-            display:"inline-flex",alignItems:"center",gap:5,fontSize:10,fontWeight:600,padding:"3px 10px",borderRadius:999,
-            background: spent > 0 ? "rgba(52,211,153,0.12)" : "rgba(255,255,255,0.04)",
-            border:"0.5px solid " + (spent > 0 ? "rgba(52,211,153,0.35)" : "#1a2d4a"),
-            color: spent > 0 ? "#6ee7b7" : "rgba(255,255,255,0.55)", cursor:"pointer",
-          }}>
-          {/* Etichetta stabile: la cifra è già nella riga dei dati qui sopra,
-              accanto a km e temperatura — ripeterla nel pulsante la diceva due
-              volte a due centimetri. Il verde segnala che ci sono spese. */}
-          💰 Spese
-        </button>
       </div>
 
       {/* Anteprima in lettura del racconto: prime voci (data + prima riga) con
@@ -456,12 +426,6 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
 
     {showDiary && (
       <TripDiary trip={trip} entries={diary} onClose={() => setShowDiary(false)} onSaved={setDiary} />
-    )}
-
-    {/* Spese: come per il diario, il pannello riceve i dati FRESCHI dallo stato
-        locale (la prop trip resta quella caricata dalla lista). */}
-    {showExpenses && (
-      <TripExpenses trip={{ ...trip, budget: expenses }} onClose={() => setShowExpenses(false)} onSaved={setExpenses} />
     )}
 
     {reliefOpen && reliefUrl && createPortal(

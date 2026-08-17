@@ -332,33 +332,6 @@ describe("TripCardTicket — compagni di viaggio", () => {
   });
 });
 
-// Il pannello delle spese era stato scritto e testato in isolamento, ma il suo
-// render nella card mancava: il pulsante 💰 esisteva, mostrava il totale giusto
-// e non apriva NULLA. tsc e i test unitari non potevano accorgersene — questo
-// blocco verifica proprio l'aggancio.
-describe("TripCardTicket — spese del viaggio", () => {
-  beforeEach(() => localStorage.clear());
-
-  it("mostra il totale speso accanto agli altri dati", () => {
-    renderCard(makeTrip({ budget: [{ label: "Volo", amount: 400, paid: 240 }, { label: "Hotel", amount: 500, paid: 100 }] } as any));
-    // 240 + 100 = 340 speso davvero (non i 900 preventivati)
-    expect(screen.getAllByText(/340/).length).toBeGreaterThan(0);
-    expect(screen.queryByText(/900/)).not.toBeInTheDocument();
-  });
-
-  it("senza spese registrate il biglietto non mostra importi", () => {
-    renderCard(makeTrip());
-    expect(screen.getByRole("button", { name: /Aggiungi le spese/i })).toBeInTheDocument();
-  });
-
-  it("il pulsante apre davvero il pannello delle spese", () => {
-    renderCard(makeTrip({ budget: [{ label: "Volo", amount: 400, paid: 240 }] } as any));
-    fireEvent.click(screen.getByRole("button", { name: /Apri le spese/i }));
-    expect(screen.getByRole("dialog", { name: /Spese/i })).toBeInTheDocument();
-    expect(screen.getByText("Quanto è costato")).toBeInTheDocument();
-  });
-});
-
 describe("TripCardTicket — flyover 3D", () => {
   it("dal menu, Rivivi in 3D apre la modale", () => {
     // home_latitude/longitude sono null di default in makeTrip: nessuna

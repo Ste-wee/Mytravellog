@@ -98,7 +98,7 @@ const InProgramma = () => {
     const p = addPlan(buildPlan(dest, title, dateStart, dateEnd, prefillWps, destMode));
     resetForm();
     reload();
-    // Dritto nel pannello: itinerario completo, budget e checklist si
+    // Dritto nel pannello: itinerario completo e checklist si
     // rifiniscono lì — flusso continuo invece di card muta.
     setOpenId(p.id);
   };
@@ -115,7 +115,7 @@ const InProgramma = () => {
           <h1 style={{ fontSize: 22, fontWeight: 800, color: "#f0f4ff", margin: 0 }}>In programma</h1>
         </div>
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", margin: "0 0 20px" }}>
-          I viaggi che devi ancora fare: budget e cose da organizzare. Al ritorno diventano ricordi nel diario.
+          I viaggi che devi ancora fare: itinerario e cose da organizzare. Al ritorno diventano ricordi nel diario.
         </p>
 
         {/* Mini-form / bottone */}
@@ -189,7 +189,7 @@ const InProgramma = () => {
           <div style={{ textAlign: "center", padding: "50px 20px", color: "rgba(255,255,255,0.6)" }}>
             <CalendarClock style={{ width: 40, height: 40, margin: "0 auto 12px", opacity: 0.4 }} />
             <div style={{ fontSize: 14 }}>Nessun viaggio in programma.</div>
-            <div style={{ fontSize: 12, marginTop: 4 }}>Programma la tua prossima avventura e organizza budget e da-fare.</div>
+            <div style={{ fontSize: 12, marginTop: 4 }}>Programma la tua prossima avventura e segna le cose da fare.</div>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

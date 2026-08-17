@@ -12,8 +12,11 @@ export type Trip = {
   companions?: string[];   // nomi delle persone con cui hai viaggiato (opzionali; assenti sui viaggi vecchi)
   diary?: { date: string; text: string; highlight?: boolean }[]; // racconto giorno-per-giorno (date YYYY-MM-DD; solo i giorni scritti); highlight = IL momento del viaggio (al più uno), riemerge nel recap
   status?: "planned" | "done"; // "planned" = viaggio in programma (vive nel bucket piani, non nel diario); assente/"done" = viaggio del diario
-  budget?: { label: string; amount: number; paid?: number }[]; // preventivo per categoria (importo stimato + eventuale già pagato)
+  // NB: il campo `budget` è stato RIMOSSO il 2026-08-16 (scelta di Stefano:
+  // l'app non tiene conti). I dati già inseriti vengono cancellati una volta
+  // per tutte da `dropBudgetData()`, chiamata all'avvio.
   checklist?: { text: string; done: boolean }[];               // "da organizzare" prima di partire
+  booked?: boolean;                                            // viaggio in programma: prenotato o ancora da prenotare
   transport_mode: "plane" | "train" | "car" | "ship" | "walk" | "bici" | "moto" | null;
   waypoints: { id?: string; city: string; country: string; country_code?: string; transport_mode: "plane" | "train" | "car" | "ship" | "walk" | "bici" | "moto"; lat?: number; lon?: number; route_geometry?: [number, number][] | null }[];
   latitude: number;
@@ -200,6 +203,28 @@ export function adoptHomeForTripsWithout(home: { lat: number; lon: number; label
 /** Quanti viaggi non hanno una città di partenza (per il messaggio del gate). */
 export function countTripsWithoutHome(): number {
   return loadTrips().filter(t => t.home_latitude == null || t.home_longitude == null).length;
+}
+
+/**
+ * Cancella per sempre i budget salvati in viaggi e piani (scelta di Stefano
+ * del 2026-08-16: l'app non tiene conti). Non è una semplice pulizia di
+ * facciata: timbra `updated_at` sui record toccati, così il merge di Drive
+ * porta la cancellazione anche sugli altri dispositivi invece di rimandare
+ * indietro i vecchi importi. Idempotente: al secondo giro non trova nulla.
+ * Ritorna quanti record ha ripulito (per i test).
+ */
+export function dropBudgetData(): number {
+  let n = 0;
+  const strip = (list: Trip[]) => list.map(t => {
+    if (!("budget" in t)) return t;
+    n++;
+    const { budget: _dropped, ...rest } = t as Trip & { budget?: unknown };
+    return { ...rest, updated_at: new Date().toISOString() } as Trip;
+  });
+  const trips = strip(loadTrips());
+  const plans = strip(loadPlans());
+  if (n > 0) { saveTrips(trips); savePlans(plans); }
+  return n;
 }
 
 export function deleteTrip(id: string): void {

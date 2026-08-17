@@ -2,7 +2,7 @@ import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
 import { HashRouter, Route, Routes, useParams } from "react-router-dom";
 import { Toaster, toast } from "sonner";
-import { setStorageErrorHandler } from "./lib/storage";
+import { setStorageErrorHandler, dropBudgetData } from "./lib/storage";
 import { Loader2 } from "lucide-react";
 import { SettingsProvider } from "./lib/settings";
 import { GoogleDriveProvider } from "./lib/googleDriveContext";
@@ -41,6 +41,10 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 // Spazio di localStorage esaurito: prima il salvataggio falliva in silenzio e
 // l'utente credeva di aver salvato. Un toast persistente lo dice chiaramente e
 // suggerisce l'unica via d'uscita utile (liberare spazio / backup su Drive).
+// I budget non esistono più (2026-08-16): si cancellano una volta per tutte
+// all'avvio, prima che l'app legga i viaggi. Idempotente e silenzioso.
+try { dropBudgetData(); } catch { /* storage non disponibile: si riprova al prossimo avvio */ }
+
 setStorageErrorHandler(() => {
   toast.error("Spazio del browser esaurito: il viaggio NON è stato salvato.", {
     description: "Libera spazio eliminando qualche viaggio o foto; se hai il backup su Drive i dati restano lì.",

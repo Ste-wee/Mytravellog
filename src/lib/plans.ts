@@ -1,8 +1,5 @@
 import { Trip, parseLocalDate, todayLocalISO } from "@/lib/storage";
 
-/** Valuta dei budget (fissa in v1, nessun selettore). */
-export const CUR = "€";
-
 export interface PlanCountdown {
   text: string;
   /** Partenza vicina (≤14 giorni): la card la evidenzia in ambra. */

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   addPlan, loadPlans, updatePlan, deletePlan, promotePlanToTrip,
-  loadTrips, type Trip,
+  loadTrips, dropBudgetData, type Trip,
 } from "./storage";
 
 function basePlan(over: Partial<Omit<Trip, "id" | "created_at" | "status">> = {}): Omit<Trip, "id" | "created_at" | "status"> {
@@ -35,12 +35,12 @@ describe("plans bucket (viaggi in programma)", () => {
     expect(loadPlans().map(p => p.title)).toEqual(["Presto", "Tardi"]);
   });
 
-  it("updatePlan applica il patch (budget/checklist)", () => {
+  it("updatePlan applica il patch (checklist/prenotato)", () => {
     const p = addPlan(basePlan());
-    updatePlan(p.id, { budget: [{ label: "Volo", amount: 500 }], checklist: [{ text: "Prenota", done: true }] });
+    updatePlan(p.id, { checklist: [{ text: "Prenota", done: true }], booked: true });
     const updated = loadPlans()[0];
-    expect(updated.budget).toEqual([{ label: "Volo", amount: 500 }]);
     expect(updated.checklist).toEqual([{ text: "Prenota", done: true }]);
+    expect(updated.booked).toBe(true);
   });
 
   it("deletePlan rimuove solo il piano indicato", () => {
@@ -50,8 +50,8 @@ describe("plans bucket (viaggi in programma)", () => {
     expect(loadPlans().map(p => p.title)).toEqual(["B"]);
   });
 
-  it("promotePlanToTrip sposta il piano nel diario come 'done', conservando budget/checklist", () => {
-    const p = addPlan(basePlan({ budget: [{ label: "Volo", amount: 500 }], checklist: [{ text: "x", done: false }] }));
+  it("promotePlanToTrip sposta il piano nel diario come 'done', conservando la checklist", () => {
+    const p = addPlan(basePlan({ checklist: [{ text: "x", done: false }] }));
     const done = promotePlanToTrip(p.id);
     expect(done?.status).toBe("done");
     expect(loadPlans()).toHaveLength(0);      // rimosso dai piani
@@ -59,7 +59,6 @@ describe("plans bucket (viaggi in programma)", () => {
     expect(trips).toHaveLength(1);            // aggiunto al diario
     expect(trips[0].id).toBe(p.id);
     expect(trips[0].status).toBe("done");
-    expect(trips[0].budget).toEqual([{ label: "Volo", amount: 500 }]);
     expect(trips[0].checklist).toEqual([{ text: "x", done: false }]);
   });
 
@@ -77,5 +76,46 @@ describe("plans bucket (viaggi in programma)", () => {
     expect(done?.waypoints).toEqual(wps);          // tappe intermedie intatte
     expect(done?.city).toBe("Höfn");                // meta finale intatta
     expect(done?.transport_mode).toBe("car");       // mezzo dell'ultima tratta intatto
+  });
+});
+
+// I budget sono stati rimossi dall'app (2026-08-16): i dati già salvati non
+// vanno solo nascosti, vanno cancellati — e la cancellazione deve propagarsi
+// al backup Drive, che confronta gli `updated_at`.
+describe("dropBudgetData — i budget spariscono per davvero", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("toglie il campo budget da viaggi e piani già salvati", () => {
+    localStorage.setItem("atlas.trips.v1", JSON.stringify([
+      { id: "t1", title: "Roma", budget: [{ label: "Volo", amount: 400, paid: 240 }], updated_at: "2020-01-01T00:00:00.000Z" },
+      { id: "t2", title: "Vienna" },
+    ]));
+    localStorage.setItem("atlas.plans.v1", JSON.stringify([
+      { id: "p1", title: "Barcellona", status: "planned", budget: [{ label: "Hotel", amount: 500 }] },
+    ]));
+
+    expect(dropBudgetData()).toBe(2); // un viaggio + un piano
+
+    const trips = JSON.parse(localStorage.getItem("atlas.trips.v1")!);
+    const plans = JSON.parse(localStorage.getItem("atlas.plans.v1")!);
+    expect("budget" in trips.find((t: Trip) => t.id === "t1")).toBe(false);
+    expect("budget" in plans[0]).toBe(false);
+    // il viaggio senza budget non viene toccato: niente updated_at inventato
+    expect(trips.find((t: Trip) => t.id === "t2").updated_at).toBeUndefined();
+  });
+
+  it("timbra updated_at sui record ripuliti, così Drive propaga la cancellazione", () => {
+    localStorage.setItem("atlas.trips.v1", JSON.stringify([
+      { id: "t1", title: "Roma", budget: [{ label: "Volo", amount: 400 }], updated_at: "2020-01-01T00:00:00.000Z" },
+    ]));
+    dropBudgetData();
+    const t = JSON.parse(localStorage.getItem("atlas.trips.v1")!)[0];
+    expect(t.updated_at > "2020-01-01T00:00:00.000Z").toBe(true);
+  });
+
+  it("è idempotente: al secondo giro non trova più nulla", () => {
+    localStorage.setItem("atlas.trips.v1", JSON.stringify([{ id: "t1", budget: [{ label: "x", amount: 1 }] }]));
+    expect(dropBudgetData()).toBe(1);
+    expect(dropBudgetData()).toBe(0);
   });
 });

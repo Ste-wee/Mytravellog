@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import { shouldShowWelcome } from "@/components/WelcomeGate";
 import {
-  Compass, Hand, Plane, BookOpen, Globe2, CalendarClock, Wallet,
+  Compass, Hand, Plane, BookOpen, Globe2, CalendarClock, ListChecks,
   PieChart, Share2, X, ArrowRight,
 } from "lucide-react";
 
@@ -35,7 +35,7 @@ const SECTIONS: Record<string, Section> = {
     key: "plans", version: 1,
     steps: [
       { Icon: CalendarClock, title: "In programma", body: "I viaggi che devi ancora fare. Programma destinazione, tappe e date del tuo prossimo itinerario." },
-      { Icon: Wallet, title: "Budget e cose da fare", body: "Tieni il budget preventivo e la checklist. Al ritorno tocca «Segna come fatto» e il viaggio entra nel diario." },
+      { Icon: ListChecks, title: "Cose da fare", body: "Segna cosa resta da organizzare e se hai già prenotato. Al ritorno tocca «Segna come fatto» e il viaggio entra nel diario." },
     ],
   },
   stats: {

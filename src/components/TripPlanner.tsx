@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Trip, updatePlan, deletePlan, promotePlanToTrip } from "@/lib/storage";
-import { CUR } from "@/lib/plans";
 import { searchPlaces, GeoResult } from "@/lib/geo";
 import { useSettings } from "@/lib/settings";
 import { ItineraryPanel, Waypoint, TransportMode } from "@/components/TripFormParts";
@@ -10,7 +9,6 @@ import { X, Plus, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useModalFocus } from "@/lib/useModalFocus";
 
-export interface BudgetRow { label: string; amount: number; paid?: number }
 export interface ChecklistRow { text: string; done: boolean }
 
 interface Props {
@@ -20,13 +18,6 @@ interface Props {
   onChanged: () => void;
 }
 
-const DEFAULT_BUDGET: BudgetRow[] = [
-  { label: "Volo", amount: 0 },
-  { label: "Alloggio", amount: 0 },
-  { label: "Trasporti", amount: 0 },
-  { label: "Cibo", amount: 0 },
-  { label: "Attività", amount: 0 },
-];
 const DEFAULT_CHECKLIST: ChecklistRow[] = [
   { text: "Prenota volo", done: false },
   { text: "Prenota alloggio", done: false },
@@ -38,8 +29,8 @@ function fmt(n: number): string {
 }
 
 /**
- * Pannello di pianificazione di un viaggio "in programma": budget preventivo
- * per categoria (con eventuale "già pagato") + checklist "da organizzare".
+ * Pannello di pianificazione di un viaggio "in programma": itinerario con i
+ * mezzi + checklist "da organizzare". Niente soldi: l'app non tiene conti.
  * Portal a schermo intero, si salva alla chiusura. "Segna come fatto" sposta
  * il viaggio nel diario (promotePlanToTrip). Scroll pagina bloccato (iOS-proof).
  */
@@ -129,15 +120,10 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
     setWaypoints(prev => prev.map((w, idx) => idx === i ? { ...w, transport_mode: mode } : w));
   };
 
-  const [budget, setBudget] = useState<BudgetRow[]>(() =>
-    plan.budget && plan.budget.length ? plan.budget.map(r => ({ ...r })) : DEFAULT_BUDGET.map(r => ({ ...r })),
-  );
   const [checklist, setChecklist] = useState<ChecklistRow[]>(() =>
     plan.checklist && plan.checklist.length ? plan.checklist.map(r => ({ ...r })) : DEFAULT_CHECKLIST.map(r => ({ ...r })),
   );
 
-  const total = useMemo(() => budget.reduce((s, r) => s + (r.amount || 0), 0), [budget]);
-  const paidTotal = useMemo(() => budget.reduce((s, r) => s + (r.paid || 0), 0), [budget]);
   const doneCount = checklist.filter(c => c.done).length;
 
   // Blocco scroll pagina sotto (iOS-proof): body fixed + posizione ripristinata.
@@ -156,11 +142,8 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
 
   const persist = () => {
     if (!dirtyRef.current) return; // aperto e chiuso senza modifiche: non scrivere nulla
-    const b = budget.filter(r => r.label.trim() || r.amount || r.paid)
-      .map(r => ({ label: r.label.trim() || "Voce", amount: r.amount || 0, ...(r.paid ? { paid: r.paid } : {}) }));
     const c = checklist.filter(r => r.text.trim()).map(r => ({ text: r.text.trim(), done: r.done }));
     const patch: Parameters<typeof updatePlan>[1] = {
-      budget: b.length ? b : undefined,
       checklist: c.length ? c : undefined,
     };
     // Itinerario: ultima tappa = destinazione del Trip, le precedenti = waypoints.
@@ -196,7 +179,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
 
   // Esc chiude (salvando) + persist allo SMONTAGGIO: il back di Android/lo
   // swipe indietro cambiano rotta e smontano il pannello senza passare dalla
-  // X — senza questo cleanup budget e checklist modificati andavano persi.
+  // X — senza questo cleanup itinerario e checklist modificati andavano persi.
   // Dopo la promozione/eliminazione updatePlan non trova più l'id: no-op.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeRef.current(); };
@@ -205,7 +188,6 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
   }, []);
 
   // Wrapper degli update di stato che marcano il pannello come "toccato".
-  const mutBudget = (fn: (rows: BudgetRow[]) => BudgetRow[]) => { dirtyRef.current = true; setBudget(fn); };
   const mutChecklist = (fn: (rows: ChecklistRow[]) => ChecklistRow[]) => { dirtyRef.current = true; setChecklist(fn); };
 
   const promote = () => {
@@ -226,13 +208,6 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
     onClose();
   };
 
-  const setBudgetRow = (i: number, patch: Partial<BudgetRow>) =>
-    mutBudget(rows => rows.map((r, idx) => idx === i ? { ...r, ...patch } : r));
-
-  const numInput: React.CSSProperties = {
-    width: 78, background: "rgba(255,255,255,0.04)", border: "0.5px solid #1a2d4a", borderRadius: 7,
-    padding: "6px 8px", fontSize: 12, color: "#f0f4ff", outline: "none", textAlign: "right", fontFamily: "inherit",
-  };
   const sectionTitle: React.CSSProperties = {
     fontSize: 9, letterSpacing: "1.5px", textTransform: "uppercase", color: "rgba(255,255,255,0.6)", margin: "0 0 10px",
   };
@@ -247,7 +222,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
             🧭 Pianifica — {plan.title || plan.city}
           </div>
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>
-            Budget e cose da organizzare · si salva da solo
+            Cose da organizzare · si salva da solo
           </div>
         </div>
         <button type="button" onClick={close} aria-label="Chiudi la pianificazione"
@@ -261,7 +236,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
 
           {/* ITINERARIO — lo stesso pannello di Nuovo viaggio, con i mezzi per
-              tratta: per chi pianifica nel dettaglio il "come" è metà del budget. */}
+              tratta: per chi pianifica nel dettaglio il "come" conta quanto il "dove". */}
           <div style={{ marginBottom: 28 }}>
             <ItineraryPanel
               waypoints={waypoints} home={home}
@@ -284,52 +259,6 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
               onAddWaypoint={addWaypoint}
             />
           </div>
-
-          {/* BUDGET */}
-          <div style={sectionTitle}>Budget preventivo</div>
-          {budget.map((r, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <input value={r.label} onChange={e => setBudgetRow(i, { label: e.target.value })} placeholder="Categoria" aria-label="Categoria di spesa"
-                style={{ flex: 1, minWidth: 0, background: "rgba(255,255,255,0.04)", border: "0.5px solid #1a2d4a", borderRadius: 7, padding: "6px 10px", fontSize: 13, color: "#f0f4ff", outline: "none", fontFamily: "inherit" }} />
-              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                <span style={{ position: "absolute", left: 8, fontSize: 11, color: "rgba(255,255,255,0.6)" }}>{CUR}</span>
-                <input type="number" inputMode="decimal" min={0} value={r.amount || ""} onChange={e => setBudgetRow(i, { amount: parseFloat(e.target.value) || 0 })}
-                  placeholder="0" title="Preventivo" aria-label="Importo preventivo" style={{ ...numInput, paddingLeft: 18 }} />
-              </div>
-              <div style={{ position: "relative", display: "flex", alignItems: "center" }} title="Già pagato / prenotato">
-                <Check style={{ position: "absolute", left: 7, width: 11, height: 11, color: "rgba(52,211,153,0.7)" }} />
-                <input type="number" inputMode="decimal" min={0} value={r.paid || ""} onChange={e => setBudgetRow(i, { paid: parseFloat(e.target.value) || 0 })}
-                  placeholder="pagato" aria-label="Già pagato" style={{ ...numInput, paddingLeft: 22, color: "#6ee7b7" }} />
-              </div>
-              <button type="button" onClick={() => mutBudget(rows => rows.filter((_, idx) => idx !== i))} aria-label="Rimuovi categoria"
-                style={{ flexShrink: 0, background: "transparent", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", padding: 4 }}>
-                <Trash2 style={{ width: 15, height: 15 }} />
-              </button>
-            </div>
-          ))}
-          <button type="button" onClick={() => mutBudget(rows => [...rows, { label: "", amount: 0 }])}
-            style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "transparent", border: "none", color: "#60a5fa", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "2px 0", marginTop: 2 }}>
-            <Plus style={{ width: 14, height: 14 }} /> aggiungi categoria
-          </button>
-
-          {/* Totali */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 14, paddingTop: 12, borderTop: "0.5px solid #2a3f5f" }}>
-            <div>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.6)" }}>Totale preventivo</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: "#f0f4ff" }}>{CUR} {fmt(total)}</div>
-            </div>
-            {paidTotal > 0 && (
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.6)" }}>Già pagato</div>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#6ee7b7" }}>{CUR} {fmt(paidTotal)}</div>
-              </div>
-            )}
-          </div>
-          {total > 0 && (
-            <div style={{ height: 6, borderRadius: 999, background: "#16233d", marginTop: 10, overflow: "hidden" }}>
-              <div style={{ width: `${Math.min(100, Math.round((paidTotal / total) * 100))}%`, height: "100%", background: "#34d399" }} />
-            </div>
-          )}
 
           {/* CHECKLIST */}
           <div style={{ ...sectionTitle, marginTop: 28 }}>
