@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Search, Loader2, Home } from "lucide-react";
 import { searchPlaces, GeoResult } from "@/lib/geo";
@@ -52,7 +52,6 @@ export function HomeCityGate() {
   }, []);
   const attivo = !homeCity && welcomeGone && !rimandato;
   const modalRef = useModalFocus<HTMLDivElement>(attivo);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   // Ricerca con attesa, e guardia contro le risposte fuori ordine: la lenta
   // di ieri non deve sovrascrivere la veloce di adesso.
@@ -117,7 +116,7 @@ export function HomeCityGate() {
         <div style={{ marginTop: 20, background: "rgba(255,255,255,0.05)", border: "0.5px solid #1a2d4a",
           borderRadius: 10, padding: "9px 13px", display: "flex", alignItems: "center", gap: 8 }}>
           <Search style={{ width: 15, height: 15, color: "rgba(255,255,255,0.5)", flexShrink: 0 }} />
-          <input ref={inputRef} value={query} onChange={e => setQuery(e.target.value)}
+          <input value={query} onChange={e => setQuery(e.target.value)}
             placeholder="La tua città…" aria-label="Cerca la tua città di partenza"
             style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", outline: "none",
               color: "#f0f4ff", fontSize: 13 }} />

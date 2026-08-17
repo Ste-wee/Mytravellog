@@ -105,10 +105,18 @@ export function AppTour() {
   // va su window, NON come onKeyDown sul div del portale: quel div non ha mai il
   // focus, quindi la pressione reale (target = body) non lo raggiungerebbe mai —
   // stesso pattern di TripDiary/TripPlanner.
+  // Il flag si scrive con la guardia: con lo storage PIENO setItem lancia, e
+  // senza try/catch il tap su "Ho capito"/Esc moriva PRIMA di setActive(null)
+  // — il tutorial diventava inchiudibile. Se il flag non si salva pazienza:
+  // il tour si chiude comunque (al massimo ricompare al prossimo avvio).
+  const segnaVisto = (s: Section) => {
+    try { localStorage.setItem(flagKey(s), "1"); } catch { /* storage pieno */ }
+  };
+
   useEffect(() => {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { localStorage.setItem(flagKey(active), "1"); setActive(null); }
+      if (e.key === "Escape") { segnaVisto(active); setActive(null); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -123,7 +131,7 @@ export function AppTour() {
   const step = active.steps[i];
   const last = i === active.steps.length - 1;
 
-  const done = () => { localStorage.setItem(flagKey(active), "1"); setActive(null); };
+  const done = () => { segnaVisto(active); setActive(null); };
   const next = () => { if (last) done(); else setI(n => n + 1); };
 
   return createPortal(

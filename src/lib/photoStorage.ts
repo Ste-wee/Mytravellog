@@ -76,6 +76,11 @@ function getDB(): Promise<IDBPDatabase<PhotoDB>> {
         store.createIndex("by-trip", "tripId");
       },
     });
+    // Un FALLIMENTO non si cristallizza (la lezione di loadGis/worldAtlas):
+    // se l'apertura fallisce una volta (storage sotto pressione, modalità
+    // privata transitoria), cachearla condannerebbe foto e rilievi 3D per
+    // tutta la sessione. Si dimentica e al prossimo uso si riprova.
+    dbPromise.catch(() => { dbPromise = null; });
   }
   return dbPromise;
 }
