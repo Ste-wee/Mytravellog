@@ -17,7 +17,8 @@
     "prebuild": "echo \"skipping tsc\"",
     "verify:home": "node e2e/verify-home.mjs",
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.sw.json --noEmit",
-    "collaudo": "node e2e/collaudo.mjs"
+    "collaudo": "node e2e/collaudo.mjs",
+    "confini": "node scripts/genera-confini.mjs"
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "^5.2.8",

@@ -96,3 +96,15 @@ registerRoute(
     plugins: [new ExpirationPlugin({ maxEntries: 4, maxAgeSeconds: 180 * 24 * 3600, purgeOnQuotaError: true })],
   }),
 );
+
+// I confini regionali che ospitiamo noi (public/confini/<ISO2>.json): NON sono
+// nel precache (il glob copre js/css/html/immagini/font, non i json — e
+// precaricarne 200 al primo avvio sarebbe assurdo), quindi si cachano al primo
+// uso. Da lì in poi la mappa di quel paese funziona anche senza rete.
+registerRoute(
+  ({ url }) => url.origin === self.location.origin && url.pathname.includes("/confini/"),
+  new CacheFirst({
+    cacheName: "navta-confini",
+    plugins: [new ExpirationPlugin({ maxEntries: 60, maxAgeSeconds: 365 * 24 * 3600, purgeOnQuotaError: true })],
+  }),
+);

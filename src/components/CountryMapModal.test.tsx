@@ -49,10 +49,20 @@ const AUSTRIA_FEATURES = [
 /** Simula le due chiamate di fetchCountryRegions: metadata geoBoundaries -> GeoJSON (testo, non LFS). */
 function mockGeoBoundaries(features: any[]) {
   const body = JSON.stringify({ type: "FeatureCollection", features });
-  global.fetch = vi.fn()
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ simplifiedGeometryGeoJSON: "https://fake/geo.json" }) })
-    .mockResolvedValueOnce({ ok: true, text: async () => body });
+  // Risposte per INDIRIZZO e non per ordine: l'app prova prima i confini che
+  // ospitiamo noi (public/confini/<ISO2>.json) e solo dopo va in rete. Coi
+  // mock ordinati bastava aggiungere un passo perché 36 test cadessero.
+  global.fetch = vi.fn((input: any) => {
+    const u = String(input);
+    if (u.includes("/confini/")) return Promise.resolve({ ok: false, status: 404 } as any); // paese non nel pacchetto
+    if (u.includes("geoboundaries.org")) return Promise.resolve({ ok: true, json: async () => ({ simplifiedGeometryGeoJSON: "https://fake/geo.json" }) } as any);
+    return Promise.resolve({ ok: true, text: async () => body } as any);
+  }) as any;
 }
+
+/** Le chiamate DI RETE: esclude il tentativo sui confini che ospitiamo noi,
+ *  che è sempre il primo e nei test risponde 404. */
+const chiamateDiRete = () => (fetch as any).mock.calls.filter((c: any[]) => !String(c[0]).includes("/confini/"));
 
 function makeTrip(overrides: Partial<Trip> = {}): Trip {
   return {
@@ -430,28 +440,32 @@ describe("CountryMapModal — file tracciati con Git LFS (paesi con confini più
   it("risolve il contenuto reale da media.githubusercontent.com quando raw.githubusercontent.com ritorna solo il puntatore LFS", async () => {
     const lfsPointer = "version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 123\n";
     const realBody = JSON.stringify({ type: "FeatureCollection", features: ITALY_FEATURES });
-    global.fetch = vi.fn()
-      // 1. metadata geoBoundaries
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ gjDownloadURL: "https://github.com/wmgeolab/geoBoundaries/raw/9469f09/releaseData/gbOpen/DEU/ADM1/geoBoundaries-DEU-ADM1.geojson" }) })
-      // 2. raw.githubusercontent.com -> solo il puntatore LFS
-      .mockResolvedValueOnce({ ok: true, text: async () => lfsPointer })
-      // 3. api.github.com risolve l'hash completo del commit
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ sha: "9469f09592ced973a3448cf66b6100b741b64c0d" }) })
-      // 4. media.githubusercontent.com -> contenuto reale
-      .mockResolvedValueOnce({ ok: true, json: async () => JSON.parse(realBody) });
+    global.fetch = vi.fn((input: any) => {
+      const u = String(input);
+      if (u.includes("/confini/")) return Promise.resolve({ ok: false, status: 404 } as any);
+      if (u.includes("geoboundaries.org")) return Promise.resolve({ ok: true, json: async () => ({ gjDownloadURL: "https://github.com/wmgeolab/geoBoundaries/raw/9469f09/releaseData/gbOpen/DEU/ADM1/geoBoundaries-DEU-ADM1.geojson" }) } as any);
+      if (u.includes("raw.githubusercontent.com")) return Promise.resolve({ ok: true, text: async () => lfsPointer } as any);
+      if (u.includes("api.github.com")) return Promise.resolve({ ok: true, json: async () => ({ sha: "9469f09592ced973a3448cf66b6100b741b64c0d" }) } as any);
+      return Promise.resolve({ ok: true, json: async () => JSON.parse(realBody) } as any); // media.githubusercontent.com
+    }) as any;
 
     renderModal({ countryCode: "DE", countryName: "Germania" });
     await waitFor(() => expect(screen.getByText(/regioni? su 5/)).toBeInTheDocument());
-    expect(fetch).toHaveBeenCalledTimes(4);
-    const mediaCall = (fetch as any).mock.calls[3][0];
+    expect(chiamateDiRete()).toHaveLength(4);
+    const mediaCall = chiamateDiRete()[3][0];
     expect(mediaCall).toContain("media.githubusercontent.com/media/wmgeolab/geoBoundaries/9469f09592ced973a3448cf66b6100b741b64c0d/");
   });
 
   it("mostra errore se anche la risoluzione dell'hash completo fallisce", async () => {
-    global.fetch = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ gjDownloadURL: "https://github.com/wmgeolab/geoBoundaries/raw/9469f09/x.geojson" }) })
-      .mockResolvedValueOnce({ ok: true, text: async () => "version https://git-lfs.github.com/spec/v1\n" })
-      .mockResolvedValueOnce({ ok: false, json: async () => ({}) }); // api.github.com fallisce
+    // Anche qui per indirizzo: con i mock ordinati il test passava ancora, ma
+    // per la ragione sbagliata (il primo mock finiva al tentativo locale).
+    global.fetch = vi.fn((input: any) => {
+      const u = String(input);
+      if (u.includes("/confini/")) return Promise.resolve({ ok: false, status: 404 } as any);
+      if (u.includes("geoboundaries.org")) return Promise.resolve({ ok: true, json: async () => ({ gjDownloadURL: "https://github.com/wmgeolab/geoBoundaries/raw/9469f09/x.geojson" }) } as any);
+      if (u.includes("raw.githubusercontent.com")) return Promise.resolve({ ok: true, text: async () => "version https://git-lfs.github.com/spec/v1\n" } as any);
+      return Promise.resolve({ ok: false, json: async () => ({}) } as any); // api.github.com fallisce
+    }) as any;
     renderModal({ countryCode: "DE", countryName: "Germania" });
     await waitFor(() => expect(screen.getByText(/mappa non disponibile/i)).toBeInTheDocument());
   });
@@ -464,7 +478,7 @@ describe("CountryMapModal — cache persistita in localStorage tra le sessioni",
     mockGeoBoundaries(ITALY_FEATURES);
     const first = renderModal({ trips: [makeTrip({ region: "Lazio" })] });
     await waitFor(() => expect(screen.getByText("1 regione su 5")).toBeInTheDocument());
-    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(chiamateDiRete()).toHaveLength(2);
     first.unmount();
 
     // Simula un nuovo caricamento di pagina: la cache in memoria si azzera,
@@ -474,7 +488,7 @@ describe("CountryMapModal — cache persistita in localStorage tra le sessioni",
 
     renderModal({ trips: [makeTrip({ region: "Toscana" })] });
     await waitFor(() => expect(screen.getByText("1 regione su 5")).toBeInTheDocument());
-    expect(fetch).not.toHaveBeenCalled();
+    expect(chiamateDiRete()).toHaveLength(0);
   });
 
   it("__clearGeoCache azzera anche i dati persistiti, non solo la cache in memoria", async () => {
@@ -487,7 +501,7 @@ describe("CountryMapModal — cache persistita in localStorage tra le sessioni",
     mockGeoBoundaries(ITALY_FEATURES);
     renderModal({ trips: [makeTrip({ region: "Lazio" })] });
     await waitFor(() => expect(screen.getByText("1 regione su 5")).toBeInTheDocument());
-    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(chiamateDiRete()).toHaveLength(2);
   });
 
   it("una cache localStorage corrotta viene ignorata e si ricade sul fetch di rete", async () => {
@@ -495,7 +509,7 @@ describe("CountryMapModal — cache persistita in localStorage tra le sessioni",
     mockGeoBoundaries(ITALY_FEATURES);
     renderModal({ trips: [makeTrip({ region: "Lazio" })] });
     await waitFor(() => expect(screen.getByText("1 regione su 5")).toBeInTheDocument());
-    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(chiamateDiRete()).toHaveLength(2);
   });
 });
 
@@ -507,8 +521,8 @@ describe("CountryMapModal — livello ADM per paese", () => {
     // (Nord-Ovest, Centro, …); le 20 regioni amministrative stanno in ADM2.
     mockGeoBoundaries(ITALY_FEATURES);
     renderModal({ countryCode: "IT", countryName: "Italia", trips: [] });
-    await waitFor(() => expect(fetch).toHaveBeenCalled());
-    const metaUrl = (fetch as any).mock.calls[0][0];
+    await waitFor(() => expect(chiamateDiRete().length).toBeGreaterThan(0));
+    const metaUrl = chiamateDiRete()[0][0];
     expect(metaUrl).toContain("/ITA/ADM2/");
     expect(metaUrl).not.toContain("/ADM1/");
   });
@@ -516,8 +530,8 @@ describe("CountryMapModal — livello ADM per paese", () => {
   it("anche la Grecia scarica ADM2 (13 periferie + Athos), non ADM1 (8 macro-gruppi)", async () => {
     mockGeoBoundaries(ITALY_FEATURES);
     renderModal({ countryCode: "GR", countryName: "Grecia", trips: [] });
-    await waitFor(() => expect(fetch).toHaveBeenCalled());
-    const metaUrl = (fetch as any).mock.calls[0][0];
+    await waitFor(() => expect(chiamateDiRete().length).toBeGreaterThan(0));
+    const metaUrl = chiamateDiRete()[0][0];
     expect(metaUrl).toContain("/GRC/ADM2/");
     expect(metaUrl).not.toContain("/ADM1/");
   });
@@ -525,8 +539,8 @@ describe("CountryMapModal — livello ADM per paese", () => {
   it("per gli altri paesi resta ADM1 (default)", async () => {
     mockGeoBoundaries(ITALY_FEATURES);
     renderModal({ countryCode: "DE", countryName: "Germania", trips: [] });
-    await waitFor(() => expect(fetch).toHaveBeenCalled());
-    const metaUrl = (fetch as any).mock.calls[0][0];
+    await waitFor(() => expect(chiamateDiRete().length).toBeGreaterThan(0));
+    const metaUrl = chiamateDiRete()[0][0];
     expect(metaUrl).toContain("/DEU/ADM1/");
   });
 });
@@ -681,5 +695,42 @@ describe("CountryMapModal — quando i confini non arrivano", () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}), text: async () => "" });
     renderModal({ countryCode: "XX", countryName: "Paese Ignoto", trips: [] });
     expect(await screen.findByText(/non disponibile per questo paese/i)).toBeInTheDocument();
+  });
+});
+
+// I confini che ospitiamo noi (public/confini/<ISO2>.json, generati con
+// `npm run confini`): servono a togliere di mezzo i limiti di richieste dei
+// servizi di terzi, che oggi bloccano la mappa dopo una decina di aperture.
+describe("CountryMapModal — confini ospitati da noi", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("se il paese è nel pacchetto locale, NON tocca la rete", async () => {
+    const locali = JSON.stringify({ type: "FeatureCollection", features: ITALY_FEATURES });
+    global.fetch = vi.fn((input: any) => {
+      const u = String(input);
+      if (u.includes("/confini/IT.json")) return Promise.resolve({ ok: true, json: async () => JSON.parse(locali) } as any);
+      return Promise.reject(new Error("la rete non doveva servire"));
+    }) as any;
+    renderModal({ countryCode: "IT", trips: [makeTrip({ region: "Lazio" })] });
+    await waitFor(() => expect(screen.getByText("1 regione su 5")).toBeInTheDocument());
+    expect(chiamateDiRete()).toHaveLength(0);
+  });
+
+  it("se il paese NON è nel pacchetto, ricade sulla rete come prima", async () => {
+    mockGeoBoundaries(AUSTRIA_FEATURES);   // il finto /confini/ risponde 404
+    renderModal({ countryCode: "AT", countryName: "Austria", trips: [] });
+    await waitFor(() => expect(screen.getByText(/regioni? su 9/)).toBeInTheDocument());
+    expect(chiamateDiRete().length).toBeGreaterThan(0);
+  });
+
+  it("un file locale corrotto non blocca nulla: si va in rete", async () => {
+    global.fetch = vi.fn((input: any) => {
+      const u = String(input);
+      if (u.includes("/confini/")) return Promise.resolve({ ok: true, json: async () => { throw new Error("json rotto"); } } as any);
+      if (u.includes("geoboundaries.org")) return Promise.resolve({ ok: true, json: async () => ({ simplifiedGeometryGeoJSON: "https://fake/geo.json" }) } as any);
+      return Promise.resolve({ ok: true, text: async () => JSON.stringify({ type: "FeatureCollection", features: ITALY_FEATURES }) } as any);
+    }) as any;
+    renderModal({ countryCode: "IT", trips: [makeTrip({ region: "Lazio" })] });
+    await waitFor(() => expect(screen.getByText("1 regione su 5")).toBeInTheDocument());
   });
 });

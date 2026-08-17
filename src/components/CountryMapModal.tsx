@@ -94,10 +94,32 @@ const ADM_LEVEL_BY_COUNTRY: Record<string, "ADM1" | "ADM2"> = {
   GR: "ADM2",
 };
 
+/**
+ * I confini ospitati da NOI (`public/confini/<ISO2>.json`, generati una volta
+ * con `npm run confini`). Stesso dominio dell'app: nessun limite di richieste,
+ * nessun CORS, e il service worker li tiene offline.
+ *
+ * È il primo tentativo; se il paese non è ancora nel pacchetto si torna alla
+ * rete come prima, così l'app funziona anche a pacchetto incompleto.
+ */
+async function fetchConfiniLocali(code2: string): Promise<RegionFeature[] | null> {
+  try {
+    const r = await fetch(`${import.meta.env.BASE_URL}confini/${code2}.json`);
+    if (!r.ok) return null;
+    const j = await r.json();
+    const features = j?.features;
+    return Array.isArray(features) && features.length > 0 ? (features as RegionFeature[]) : null;
+  } catch {
+    return null; // file assente o illeggibile: si passa alla rete
+  }
+}
+
 async function fetchCountryRegions(countryCode2: string): Promise<RegionFeature[] | null> {
   const code2 = countryCode2?.toUpperCase();
   const iso3 = ISO2_TO_ISO3[code2];
   if (!iso3) return null;
+  const locali = await fetchConfiniLocali(code2);
+  if (locali) return locali;
   const admLevel = ADM_LEVEL_BY_COUNTRY[code2] ?? "ADM1";
   try {
     const metaUrl = `https://www.geoboundaries.org/api/current/gbOpen/${iso3}/${admLevel}/`;
