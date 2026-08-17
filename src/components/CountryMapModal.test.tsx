@@ -769,6 +769,21 @@ describe("CountryMapModal — confini ospitati da noi", () => {
     expect(localStorage.getItem("geoBoundariesCache:v2:IT")).toBeNull();
   });
 
+  // La copia di rete PREGRESSA: chi aveva già scaricato un paese prima che
+  // entrasse nel pacchetto locale se la teneva per sempre (la copia persistita
+  // veniva letta prima del pacchetto). Ora il locale vince e libera i KB nello
+  // spazio condiviso coi viaggi.
+  it("quando il paese entra nel pacchetto, la copia pregressa in localStorage viene liberata", async () => {
+    localStorage.setItem("geoBoundariesCache:v2:IT", JSON.stringify(ITALY_FEATURES));
+    mockPacchettoLocale(["IT"]);
+    renderModal({ countryCode: "IT", trips: [makeTrip({ region: "Lazio" })] });
+    await waitFor(() => expect(screen.getByText("1 regione su 5")).toBeInTheDocument());
+    expect(localStorage.getItem("geoBoundariesCache:v2:IT")).toBeNull();
+    // e i confini usati sono quelli del pacchetto, non la copia vecchia
+    const locale = (fetch as any).mock.calls.some((c: any[]) => /\/confini\/IT\.json/.test(String(c[0])));
+    expect(locale).toBe(true);
+  });
+
   it("i confini presi dalla rete invece sì: risparmiano un fetch limitato", async () => {
     mockGeoBoundaries(ITALY_FEATURES);
     renderModal({ countryCode: "IT", trips: [makeTrip({ region: "Lazio" })] });

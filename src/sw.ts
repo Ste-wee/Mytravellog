@@ -7,7 +7,7 @@
 import { precache, addRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from "workbox-precaching";
 import type { PrecacheEntry } from "workbox-precaching";
 import { NavigationRoute, registerRoute } from "workbox-routing";
-import { CacheFirst } from "workbox-strategies";
+import { CacheFirst, NetworkFirst } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
 import { clientsClaim } from "workbox-core";
 
@@ -97,10 +97,24 @@ registerRoute(
   }),
 );
 
+// Il MANIFEST del pacchetto confini (index.json) è un documento VIVO: dice
+// quali paesi esistono e cambia a ogni `npm run confini`. In CacheFirst un
+// client se lo terrebbe per un anno, e i paesi generati dopo resterebbero
+// invisibili — il pacchetto locale morto proprio per chi l'app la usa già.
+// NetworkFirst: fresco quando c'è rete, dalla cache quando sei offline.
+// Registrata PRIMA della rotta dei confini: in Workbox vince la prima che
+// combacia, e quella sotto coprirebbe anche questo percorso.
+registerRoute(
+  ({ url }) => url.origin === self.location.origin && url.pathname.endsWith("/confini/index.json"),
+  new NetworkFirst({ cacheName: "navta-confini", networkTimeoutSeconds: 4 }),
+);
+
 // I confini regionali che ospitiamo noi (public/confini/<ISO2>.json): NON sono
 // nel precache (il glob copre js/css/html/immagini/font, non i json — e
 // precaricarne 200 al primo avvio sarebbe assurdo), quindi si cachano al primo
-// uso. Da lì in poi la mappa di quel paese funziona anche senza rete.
+// uso. Da lì in poi la mappa di quel paese funziona anche senza rete. I file
+// dei singoli paesi, a differenza del manifest, cambiano solo se rigeneriamo
+// le geometrie: CacheFirst va bene.
 registerRoute(
   ({ url }) => url.origin === self.location.origin && url.pathname.includes("/confini/"),
   new CacheFirst({

@@ -154,21 +154,17 @@ async function fetchConfiniLocali(code2: string): Promise<RegionFeature[] | null
 }
 
 /**
- * I confini del paese e la loro PROVENIENZA. Chi chiama deve saperlo: i
- * confini presi dalla rete vale la pena persisterli in localStorage (evitano
- * un fetch limitato), quelli del pacchetto locale no — sarebbero una seconda
- * copia degli stessi dati, nello spazio (5 MB in tutto) che l'app condivide
- * con i viaggi: bastano tre o quattro paesi per rischiare di non poter più
- * salvare un viaggio. Il file locale è già cache del service worker.
+ * I confini del paese DALLA RETE (geoBoundaries → GitHub). Il pacchetto
+ * locale non passa di qui: lo tenta `load` per primo, perché la provenienza
+ * decide la persistenza — i confini di rete vale la pena tenerli in
+ * localStorage (evitano un fetch limitato), quelli locali no: sarebbero una
+ * seconda copia degli stessi dati nello spazio (5 MB in tutto) che l'app
+ * condivide con i viaggi, e il file è già cache del service worker.
  */
-type EsitoConfini = { features: RegionFeature[]; locale: boolean };
-
-async function fetchCountryRegions(countryCode2: string): Promise<EsitoConfini | null> {
+async function fetchCountryRegions(countryCode2: string): Promise<RegionFeature[] | null> {
   const code2 = countryCode2?.toUpperCase();
   const iso3 = ISO2_TO_ISO3[code2];
   if (!iso3) return null;
-  const locali = await fetchConfiniLocali(code2);
-  if (locali) return { features: locali, locale: true };
   const admLevel = ADM_LEVEL_BY_COUNTRY[code2] ?? "ADM1";
   try {
     const metaUrl = `https://www.geoboundaries.org/api/current/gbOpen/${iso3}/${admLevel}/`;
@@ -180,8 +176,7 @@ async function fetchCountryRegions(countryCode2: string): Promise<EsitoConfini |
     if (!geoUrl) return null;
     const geo = await fetchGithubRawJson(geoUrl);
     const features = geo?.features;
-    if (!Array.isArray(features) || features.length === 0) return null;
-    return { features: features as RegionFeature[], locale: false };
+    return Array.isArray(features) && features.length > 0 ? (features as RegionFeature[]) : null;
   } catch (e) {
     // Il MOTIVO non va inghiottito: "troppe richieste" e "sei senza rete" non
     // sono "questo paese non è supportato", e prima finivano tutti nello
@@ -324,6 +319,16 @@ function writePersistedFeatures(countryCode: string, features: RegionFeature[]) 
   } catch {
     // localStorage piena o non disponibile (es. modalità privata): la cache
     // in-memory resta comunque valida per la sessione corrente.
+  }
+}
+
+/** Libera la copia di rete pregressa quando il paese entra nel pacchetto
+ *  locale: sono gli stessi dati, e quello spazio è condiviso coi viaggi. */
+function removePersistedFeatures(countryCode: string) {
+  try {
+    localStorage.removeItem(GEO_LOCALSTORAGE_PREFIX + countryCode);
+  } catch {
+    // non disponibile: pazienza, era solo pulizia
   }
 }
 
@@ -538,18 +543,32 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
       try {
         let features = geoCache[countryCode];
         if (!features) {
+          // Il pacchetto locale ha la PRECEDENZA sulla copia persistita: se
+          // il paese è entrato nel pacchetto, la copia di rete in localStorage
+          // è ridondante e va liberata — altrimenti chi l'aveva già scaricata
+          // se la terrebbe per sempre nello spazio condiviso coi viaggi.
+          // (Per i paesi fuori dal pacchetto è un lookup nel manifest già in
+          // memoria: nessuna richiesta in più.)
+          const locali = await fetchConfiniLocali(countryCode.toUpperCase());
+          if (cancelled) return;
+          if (locali) {
+            features = locali;
+            geoCache[countryCode] = features;
+            removePersistedFeatures(countryCode);
+          }
+        }
+        if (!features) {
           features = readPersistedFeatures(countryCode);
           if (features) geoCache[countryCode] = features;
         }
         if (!features) {
-          const esito = await fetchCountryRegions(countryCode);
+          features = await fetchCountryRegions(countryCode);
           if (cancelled) return; // modal chiuso o paese cambiato durante il fetch
-          if (!esito) throw new Error("Nessuna suddivisione disponibile");
-          features = esito.features;
+          if (!features) throw new Error("Nessuna suddivisione disponibile");
           geoCache[countryCode] = features;
-          // Solo i confini scaricati dalla rete: quelli del pacchetto locale
-          // sono già serviti dal nostro dominio e cacheati dal service worker.
-          if (!esito.locale) writePersistedFeatures(countryCode, features);
+          // Qui arrivano SOLO i confini di rete (il pacchetto locale è stato
+          // tentato sopra): questi sì che vale la pena persisterli.
+          writePersistedFeatures(countryCode, features);
         }
         if (cancelled) return;
 
