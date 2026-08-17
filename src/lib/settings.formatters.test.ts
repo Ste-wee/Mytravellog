@@ -9,9 +9,9 @@ import {
 } from "./settings";
 
 describe("fmtDistance", () => {
-  it("1000 km metric → include '1000' e 'km'", () => {
+  it("1000 km metric → include '1.000' (col separatore) e 'km'", () => {
     const r = fmtDistance(1000, "metric");
-    expect(r).toContain("1000");
+    expect(r).toContain("1.000");
     expect(r).toContain("km");
   });
 
@@ -34,14 +34,14 @@ describe("fmtDistance", () => {
 });
 
 describe("fmtAltitude", () => {
-  it("1000 m metric → include '1000' e 'm'", () => {
+  it("1000 m metric → include '1.000' (col separatore) e 'm'", () => {
     const r = fmtAltitude(1000, "metric");
-    expect(r).toContain("1000");
+    expect(r).toContain("1.000");
     expect(r).toContain("m");
   });
 
   it("1000 m imperial → 3281 ft", () => {
-    expect(fmtAltitude(1000, "imperial")).toBe("3281 ft");
+    expect(fmtAltitude(1000, "imperial")).toBe("3.281 ft");
   });
 
   it("null → '—'", () => {

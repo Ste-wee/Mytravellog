@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload, Loader2, MapPin } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { addTrip, todayLocalISO } from "@/lib/storage";
+import { fmtNumber } from "@/lib/settings";
 import { parseGpx, downsample, summarizeGpx, reverseGeocode, buildTrackPreviewSvg } from "@/lib/gpx";
 import { distanceKm } from "@/lib/geo";
 
@@ -144,7 +145,7 @@ const ImportaGpx = () => {
             <div style={{ borderRadius: 12, overflow: "hidden", border: "0.5px solid #1a2d4a", marginBottom: 8 }}
               dangerouslySetInnerHTML={{ __html: buildTrackPreviewSvg(coords) }} />
             <div style={{ display: "flex", gap: 14, fontSize: 12, color: "rgba(255,255,255,0.55)", marginBottom: 20, flexWrap: "wrap" }}>
-              <span>{lengthKm.toLocaleString("it-IT")} km</span>
+              <span>{fmtNumber(lengthKm)} km</span>
               <span>{coords.length} punti</span>
               {maxEle != null && <span>quota max {maxEle} m</span>}
               {geocoding && <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Loader2 className="w-3 h-3 animate-spin" /> rilevo i luoghi…</span>}

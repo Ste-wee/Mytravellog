@@ -69,11 +69,11 @@ describe("TravelHighlights — highest (altitudine)", () => {
       makeTrip({ altitude_m: 100,  city: "Pianura" }),
     ];
     renderHighlights(trips);
-    // In metric (default), fmtAltitude(2000, "metric") → "2000 m" in jsdom.
+    // In metric (default), fmtAltitude(2000, "metric") → "2.000 m" (separatore sempre, anche a 4 cifre).
     // Compare toBeGreaterThanOrEqual(1) invece di toBeInTheDocument: la card
     // è renderizzata sia nella versione desktop che in quella mobile (una
     // sola visibile per volta via CSS, ma entrambe presenti nel DOM in jsdom).
-    expect(screen.getAllByText("2000 m").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("2.000 m").length).toBeGreaterThanOrEqual(1);
   });
 
   it("mostra la città del viaggio più alto come sottotitolo", () => {
@@ -89,7 +89,7 @@ describe("TravelHighlights — highest (altitudine)", () => {
     // La destinazione è a 100m, ma una tappa intermedia ha raggiunto 3000m
     const trips = [makeTrip({ altitude_m: 100, max_altitude_m: 3000, max_altitude_city: "Passo Alpino", city: "Destinazione" })];
     renderHighlights(trips);
-    expect(screen.getAllByText("3000 m").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("3.000 m").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("Passo Alpino").length).toBeGreaterThanOrEqual(1);
   });
 
@@ -109,7 +109,7 @@ describe("TravelHighlights — farthest (distanza)", () => {
     ];
     renderHighlights(trips);
     // 1200 viene scelto su 800 grazie a max_distance_from_home_km
-    expect(screen.getAllByText("1200 km").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("1.200 km").length).toBeGreaterThanOrEqual(1);
   });
 
   it("usa distance_from_home_km se max_distance_from_home_km è null", () => {
@@ -192,7 +192,7 @@ describe("TravelHighlights — byMode breakdown", () => {
     const trips = [makeTrip({ transport_mode: null, latitude: 35.68, longitude: 139.65 })];
     renderHighlights(trips);
     expect(screen.getAllByText("In aereo").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("9710 km").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("9.710 km").length).toBeGreaterThanOrEqual(1);
   });
 
   it("fallback a 'car' per distanza 20-200 km senza transport_mode", () => {

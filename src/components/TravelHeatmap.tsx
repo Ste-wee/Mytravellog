@@ -2,6 +2,7 @@ import { useMemo, useState, Fragment } from "react";
 import { Trip, parseLocalDate, formatTripDate } from "@/lib/storage";
 import { stopChain } from "@/lib/stops";
 import { Hourglass, CalendarDays, X } from "lucide-react";
+import { fmtNumber } from "@/lib/settings";
 
 const MONTH_LABELS = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
 
@@ -110,7 +111,7 @@ export function TravelHeatmap({ trips }: Props) {
             <CalendarDays className="w-5 h-5" style={{ color: "#60a5fa" }} />
           </div>
           <div>
-            <div className="font-mono" style={{ fontSize: 24, fontWeight: 700, color: "#f0f4ff", lineHeight: 1 }}>{totalTravelDays}</div>
+            <div className="font-mono" style={{ fontSize: 24, fontWeight: 700, color: "#f0f4ff", lineHeight: 1 }}>{fmtNumber(totalTravelDays)}</div>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>giorni in viaggio</div>
           </div>
         </div>
@@ -120,7 +121,7 @@ export function TravelHeatmap({ trips }: Props) {
           </div>
           <div>
             <div className="font-mono" style={{ fontSize: 24, fontWeight: 700, color: "#f0f4ff", lineHeight: 1 }}>
-              {abstinence == null ? "—" : abstinence}
+              {abstinence == null ? "—" : fmtNumber(abstinence)}
             </div>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>giorni senza viaggiare</div>
           </div>

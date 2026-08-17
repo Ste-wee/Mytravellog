@@ -4,6 +4,9 @@ import {
   SettingsProvider,
   useSettings,
   parseStoredSettings,
+  fmtNumber,
+  fmtDistance,
+  fmtAltitude,
   MARKER_SCALE_MIN,
   MARKER_SCALE_MAX,
   type Settings,
@@ -109,5 +112,23 @@ describe("parseStoredSettings — compatibilità retroattiva", () => {
     const s = parseStoredSettings("{not json");
     expect(s.minMarkerScale).toBe(0.5);
     expect(s.maxMarkerScale).toBe(1.0);
+  });
+});
+
+// Il separatore delle migliaia SEMPRE, anche a 4 cifre: l'it-IT di CLDR non
+// raggruppa i numeri a 4 cifre (toLocaleString("it-IT") dà "4419"), e i totali
+// dell'app stanno quasi sempre lì — sembrava che il separatore non ci fosse.
+describe("fmtNumber / fmtDistance / fmtAltitude — separatore delle migliaia", () => {
+  it("raggruppa anche i numeri a 4 cifre (dove toLocaleString it-IT non lo fa)", () => {
+    expect(fmtNumber(4419)).toBe("4.419");
+    expect(fmtNumber(787)).toBe("787");
+    expect(fmtNumber(10193)).toBe("10.193");
+  });
+
+  it("fmtDistance e fmtAltitude lo ereditano, in entrambe le unità", () => {
+    expect(fmtDistance(4419, "metric")).toBe("4.419 km");
+    expect(fmtDistance(10000, "imperial")).toBe("6.214 mi");
+    expect(fmtAltitude(8848, "metric")).toBe("8.848 m");
+    expect(fmtAltitude(3466, "imperial")).toBe("11.371 ft");
   });
 });

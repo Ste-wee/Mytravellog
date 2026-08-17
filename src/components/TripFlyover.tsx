@@ -13,6 +13,7 @@ import { saveReliefImage } from "@/lib/photoStorage";
 import { buildPosterSvg, loadCountryRings, routeBounds, unwrapSegments } from "@/lib/posterSvg";
 import { X, Share2, Loader2, Download, Frame } from "lucide-react";
 import { canShareFile, downloadBlob, shareOrDownload } from "@/lib/share";
+import { fmtNumber } from "@/lib/settings";
 import { useNavigate } from "react-router-dom";
 import { TRANSPORT } from "@/lib/transport";
 
@@ -215,9 +216,11 @@ function buildFlyoverRouteCoords(stops: { lat: number; lon: number }[], legs: Fl
   return coords;
 }
 
-/** Formatta un numero di km con separatore delle migliaia in stile italiano. */
+/** Formatta un numero di km con separatore delle migliaia in stile italiano.
+ *  Passa da fmtNumber (grouping "always"): toLocaleString("it-IT") da solo non
+ *  raggruppa i numeri a 4 cifre, e i totali stanno quasi sempre lì. */
 function formatKm(km: number): string {
-  return Math.round(km).toLocaleString("it-IT");
+  return fmtNumber(Math.round(km));
 }
 
 // Margini (px) attorno al tracciato nel poster. Con fitBounds questi margini

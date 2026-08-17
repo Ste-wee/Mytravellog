@@ -83,16 +83,27 @@ export function useSettings(): Ctx {
   return ctx;
 }
 
+// Il separatore delle migliaia SEMPRE: l'italiano di CLDR non raggruppa i
+// numeri a 4 cifre (minimumGroupingDigits=2 → "4419", il punto compare solo
+// da 10.000 in su), quindi i totali più comuni dell'app — km, quote e giorni
+// tra 1.000 e 9.999 — uscivano senza separatore e sembrava mancasse del tutto.
+// `useGrouping: "always"` è ES2023: la lib del progetto è ES2020 (per scelta,
+// vedi tsconfig) e il suo tipo dice ancora `boolean`. Il cast resta QUI.
+// Runtime: i motori pre-2022 coercevano la stringa a true (= "auto", il
+// comportamento di prima) — nessun crash, al peggio niente punto sui 4 cifre.
+const NUMERO = new Intl.NumberFormat("it-IT", { useGrouping: "always" } as unknown as Intl.NumberFormatOptions);
+export const fmtNumber = (n: number): string => NUMERO.format(n);
+
 export function fmtDistance(km: number | null | undefined, unit: DistanceUnit): string {
   if (km == null) return "—";
-  if (unit === "imperial") return `${Math.round(km * 0.621371).toLocaleString("it-IT")} mi`;
-  return `${Math.round(km).toLocaleString("it-IT")} km`;
+  if (unit === "imperial") return `${fmtNumber(Math.round(km * 0.621371))} mi`;
+  return `${fmtNumber(Math.round(km))} km`;
 }
 
 export function fmtAltitude(m: number | null | undefined, unit: DistanceUnit): string {
   if (m == null) return "—";
-  if (unit === "imperial") return `${Math.round(m * 3.28084).toLocaleString("it-IT")} ft`;
-  return `${Math.round(m).toLocaleString("it-IT")} m`;
+  if (unit === "imperial") return `${fmtNumber(Math.round(m * 3.28084))} ft`;
+  return `${fmtNumber(Math.round(m))} m`;
 }
 
 export function fmtTemp(c: number | null | undefined, unit: TemperatureUnit): string {
