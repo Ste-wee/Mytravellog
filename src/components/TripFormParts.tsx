@@ -592,10 +592,19 @@ function RouteHero({
                 <img src={`https://flagcdn.com/w20/${(r.country_code || "").toLowerCase()}.png`}
                   width="20" style={{ borderRadius:2, flexShrink:0 }}
                   onError={e => { (e.target as HTMLImageElement).style.display="none"; }}/>
-                {/* Il paese può mancare sui luoghi (un lago a cavallo di due
-                    confini, un'isola): senza guardia restava "Nome, " con la
-                    virgola appesa nel vuoto. */}
-                <span style={{ flex:1, minWidth:0 }}>{r.country ? `${r.name}, ${r.country}` : r.name}</span>
+                {/* Regione in grigio accanto al nome: due "Garda" in province
+                    diverse erano indistinguibili (è il meccanismo che mandava
+                    a Machu Picchu in Bolivia). Paese e regione possono
+                    mancare sui luoghi: si mostra ciò che c'è, senza virgole
+                    appese nel vuoto. */}
+                <span style={{ flex:1, minWidth:0 }}>
+                  <span style={{ color:"#f0f4ff" }}>{r.name}</span>
+                  {(r.admin1 || r.country) && (
+                    <span style={{ color:"rgba(255,255,255,0.45)", fontSize:12 }}>
+                      {" · "}{[r.admin1, r.country].filter(Boolean).join(", ")}
+                    </span>
+                  )}
+                </span>
                 {/* Solo i luoghi non abitati portano l'etichetta: per le città
                     sarebbe rumore, sono la stragrande maggioranza. */}
                 {r.kind && (
@@ -641,7 +650,12 @@ export function ItineraryPanel(props: RouteHeroProps) {
         <div>
           <div className="font-display" style={{ fontSize:15, fontWeight:700, color:"#f0f4ff" }}>Itinerario</div>
           <div style={{ fontSize:11, color:"rgba(255,255,255,0.6)", marginTop:1 }}>
-            Tocca 🏠 per cambiare città di partenza
+            {/* L'indizio del trascinamento compare solo quando il riordino
+                esiste (≥2 tappe): prima la funzione era invisibile — nulla
+                diceva che i pallini si possono prendere. */}
+            {props.waypoints.length >= 2
+              ? "Tocca 🏠 per la partenza · trascina le tappe per riordinarle"
+              : "Tocca 🏠 per cambiare città di partenza"}
           </div>
         </div>
       </div>

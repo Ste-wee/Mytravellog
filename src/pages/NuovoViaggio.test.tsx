@@ -109,8 +109,8 @@ describe("NuovoViaggio — validazione date", () => {
     const { container } = renderPage();
     fireEvent.click(screen.getByRole("button", { name: "+ Aggiungi tappa" }));
     fireEvent.change(screen.getByPlaceholderText(/Cerca città/), { target: { value: "par" } });
-    await screen.findByText("Parigi, Francia");
-    fireEvent.click(screen.getByText("Parigi, Francia"));
+    await screen.findByText("Parigi");
+    fireEvent.click(screen.getByText("Parigi").closest("button")!);
 
     const [dateStartInput, dateEndInput] = container.querySelectorAll('input[type="date"]');
     fireEvent.change(dateStartInput, { target: { value: "2024-06-10" } });
@@ -132,8 +132,8 @@ describe("NuovoViaggio — la partenza è obbligatoria", () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: "+ Aggiungi tappa" }));
     fireEvent.change(screen.getByPlaceholderText(/Cerca città/), { target: { value: "par" } });
-    await screen.findByText("Parigi, Francia");
-    fireEvent.click(screen.getByText("Parigi, Francia"));
+    await screen.findByText("Parigi");
+    fireEvent.click(screen.getByText("Parigi").closest("button")!);
 
     fireEvent.click(screen.getByRole("button", { name: /Salva viaggio/ }));
 
@@ -160,8 +160,8 @@ describe("NuovoViaggio — feedback durante il salvataggio lento", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "+ Aggiungi tappa" }));
     fireEvent.change(screen.getByPlaceholderText(/Cerca città/), { target: { value: "par" } });
-    await screen.findByText("Parigi, Francia");
-    fireEvent.click(screen.getByText("Parigi, Francia"));
+    await screen.findByText("Parigi");
+    fireEvent.click(screen.getByText("Parigi").closest("button")!);
 
     fireEvent.click(screen.getByRole("button", { name: /Salva viaggio/ }));
 
