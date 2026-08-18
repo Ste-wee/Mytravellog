@@ -49,6 +49,12 @@ export function placeKindOf(osmClass: string, osmType: string): PlaceKind | null
   }
   if (osmClass === "historic") return "monumento";
   if (osmClass === "man_made") return ["lighthouse", "tower", "obelisk", "bridge", "pier", "windmill"].includes(osmType) ? "monumento" : null;
+  // I luoghi di culto celebri (Pantheon, Duomo di Milano, Sagrada Familia)
+  // su OSM sono amenity/place_of_worship, NON historic/tourism: senza questo
+  // ramo il Pantheon di Roma spariva mentre il Panthéon di Parigi
+  // (tourism/attraction) passava. `fountain` per la Fontana di Trevi.
+  // Il resto di amenity resta fuori: sono bar, scuole, ospedali — rumore.
+  if (osmClass === "amenity") return ["place_of_worship", "fountain"].includes(osmType) ? "monumento" : null;
   if (osmClass === "tourism") {
     if (["attraction", "museum", "artwork", "viewpoint", "gallery"].includes(osmType)) return "monumento";
     if (["theme_park", "zoo", "aquarium"].includes(osmType)) return "luogo";
@@ -56,7 +62,8 @@ export function placeKindOf(osmClass: string, osmType: string): PlaceKind | null
   }
   if (osmClass === "leisure") return ["park", "nature_reserve", "garden"].includes(osmType) ? "parco" : null;
   if (osmClass === "boundary") return osmType === "national_park" ? "parco" : null;
-  if (osmClass === "place") return ["island", "islet", "archipelago", "locality"].includes(osmType) ? "luogo" : null;
+  // `square`: Piazza San Marco e simili vivono in place/square.
+  if (osmClass === "place") return ["island", "islet", "archipelago", "locality", "square"].includes(osmType) ? "luogo" : null;
   return null;
 }
 

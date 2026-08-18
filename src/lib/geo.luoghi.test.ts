@@ -21,6 +21,21 @@ describe("placeKindOf — cosa entra in un diario di viaggio e cosa no", () => {
     expect(placeKindOf("man_made", "lighthouse")).toBe("monumento");
   });
 
+  it("i luoghi di culto e le piazze celebri sono monumenti/luoghi, non rumore", () => {
+    // Casi VERI dall'API (2026-08-18, segnalazione di Stefano: "ho cercato il
+    // pantheon a roma e non ho trovato nulla"):
+    // Pantheon/Duomo di Milano/Sagrada Familia = amenity/place_of_worship,
+    // Fontana di Trevi = amenity/fountain, Piazza San Marco = place/square.
+    expect(placeKindOf("amenity", "place_of_worship")).toBe("monumento");
+    expect(placeKindOf("amenity", "fountain")).toBe("monumento");
+    expect(placeKindOf("place", "square")).toBe("luogo");
+    // ma il resto di amenity resta fuori: è la classe di bar e ospedali
+    expect(placeKindOf("amenity", "restaurant")).toBeNull();
+    expect(placeKindOf("amenity", "school")).toBeNull();
+    expect(placeKindOf("amenity", "hospital")).toBeNull();
+    expect(placeKindOf("amenity", "parking")).toBeNull();
+  });
+
   it("scarta il rumore: strade, ferrovie, alberghi, confini", () => {
     // Cercando "Colosseo" su Nominatim il PRIMO risultato è la via pedonale.
     expect(placeKindOf("highway", "pedestrian")).toBeNull();
