@@ -1,4 +1,4 @@
-import { Plane, Train, Car, Ship, Footprints, Bike } from "lucide-react";
+import { Plane, Train, Car, Ship, Footprints, Bike, Bus } from "lucide-react";
 import { Motorcycle } from "@/components/icons/Motorcycle";
 import type { ElementType } from "react";
 
@@ -12,7 +12,7 @@ import type { ElementType } from "react";
  * un mezzo significava ricordarsi di sette posti.
  */
 
-export const TRANSPORT_MODES = ["plane", "train", "car", "ship", "walk", "bici", "moto"] as const;
+export const TRANSPORT_MODES = ["plane", "train", "car", "ship", "walk", "bici", "moto", "bus"] as const;
 export type TransportMode = (typeof TRANSPORT_MODES)[number];
 
 /** Ripiego per un viaggio/tratta senza mezzo indicato: il blu del tema. */
@@ -40,7 +40,18 @@ export const TRANSPORT: Record<TransportMode, TransportInfo> = {
   walk:  { color: "#D85A30", label: "A piedi", labelWith: "A piedi",  labelShort: "Piedi", Icon: Footprints, emoji: "🚶" },
   bici:  { color: "#22C55E", label: "Bici",    labelWith: "In bici",  labelShort: "Bici",  Icon: Bike,       emoji: "🚲" },
   moto:  { color: "#EAB308", label: "Moto",    labelWith: "In moto",  labelShort: "Moto",  Icon: Motorcycle, emoji: "🏍️" },
+  bus:   { color: "#06B6D4", label: "Pullman", labelWith: "In pullman", labelShort: "Bus", Icon: Bus,       emoji: "🚌" },
 };
+
+/**
+ * Mezzi che percorrono strade vere: per loro si chiede a OSRM il tracciato
+ * stradale (route_geometry) invece della linea d'aria. Era ricopiata come
+ * `m === "car" || m === "bici" || m === "moto"` nei due form, e aggiungere il
+ * pullman avrebbe voluto dire ricordarsi di entrambi.
+ */
+export function followsRoad(m: string | null | undefined): boolean {
+  return m === "car" || m === "bici" || m === "moto" || m === "bus";
+}
 
 /** Vero se la stringa è un mezzo conosciuto (i dati salvati sono `string`). */
 export function isTransportMode(m: string | null | undefined): m is TransportMode {

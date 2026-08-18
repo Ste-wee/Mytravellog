@@ -9,7 +9,7 @@ import { tripTotalKm } from "@/lib/flyover";
 import { stopChain } from "@/lib/stops";
 import { fmtDistance, fmtNumber, useSettings } from "@/lib/settings";
 import { TRANSPORT, isTransportMode } from "@/lib/transport";
-import { Route, Globe, MapPin, Pencil, Plane, Plus, Video, X, ChevronRight } from "lucide-react";
+import { Route, Globe, MapPin, Pencil, Plane, Plus, Video, X } from "lucide-react";
 import { WorldMap, CityInfo } from "@/components/WorldMap";
 import { StarField, StarFieldController } from "@/components/StarField";
 import { TripFlyover } from "@/components/TripFlyover";
@@ -368,7 +368,6 @@ function HomeInner() {
                 <b className="font-mono" style={{ fontSize:15, fontWeight:700, color: colore }}>{valore}</b>
               </span>
             ))}
-            <ChevronRight className="w-3 h-3" style={{ color:"rgba(96,165,250,0.9)" }} aria-hidden/>
           </button>
           );
         })()}

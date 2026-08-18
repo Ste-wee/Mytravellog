@@ -14,7 +14,7 @@ type Mode = TransportMode;
 // Etichette dalla fonte unica (@/lib/transport); l'ORDINE resta quello di
 // questa pagina: chi importa una traccia GPX di solito ha pedalato o guidato.
 const MODES: { v: Mode; l: string }[] =
-  (["bici", "moto", "car", "walk", "train", "ship", "plane"] as Mode[])
+  (["bici", "moto", "car", "bus", "walk", "train", "ship", "plane"] as Mode[])
     .map(v => ({ v, l: TRANSPORT[v].label }));
 
 const field: React.CSSProperties = {

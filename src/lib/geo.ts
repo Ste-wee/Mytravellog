@@ -9,7 +9,14 @@ export type GeoResult = {
   admin1?: string;
   latitude: number;
   longitude: number;
+  /** Che cosa è il posto, quando non è una città: "lago", "monumento"…
+   *  Assente sui risultati del geocoder delle località abitate. */
+  kind?: PlaceKind;
 };
+
+/** Categorie mostrate accanto ai luoghi non abitati nei risultati di ricerca. */
+export const PLACE_KINDS = ["lago", "monumento", "montagna", "parco", "spiaggia", "luogo"] as const;
+export type PlaceKind = (typeof PLACE_KINDS)[number];
 
 export async function searchPlaces(query: string, count = 6): Promise<GeoResult[]> {
   if (!query.trim()) return [];
@@ -22,6 +29,132 @@ export async function searchPlaces(query: string, count = 6): Promise<GeoResult[
   } catch {
     return [];
   }
+}
+
+/**
+ * Che cos'è un risultato di Nominatim, dalla coppia class/type di OSM.
+ * `null` = non è un posto da mostrare in un diario di viaggio (strade,
+ * ferrovie, negozi, confini amministrativi): sono la maggior parte del
+ * rumore, e senza filtro cercando "Colosseo" il primo risultato è la via.
+ */
+export function placeKindOf(osmClass: string, osmType: string): PlaceKind | null {
+  if (["water", "waterway"].includes(osmClass) || (osmClass === "natural" && ["water", "bay", "strait"].includes(osmType))) {
+    return ["lake", "reservoir", "lagoon", "water", "pond"].includes(osmType) ? "lago" : "luogo";
+  }
+  if (osmClass === "natural") {
+    if (["peak", "volcano", "glacier", "ridge", "massif", "saddle"].includes(osmType)) return "montagna";
+    if (["beach", "cape", "coastline", "shoal"].includes(osmType)) return "spiaggia";
+    if (["wood", "heath", "cliff", "cave_entrance", "spring", "geyser"].includes(osmType)) return "luogo";
+    return null;
+  }
+  if (osmClass === "historic") return "monumento";
+  if (osmClass === "man_made") return ["lighthouse", "tower", "obelisk", "bridge", "pier", "windmill"].includes(osmType) ? "monumento" : null;
+  if (osmClass === "tourism") {
+    if (["attraction", "museum", "artwork", "viewpoint", "gallery"].includes(osmType)) return "monumento";
+    if (["theme_park", "zoo", "aquarium"].includes(osmType)) return "luogo";
+    return null; // hotel, b&b, campeggi: non sono mete da censire
+  }
+  if (osmClass === "leisure") return ["park", "nature_reserve", "garden"].includes(osmType) ? "parco" : null;
+  if (osmClass === "boundary") return osmType === "national_park" ? "parco" : null;
+  if (osmClass === "place") return ["island", "islet", "archipelago", "locality"].includes(osmType) ? "luogo" : null;
+  return null;
+}
+
+// Nominatim chiede di non superare 1 richiesta al secondo: le chiamate si
+// mettono in fila da sole, così un utente che digita in fretta non genera
+// una raffica (il debounce del form non basta: sono due form diversi).
+let ultimaChiamata = 0;
+async function attendiTurno(minMs = 1100) {
+  const ora = Date.now();
+  const attesa = Math.max(0, ultimaChiamata + minMs - ora);
+  ultimaChiamata = ora + attesa;
+  if (attesa > 0) await new Promise(r => setTimeout(r, attesa));
+}
+
+const cacheLuoghi = new Map<string, GeoResult[]>();
+
+/**
+ * Luoghi che NON sono centri abitati: laghi, monumenti, montagne, parchi.
+ * Il geocoder delle città (open-meteo) non li conosce affatto — "Lago di
+ * Garda" e "Colosseo" lì danno zero risultati.
+ */
+export async function searchLandmarks(query: string, count = 4): Promise<GeoResult[]> {
+  const q = query.trim();
+  if (q.length < 3) return [];
+  const chiave = q.toLowerCase();
+  const inCache = cacheLuoghi.get(chiave);
+  if (inCache) return inCache.slice(0, count);
+  try {
+    await attendiTurno();
+    // `extratags`/`namedetails` non servono: bastano class/type e l'indirizzo.
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}` +
+      `&format=json&limit=12&addressdetails=1&accept-language=it`;
+    const r = await fetch(url, { headers: { "Accept-Language": "it" } });
+    if (!r.ok) return [];
+    const dati = await r.json();
+    if (!Array.isArray(dati)) return [];
+    const out: GeoResult[] = [];
+    for (const d of dati) {
+      const kind = placeKindOf(String(d?.class ?? ""), String(d?.type ?? ""));
+      if (!kind) continue;
+      const lat = Number(d?.lat), lon = Number(d?.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+      const a = d?.address ?? {};
+      out.push({
+        // id negativo: gli id di Nominatim e quelli di open-meteo vivono nella
+        // stessa lista e possono coincidere (sono due numerazioni diverse).
+        id: -Math.abs(Number(d?.osm_id) || out.length + 1),
+        name: String(d?.name || String(d?.display_name ?? "").split(",")[0] || q),
+        country: String(a.country ?? ""),
+        country_code: String(a.country_code ?? "").toUpperCase(),
+        admin1: a.state ?? a.region ?? a.county ?? a.city ?? undefined,
+        latitude: lat,
+        longitude: lon,
+        kind,
+      });
+    }
+    // Un nome può ripetersi a pochi metri (il poligono del lago e il suo
+    // punto centrale): tengo il primo di ogni nome.
+    const visti = new Set<string>();
+    const unici = out.filter(p => {
+      const k = p.name.toLowerCase() + "|" + p.country_code;
+      if (visti.has(k)) return false;
+      visti.add(k);
+      return true;
+    });
+    cacheLuoghi.set(chiave, unici);
+    return unici.slice(0, count);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * La ricerca che vede il form: città + luoghi, in una lista sola.
+ * Le due fonti sono indipendenti — se una cade, l'altra risponde comunque.
+ */
+export async function searchAnyPlace(query: string, count = 6): Promise<GeoResult[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const [citta, luoghi] = await Promise.all([
+    searchPlaces(q, count).catch(() => [] as GeoResult[]),
+    searchLandmarks(q, 4).catch(() => [] as GeoResult[]),
+  ]);
+  const esatto = (p: GeoResult) => p.name.toLowerCase() === q.toLowerCase();
+  // Chi si chiama esattamente come la ricerca va in cima, da qualunque fonte
+  // arrivi: cercando "Lago di Garda" il lago deve battere il paese "Garda".
+  return [
+    ...citta.filter(esatto),
+    ...luoghi.filter(esatto),
+    ...citta.filter(p => !esatto(p)),
+    ...luoghi.filter(p => !esatto(p)),
+  ].slice(0, count);
+}
+
+/** Solo per i test: svuota la cache dei luoghi e azzera il turno di attesa. */
+export function __resetLandmarkCache() {
+  cacheLuoghi.clear();
+  ultimaChiamata = 0;
 }
 
 export async function fetchElevation(lat: number, lon: number): Promise<number | null> {

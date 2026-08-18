@@ -2,7 +2,10 @@ import { Trip } from "./storage";
 import { distanceKm } from "./geo";
 import { haversineKm } from "./haversine";
 
-export type TransportMode = "plane" | "train" | "car" | "ship" | "walk" | "bici" | "moto";
+// Il tipo viene dalla fonte unica: ridichiararlo qui significava aggiornare
+// due elenchi a ogni mezzo nuovo (il pullman ha trovato 3 di questi fossili).
+export type { TransportMode } from "./transport";
+import type { TransportMode } from "./transport";
 
 export interface FlightStop {
   lat: number;

@@ -1,4 +1,6 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
+import type { TransportMode } from "./transport";
+
 export type Trip = {
   id: string;
   title: string;
@@ -17,8 +19,8 @@ export type Trip = {
   // per tutte da `dropBudgetData()`, chiamata all'avvio.
   checklist?: { text: string; done: boolean }[];               // "da organizzare" prima di partire
   booked?: boolean;                                            // viaggio in programma: prenotato o ancora da prenotare
-  transport_mode: "plane" | "train" | "car" | "ship" | "walk" | "bici" | "moto" | null;
-  waypoints: { id?: string; city: string; country: string; country_code?: string; transport_mode: "plane" | "train" | "car" | "ship" | "walk" | "bici" | "moto"; lat?: number; lon?: number; route_geometry?: [number, number][] | null }[];
+  transport_mode: TransportMode | null;
+  waypoints: { id?: string; city: string; country: string; country_code?: string; transport_mode: TransportMode; lat?: number; lon?: number; route_geometry?: [number, number][] | null }[];
   latitude: number;
   longitude: number;
   home_latitude: number | null;

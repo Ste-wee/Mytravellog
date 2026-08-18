@@ -8,7 +8,7 @@
 // versione è una sola (icone Lucide, le stesse delle Statistiche).
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { GeoResult } from "@/lib/geo";
+import { GeoResult, PlaceKind } from "@/lib/geo";
 import { parseLocalDate } from "@/lib/storage";
 import { Loader2, MapPin, Plane, Route, Search, AlertCircle, X } from "lucide-react";
 import { TRANSPORT as TRANSPORT_INFO, TRANSPORT_MODES, TRANSPORT_LIST, transportBg, type TransportMode } from "@/lib/transport";
@@ -21,6 +21,14 @@ export type Waypoint = { id: string; city: string; country: string; country_code
 // Elenco per il selettore del mezzo, dalla fonte unica (@/lib/transport).
 const TRANSPORT: { value: TransportMode; label: string; color: string; bg: string }[] =
   TRANSPORT_LIST.map(t => ({ value: t.value, label: t.label, color: t.color, bg: transportBg(t.value) }));
+
+// Tinte delle etichette di categoria nei risultati di ricerca. Restano fuori
+// dalla scala blu/ambra dell'app (che significa conteggi/km) perché qui il
+// colore distingue il TIPO di posto, non un dato.
+const PLACE_KIND_COLOR: Record<PlaceKind, string> = {
+  lago: "#22d3ee", monumento: "#c084fc", montagna: "#94a3b8",
+  parco: "#4ade80", spiaggia: "#fcd34d", luogo: "#94a3b8",
+};
 
 const RATING_LABELS: Record<number, string> = {
   1: "Non memorabile", 2: "Nella media", 3: "Bello", 4: "Fantastico", 5: "Indimenticabile"
@@ -137,6 +145,10 @@ export interface RouteHeroProps {
    *  come trucco per forzare un nuovo array: funzionava solo grazie a come è
    *  implementata la rimozione, e la mutazione avveniva fuori dal setter. */
   onChangeTransport: (i: number, mode: TransportMode) => void;
+  /** Sposta la tappa `from` nella posizione `to` (indici sui waypoints).
+   *  Il mezzo viaggia con la tappa: `transport_mode` descrive come ci si
+   *  arriva, quindi resta attaccato alla tappa che si muove. */
+  onMoveWaypoint: (from: number, to: number) => void;
   wpTransport: TransportMode;
   setWpTransport: (v: TransportMode) => void;
   wpOpen: boolean;
@@ -152,12 +164,27 @@ export interface RouteHeroProps {
 function RouteHero({
   waypoints, home, onEditHome, editingHome,
   homeQuery, setHomeQuery, homeResults, onSelectHome, onRemoveWaypoint, onChangeTransport,
+  onMoveWaypoint,
   wpTransport, setWpTransport, wpOpen, setWpOpen, wpQuery, setWpQuery,
   wpResults, wpLoading, onAddWaypoint, destinationError
 }: RouteHeroProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const svgRef = React.useRef<SVGSVGElement>(null);
   const [containerW, setContainerW] = React.useState(600);
   const [activeArc, setActiveArc] = React.useState<number | null>(null);
+  /** Trascinamento in corso: quale tappa ho in mano, dov'è il dito e dove
+   *  cadrebbe se lo alzassi adesso. `null` = nessun trascinamento. */
+  const [drag, setDrag] = React.useState<{ da: number; y: number; a: number } | null>(null);
+  /** Copia sempre aggiornata di `drag` per gli handler su window: al
+   *  rilascio serve sapere dove si è arrivati SENZA leggerlo dentro un
+   *  updater di setState — React in sviluppo esegue gli updater due volte, e
+   *  chiamare lì onMoveWaypoint spostava la tappa DUE VOLTE (visibile solo
+   *  nel browser, non nei test). */
+  const dragRef = React.useRef<{ da: number; y: number; a: number } | null>(null);
+  const aggiornaDrag = (v: { da: number; y: number; a: number } | null) => {
+    dragRef.current = v;
+    setDrag(v);
+  };
 
   React.useEffect(() => {
     const obs = new ResizeObserver(entries => setContainerW(entries[0].contentRect.width));
@@ -190,6 +217,71 @@ function RouteHero({
   const H = padTop + (n - 1) * vStep + nodeR + 34;
   const showArcs = waypoints.length > 0;
 
+  // ——— Trascinamento delle tappe (la casa resta ferma: è la partenza).
+  // L'ordine sulla serpentina è verticale, quindi la posizione di arrivo si
+  // legge dalla sola Y: riga = quanti passi da padTop, limitata alle tappe.
+  const rigaDallaY = (y: number) =>
+    Math.min(n - 1, Math.max(1, Math.round((y - padTop) / vStep)));
+
+  const iniziaTrascinamento = (i: number) => () => {
+    if (n <= 2) return;                       // una sola tappa: niente da riordinare
+    setActiveArc(null);
+    aggiornaDrag({ da: i, y: nodeY(i), a: i });
+  };
+
+  // Il seguito del trascinamento vive su `window`, non sul nodo: il nodo si
+  // sposta sotto il puntatore mentre lo si trascina, e affidarsi al pointer
+  // capture faceva arrivare un solo pointermove e poi più niente (col mouse
+  // la tappa non si spostava affatto). Su window gli eventi arrivano sempre,
+  // anche se il dito esce dalla card.
+  React.useEffect(() => {
+    if (!drag) return;
+    const muovi = (e: PointerEvent) => {
+      const corrente = dragRef.current;
+      const box = svgRef.current?.getBoundingClientRect();
+      if (!corrente || !box || box.height === 0) return;
+      const y = ((e.clientY - box.top) / box.height) * H;
+      aggiornaDrag({ ...corrente, y, a: rigaDallaY(y) });
+    };
+    const concludi = () => {
+      const finale = dragRef.current;
+      aggiornaDrag(null);
+      if (finale && finale.a !== finale.da) onMoveWaypoint(finale.da - 1, finale.a - 1);  // la casa è 0
+    };
+    const annulla = () => aggiornaDrag(null);
+    window.addEventListener("pointermove", muovi);
+    window.addEventListener("pointerup", concludi);
+    window.addEventListener("pointercancel", annulla);
+    return () => {
+      window.removeEventListener("pointermove", muovi);
+      window.removeEventListener("pointerup", concludi);
+      window.removeEventListener("pointercancel", annulla);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drag?.da, H, n]);
+
+  /** Frecce ↑/↓ sulla tappa a fuoco: il trascinamento non esiste per chi
+   *  naviga da tastiera, e senza questo la funzione sarebbe irraggiungibile. */
+  const tastiereRiordino = (i: number) => (e: React.KeyboardEvent) => {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    const a = e.key === "ArrowUp" ? i - 1 : i + 1;
+    if (a < 1 || a > n - 1) return;
+    e.preventDefault();
+    onMoveWaypoint(i - 1, a - 1);
+  };
+
+  // Durante il trascinamento la serpentina mostra già l'ordine finale: le
+  // altre tappe scorrono, quella in mano segue il dito.
+  const ordineMostrato = React.useMemo(() => {
+    const idx = stops.map((_, i) => i);
+    if (!drag) return idx;
+    const [preso] = idx.splice(drag.da, 1);
+    idx.splice(drag.a, 0, preso);
+    return idx;
+  }, [drag, stops.length]);   // eslint-disable-line react-hooks/exhaustive-deps
+  /** Dove sta il nodo `i` mentre trascino (posizione nell'ordine mostrato). */
+  const rigaDi = (i: number) => (drag ? ordineMostrato.indexOf(i) : i);
+
   // Archi bézier tra tappe consecutive: colonne alternate (sx/dx) → serpentina
   // verticale, ciascun arco bomba verso l'esterno della colonna di arrivo.
   const arcSegs: ArcSeg[] = [];
@@ -199,7 +291,9 @@ function RouteHero({
     const bowRight = i % 2 === 1;
     const bow = 46;
     const p1 = { x: bowRight ? Math.max(p0.x, p2.x) + bow : Math.min(p0.x, p2.x) - bow, y: (p0.y + p2.y) / 2 };
-    arcSegs.push({ p0, p1, p2, transport: stops[i].transport });
+    // La geometria della serpentina è fissa: quello che cambia mentre si
+    // trascina è CHI occupa la riga, quindi anche il mezzo dell'arco.
+    arcSegs.push({ p0, p1, p2, transport: stops[ordineMostrato[i]]?.transport ?? null });
   }
 
   return (
@@ -207,7 +301,7 @@ function RouteHero({
       <div ref={containerRef} style={{ flex:1, padding:"12px 0 0", position:"relative" }}>
         {showArcs ? (
           <div style={{ position:"relative", width:"100%" }}>
-            <svg width="100%" height={H} viewBox={`0 0 ${VBW} ${H}`}
+            <svg ref={svgRef} width="100%" height={H} viewBox={`0 0 ${VBW} ${H}`}
               style={{ display:"block", overflow:"visible" }}>
               <defs>
                 {TRANSPORT.map(t => (
@@ -236,18 +330,35 @@ function RouteHero({
 
               {/* Nodi */}
               {stops.map((stop, i) => {
-                const x = nodeX(i), y = nodeY(i);
-                const isLast = i === n - 1 && n > 1;
+                // `riga` = posizione sulla serpentina (cambia mentre trascino),
+                // `i` = identità della tappa (non cambia mai).
+                const riga = rigaDi(i);
+                const inMano = drag?.da === i;
+                const x = nodeX(riga);
+                const y = inMano ? drag.y : nodeY(riga);
+                const isLast = riga === n - 1 && n > 1;
                 const lastT = isLast ? TRANSPORT.find(t => t.value === stop.transport) ?? TRANSPORT[0] : null;
                 const borderColor = stop.isHome ? "#fbbf24" : lastT ? lastT.color : "#60a5fa";
                 const bgFill = stop.isHome ? "rgba(251,191,36,0.1)" : lastT ? lastT.bg : "rgba(96,165,250,0.08)";
                 const r = isLast ? nodeR + 5 : nodeR;
-                const leftCol = i % 2 === 0;
+                const leftCol = riga % 2 === 0;
                 const labelX = leftCol ? x + r + 9 : x - r - 9;
+                const trascinabile = !stop.isHome && n > 2;
                 return (
-                  <g key={i}>
+                  <g key={i} style={{ opacity: drag && !inMano ? 0.75 : 1 }}>
+                    {/* Posto libero dove la tappa cadrà, così si vede dove va */}
+                    {inMano && (
+                      <circle cx={nodeX(drag.a)} cy={nodeY(drag.a)} r={nodeR} fill="none"
+                        stroke="rgba(96,165,250,0.5)" strokeWidth="1.5" strokeDasharray="5 4"/>
+                    )}
+                    {/* La presa per trascinare NON sta qui ma sul div HTML
+                        della bandiera, qui sopra: `touch-action` non ha
+                        effetto sulle forme SVG (non generano un box CSS), e
+                        senza di esso su telefono scorre la pagina invece di
+                        muovere la tappa. */}
                     <circle cx={x} cy={y} r={r} fill={bgFill} stroke={borderColor}
-                      strokeWidth={isLast ? 2.5 : 1.5} strokeDasharray={stop.isHome ? "3 2" : "none"}/>
+                      strokeWidth={isLast ? 2.5 : 1.5} strokeDasharray={stop.isHome ? "3 2" : "none"}
+                      style={{ filter: inMano ? "drop-shadow(0 4px 10px rgba(0,0,0,0.5))" : undefined }}/>
                     {stop.isHome ? (
                       <g style={{cursor:"pointer"}} onClick={onEditHome}
                         {...svgButton("Cambia la città di partenza", onEditHome)}>
@@ -310,12 +421,28 @@ function RouteHero({
             {/* Overlay HTML: emoji casa + bandiere */}
             <div style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", pointerEvents:"none" }}>
               {stops.map((stop, i) => {
-                const x = nodeX(i), y = nodeY(i);
-                const isLast = i === n - 1 && n > 1;
+                // Stessa aritmetica dei nodi: bandiera e cerchio devono
+                // muoversi insieme, altrimenti durante il trascinamento la
+                // bandiera resta indietro.
+                const riga = rigaDi(i);
+                const inMano = drag?.da === i;
+                const x = nodeX(riga);
+                const y = inMano ? drag.y : nodeY(riga);
+                const isLast = riga === n - 1 && n > 1;
                 const r = isLast ? nodeR + 5 : nodeR;
                 const size = r * 1.3;
+                const trascinabile = !stop.isHome && n > 2;
                 return (
-                  <div key={i} style={{
+                  <div key={i}
+                    className={trascinabile ? "outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#60a5fa] focus-visible:rounded-full" : undefined}
+                    tabIndex={trascinabile ? 0 : undefined}
+                    role={trascinabile ? "button" : undefined}
+                    aria-label={trascinabile
+                      ? `${stop.label}, tappa ${riga} di ${n - 1}. Trascina per spostarla, o usa le frecce su e giù`
+                      : undefined}
+                    onPointerDown={trascinabile ? iniziaTrascinamento(i) : undefined}
+                    onKeyDown={trascinabile ? tastiereRiordino(i) : undefined}
+                    style={{
                     position:"absolute",
                     left: (x / VBW) * 100 + "%",
                     top: y - r * 0.65,
@@ -323,11 +450,26 @@ function RouteHero({
                     width: size, height: size,
                     display:"flex", alignItems:"center", justifyContent:"center",
                     overflow: "hidden", borderRadius: "50%",
+                    // Il contenitore è trasparente ai puntatori: qui li
+                    // riaccendo solo sulle tappe che si possono spostare.
+                    pointerEvents: trascinabile ? "auto" : "none",
+                    // Dichiarato PRIMA del tocco: il browser sceglie se
+                    // scorrere già al pointerdown, e metterlo a trascinamento
+                    // iniziato sarebbe tardi (la pagina scivolava e la tappa
+                    // restava ferma). Solo sul nodo: altrove la card scorre.
+                    touchAction: trascinabile ? "none" : undefined,
+                    userSelect: trascinabile ? "none" : undefined,
+                    cursor: trascinabile ? (inMano ? "grabbing" : "grab") : undefined,
                   }}>
                     {stop.isHome
                       ? <span style={{ fontSize: r * 0.75, lineHeight:1 }}>🏠</span>
                       : stop.countryCode
                         ? <img src={`https://flagcdn.com/w80/${stop.countryCode.toLowerCase()}.png`}
+                            // Senza questo, trascinare la bandiera col mouse
+                            // avvia il drag&drop nativo del browser, che
+                            // zittisce i pointermove successivi: la tappa
+                            // restava incollata (col dito non succedeva).
+                            draggable={false}
                             style={{ width:"100%", height:"100%", objectFit:"cover" }}
                             onError={e => { (e.target as HTMLImageElement).style.display="none"; }}/>
                         : <span style={{ fontSize: r * 0.65, lineHeight:1 }}>🌍</span>
@@ -425,7 +567,7 @@ function RouteHero({
               }
               <input autoFocus style={{ background:"transparent", border:"none", outline:"none",
                 color:"#f0f4ff", fontSize:13, flex:1 }}
-                value={wpQuery} onChange={e => setWpQuery(e.target.value)} placeholder="Cerca città…"/>
+                value={wpQuery} onChange={e => setWpQuery(e.target.value)} placeholder="Cerca città, lago, monumento…"/>
               <button type="button" onClick={() => { setWpQuery(""); setWpOpen(false); }}
                 aria-label="Chiudi ricerca tappa"
                 style={{ background:"none", border:"none", cursor:"pointer", color:"rgba(255,255,255,0.6)", display:"flex", alignItems:"center", flexShrink:0 }}>
@@ -440,7 +582,18 @@ function RouteHero({
                 <img src={`https://flagcdn.com/w20/${(r.country_code || "").toLowerCase()}.png`}
                   width="20" style={{ borderRadius:2, flexShrink:0 }}
                   onError={e => { (e.target as HTMLImageElement).style.display="none"; }}/>
-                <span>{r.name}, {r.country}</span>
+                {/* Il paese può mancare sui luoghi (un lago a cavallo di due
+                    confini, un'isola): senza guardia restava "Nome, " con la
+                    virgola appesa nel vuoto. */}
+                <span style={{ flex:1, minWidth:0 }}>{r.country ? `${r.name}, ${r.country}` : r.name}</span>
+                {/* Solo i luoghi non abitati portano l'etichetta: per le città
+                    sarebbe rumore, sono la stragrande maggioranza. */}
+                {r.kind && (
+                  <span style={{ fontSize:9.5, flexShrink:0, whiteSpace:"nowrap", padding:"3px 7px",
+                    borderRadius:6, color: PLACE_KIND_COLOR[r.kind],
+                    border:`0.5px solid ${PLACE_KIND_COLOR[r.kind]}55`,
+                    background:`${PLACE_KIND_COLOR[r.kind]}14` }}>{r.kind}</span>
+                )}
               </button>
             ))}
           </div>

@@ -433,28 +433,18 @@ export function WorldMap({
     // Espressione MapLibre condivisa: colora un pallino in base al mezzo di
     // trasporto della tappa (property "transport"), stessa palette ovunque
     // nell'app (linee, badge, marker del flyover).
+    // I casi si generano dall'elenco dei mezzi: scritti a mano, un mezzo nuovo
+    // restava del colore di ripiego finché qualcuno non se ne accorgeva.
     const TRANSPORT_MATCH_EXPR: StyleExpr = [
       "match", ["get", "transport"],
-      "plane", TRANSPORT_COLORS_MAP.plane,
-      "train", TRANSPORT_COLORS_MAP.train,
-      "car",   TRANSPORT_COLORS_MAP.car,
-      "ship",  TRANSPORT_COLORS_MAP.ship,
-      "walk",  TRANSPORT_COLORS_MAP.walk,
-      "bici",  TRANSPORT_COLORS_MAP.bici,
-      "moto",  TRANSPORT_COLORS_MAP.moto,
+      ...TRANSPORT_MODES.flatMap(m => [m, TRANSPORT_COLORS_MAP[m]]),
       TRANSPORT_FALLBACK_COLOR
     ];
     // Espressione gemella: sceglie l'icona (immagine registrata via addImage,
     // vedi ensureTransportIcons) invece del colore, stessa property "transport".
     const ICON_MATCH_EXPR: StyleExpr = [
       "match", ["get", "transport"],
-      "plane", "transport-icon-plane",
-      "train", "transport-icon-train",
-      "car",   "transport-icon-car",
-      "ship",  "transport-icon-ship",
-      "walk",  "transport-icon-walk",
-      "bici",  "transport-icon-bici",
-      "moto",  "transport-icon-moto",
+      ...TRANSPORT_MODES.flatMap(m => [m, `transport-icon-${m}`]),
       "transport-icon-plane"
     ];
     ensureTransportIcons(map);

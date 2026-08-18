@@ -35,7 +35,9 @@ function guessMode(km: number): TransportMode {
  * totale era stradale ma il breakdown restava in linea d'aria, e non tornavano.
  */
 export function computeKmByTransportMode(trips: LocalTrip[]): KmByMode {
-  const acc: KmByMode = { plane: 0, train: 0, car: 0, ship: 0, walk: 0, bici: 0, moto: 0 };
+  // Un accumulatore per mezzo, costruito dalla fonte unica: scritto a mano
+  // restava indietro di un mezzo a ogni aggiunta.
+  const acc = Object.fromEntries(TRANSPORT_MODES.map(m => [m, 0])) as KmByMode;
   for (const t of trips) {
     const legs = buildFlightLegs(buildFlightPath([t]));
     for (const leg of legs) {

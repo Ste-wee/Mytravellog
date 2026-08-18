@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Trip, updatePlan, deletePlan, promotePlanToTrip } from "@/lib/storage";
-import { searchPlaces, GeoResult } from "@/lib/geo";
+import { moveItem } from "@/lib/utils";
+import { searchPlaces, searchAnyPlace, GeoResult } from "@/lib/geo";
 import { useSettings } from "@/lib/settings";
 import { ItineraryPanel, Waypoint, TransportMode } from "@/components/TripFormParts";
 import { X, Plus, Trash2, Check } from "lucide-react";
@@ -91,7 +92,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
     const t = setTimeout(async () => {
       if (wpQuery.length < 2) { setWpResults([]); setWpLoading(false); return; }
       setWpLoading(true);
-      const r = await searchPlaces(wpQuery);
+      const r = await searchAnyPlace(wpQuery);
       if (cancelled) return; // una ricerca più recente ha già preso il posto
       setWpResults(r.slice(0, 5));
       setWpLoading(false);
@@ -111,6 +112,8 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
   const removeWaypoint = (i: number) => { dirtyRef.current = true; setWaypoints(prev => prev.filter((_, idx) => idx !== i)); };
   // dirtyRef va segnato anche qui: prima ci pensava l'hack onRemoveWaypoint(-99)
   // che il selettore del mezzo usava per forzare il re-render.
+  const moveWaypoint = (from: number, to: number) =>
+    setWaypoints(prev => moveItem(prev, from, to));
   const changeTransport = (i: number, mode: TransportMode) => {
     dirtyRef.current = true;
     setWaypoints(prev => prev.map((w, idx) => idx === i ? { ...w, transport_mode: mode } : w));
@@ -248,6 +251,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
               }}
               onRemoveWaypoint={removeWaypoint}
               onChangeTransport={changeTransport}
+          onMoveWaypoint={moveWaypoint}
               wpTransport={wpTransport} setWpTransport={setWpTransport}
               wpOpen={wpOpen} setWpOpen={setWpOpen}
               wpQuery={wpQuery} setWpQuery={setWpQuery}

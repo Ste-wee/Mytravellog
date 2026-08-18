@@ -2,11 +2,12 @@
 import { useEffect, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { useNavigate, useParams } from "react-router-dom";
-import { searchPlaces, fetchElevation, fetchTemperature, fetchDrivingRoute, mergeRegions, distanceKm, GeoResult, RegionInfo } from "@/lib/geo";
+import { searchPlaces, searchAnyPlace, fetchElevation, fetchTemperature, fetchDrivingRoute, mergeRegions, distanceKm, GeoResult, RegionInfo } from "@/lib/geo";
 import { hasCoords } from "@/lib/coords";
+import { followsRoad } from "@/lib/transport";
 import { updateTrip, loadTrips, todayLocalISO } from "@/lib/storage";
 import { useSettings } from "@/lib/settings";
-import { sequentialMap } from "@/lib/utils";
+import { sequentialMap, moveItem } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   TransportMode, Waypoint, ItineraryPanel, TripFormFields,
@@ -143,7 +144,7 @@ const ModificaViaggio = () => {
     const t = setTimeout(async () => {
       if (wpQuery.length < 2) { setWpResults([]); setWpLoading(false); return; }
       setWpLoading(true);
-      const r = await searchPlaces(wpQuery);
+      const r = await searchAnyPlace(wpQuery);
       if (cancelled) return; // una ricerca più recente ha già preso il posto
       setWpResults(r.slice(0, 5));
       setWpLoading(false);
@@ -175,6 +176,8 @@ const ModificaViaggio = () => {
   };
 
   const removeWaypoint = (i: number) => setWaypoints(prev => prev.filter((_, idx) => idx !== i));
+  const moveWaypoint = (from: number, to: number) =>
+    setWaypoints(prev => moveItem(prev, from, to));
   const changeTransport = (i: number, mode: TransportMode) =>
     setWaypoints(prev => prev.map((w, idx) => idx === i ? { ...w, transport_mode: mode } : w));
 
@@ -240,10 +243,9 @@ const ModificaViaggio = () => {
     const routePromises = waypoints.map((wp) => {
       const p = prevPt;
       prevPt = hasCoords(wp.lat, wp.lon) ? { lat: wp.lat, lon: wp.lon } : prevPt;
-      // Bici e moto seguono la strada reale esattamente come l'auto (stessa
-      // richiesta esplicita: "stile di viaggio" uguale alla macchina).
-      const followsRoad = wp.transport_mode === "car" || wp.transport_mode === "bici" || wp.transport_mode === "moto";
-      if (followsRoad && p && hasCoords(wp.lat, wp.lon)) {
+      // Bici, moto e pullman seguono la strada reale esattamente come l'auto
+      // (richiesta esplicita: stesso "stile di viaggio" della macchina).
+      if (followsRoad(wp.transport_mode) && p && hasCoords(wp.lat, wp.lon)) {
         return fetchDrivingRoute(p.lat, p.lon, wp.lat, wp.lon);
       }
       return Promise.resolve(null);
@@ -325,6 +327,7 @@ const ModificaViaggio = () => {
           }}
           onRemoveWaypoint={removeWaypoint}
           onChangeTransport={changeTransport}
+          onMoveWaypoint={moveWaypoint}
           wpTransport={wpTransport} setWpTransport={setWpTransport}
           wpOpen={wpOpen} setWpOpen={setWpOpen}
           wpQuery={wpQuery} setWpQuery={setWpQuery}

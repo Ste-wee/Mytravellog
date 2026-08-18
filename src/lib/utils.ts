@@ -25,3 +25,18 @@ export async function sequentialMap<T, R>(
   }
   return out;
 }
+
+/**
+ * Sposta un elemento dalla posizione `from` alla posizione `to`, restituendo
+ * un array nuovo (l'originale resta intatto: i tre form lo passano dentro un
+ * setState). Gli indici fuori intervallo lasciano l'array com'è, così un
+ * trascinamento che finisce fuori dalla lista non può perdere una tappa.
+ */
+export function moveItem<T>(items: T[], from: number, to: number): T[] {
+  if (from === to) return items;
+  if (from < 0 || from >= items.length || to < 0 || to >= items.length) return items;
+  const out = items.slice();
+  const [preso] = out.splice(from, 1);
+  out.splice(to, 0, preso);
+  return out;
+}

@@ -22,6 +22,11 @@ vi.mock("@/lib/geo", async (importOriginal) => {
     searchPlaces: vi.fn(async (q: string) => (q.length < 2 ? [] : [
       { id: 1, name: "Parigi", country: "Francia", country_code: "FR", latitude: 48.85, longitude: 2.35 },
     ])),
+    // La ricerca delle tappe passa da qui (città + laghi/monumenti): senza
+    // questo mock il campo resta vuoto e i test non trovano nulla da scegliere.
+    searchAnyPlace: vi.fn(async (q: string) => (q.length < 2 ? [] : [
+      { id: 1, name: "Parigi", country: "Francia", country_code: "FR", latitude: 48.85, longitude: 2.35 },
+    ])),
     fetchRegion: vi.fn(async () => { await pending; return { name: null, code: null }; }),
     fetchTemperature: vi.fn(async () => { await pending; return null; }),
     fetchElevation: vi.fn(async () => { await pending; return null; }),
@@ -103,7 +108,7 @@ describe("NuovoViaggio — validazione date", () => {
   it("ritorno prima della partenza: mostra l'errore e blocca il salvataggio", async () => {
     const { container } = renderPage();
     fireEvent.click(screen.getByRole("button", { name: "+ Aggiungi tappa" }));
-    fireEvent.change(screen.getByPlaceholderText("Cerca città…"), { target: { value: "par" } });
+    fireEvent.change(screen.getByPlaceholderText(/Cerca città/), { target: { value: "par" } });
     await screen.findByText("Parigi, Francia");
     fireEvent.click(screen.getByText("Parigi, Francia"));
 
@@ -126,7 +131,7 @@ describe("NuovoViaggio — la partenza è obbligatoria", () => {
     // Nessuna homeCity nelle impostazioni: il form parte senza partenza.
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: "+ Aggiungi tappa" }));
-    fireEvent.change(screen.getByPlaceholderText("Cerca città…"), { target: { value: "par" } });
+    fireEvent.change(screen.getByPlaceholderText(/Cerca città/), { target: { value: "par" } });
     await screen.findByText("Parigi, Francia");
     fireEvent.click(screen.getByText("Parigi, Francia"));
 
@@ -154,7 +159,7 @@ describe("NuovoViaggio — feedback durante il salvataggio lento", () => {
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Aggiungi tappa" }));
-    fireEvent.change(screen.getByPlaceholderText("Cerca città…"), { target: { value: "par" } });
+    fireEvent.change(screen.getByPlaceholderText(/Cerca città/), { target: { value: "par" } });
     await screen.findByText("Parigi, Francia");
     fireEvent.click(screen.getByText("Parigi, Francia"));
 
