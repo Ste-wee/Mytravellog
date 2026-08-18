@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildFlightPath, bearingBetween, computeLegCamera, buildFlightLegs, pointAlongPath, easeInOutCubic, lerpBearing, tripTotalKm, buildPerTripRouteCoords, FlightStop } from "./flyover";
+import { buildFlightPath, computeLegCamera, buildFlightLegs, pointAlongPath, easeInOutCubic, tripTotalKm, buildPerTripRouteCoords, FlightStop } from "./flyover";
 import { distanceKm } from "./geo";
 import type { Trip } from "./storage";
 
@@ -120,24 +120,6 @@ describe("buildFlightPath", () => {
   });
 });
 
-describe("bearingBetween", () => {
-  it("0° quando si va esattamente a nord", () => {
-    expect(bearingBetween({ lat: 40, lon: 10 }, { lat: 45, lon: 10 })).toBeCloseTo(0, 0);
-  });
-
-  it("~90° quando si va esattamente a est sull'equatore", () => {
-    expect(bearingBetween({ lat: 0, lon: 0 }, { lat: 0, lon: 10 })).toBeCloseTo(90, 0);
-  });
-
-  it("~180° quando si va esattamente a sud", () => {
-    expect(bearingBetween({ lat: 45, lon: 10 }, { lat: 40, lon: 10 })).toBeCloseTo(180, 0);
-  });
-
-  it("~270° quando si va esattamente a ovest sull'equatore", () => {
-    expect(bearingBetween({ lat: 0, lon: 10 }, { lat: 0, lon: 0 })).toBeCloseTo(270, 0);
-  });
-});
-
 describe("computeLegCamera", () => {
   it("usa zoom più ravvicinato per tratte brevi (<50km)", () => {
     const cam = computeLegCamera({ lat: 45.5, lon: 9.2 }, { lat: 45.51, lon: 9.21 });
@@ -238,36 +220,6 @@ describe("easeInOutCubic", () => {
   it("clampa input fuori range [0,1]", () => {
     expect(easeInOutCubic(-1)).toBe(0);
     expect(easeInOutCubic(2)).toBe(1);
-  });
-});
-
-describe("lerpBearing", () => {
-  it("t=0 ritorna from, t=1 ritorna to", () => {
-    expect(lerpBearing(10, 100, 0)).toBe(10);
-    expect(lerpBearing(10, 100, 1)).toBe(100);
-  });
-
-  it("interpola nel verso corto quando non attraversa 0/360", () => {
-    expect(lerpBearing(10, 100, 0.5)).toBeCloseTo(55, 5);
-  });
-
-  it("attraversa il giro 0/360 nel verso più breve invece di fare il giro lungo", () => {
-    // Da 350° a 10°: il verso breve passa per 0/360 (20° totali), non per 180° (340° il lungo giro)
-    const mid = lerpBearing(350, 10, 0.5);
-    expect(mid).toBeCloseTo(0, 5);
-  });
-
-  it("da 10° a 350° (verso breve all'indietro attraverso 0)", () => {
-    const mid = lerpBearing(10, 350, 0.5);
-    expect(mid).toBeCloseTo(0, 5);
-  });
-
-  it("il risultato resta sempre in [0, 360)", () => {
-    for (let t = 0; t <= 1; t += 0.1) {
-      const b = lerpBearing(350, 20, t);
-      expect(b).toBeGreaterThanOrEqual(0);
-      expect(b).toBeLessThan(360);
-    }
   });
 });
 

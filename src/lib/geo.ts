@@ -142,9 +142,3 @@ export async function fetchDrivingRoute(
     return null;
   }
 }
-
-export function countryFlag(code?: string): string {
-  if (!code || code.length !== 2) return "🌍";
-  const A = 0x1f1e6;
-  return String.fromCodePoint(...code.toUpperCase().split("").map((c) => A + c.charCodeAt(0) - 65));
-}

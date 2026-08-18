@@ -1,36 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { countryFlag, distanceKm } from "./geo";
-
-describe("countryFlag", () => {
-  it("IT → 🇮🇹", () => {
-    expect(countryFlag("IT")).toBe("🇮🇹");
-  });
-
-  it("US → 🇺🇸", () => {
-    expect(countryFlag("US")).toBe("🇺🇸");
-  });
-
-  it("FR → 🇫🇷", () => {
-    expect(countryFlag("FR")).toBe("🇫🇷");
-  });
-
-  it("stringa vuota → 🌍", () => {
-    expect(countryFlag("")).toBe("🌍");
-  });
-
-  it("undefined → 🌍", () => {
-    expect(countryFlag(undefined)).toBe("🌍");
-  });
-
-  it("codice a 3 lettere → 🌍", () => {
-    expect(countryFlag("ITA")).toBe("🌍");
-  });
-
-  it("codice lowercase accettato (it → 🇮🇹)", () => {
-    expect(countryFlag("it")).toBe("🇮🇹");
-  });
-});
-
+import { distanceKm } from "./geo";
 describe("distanceKm", () => {
   it("stesso punto → 0 km", () => {
     expect(distanceKm(41.9, 12.5, 41.9, 12.5)).toBe(0);

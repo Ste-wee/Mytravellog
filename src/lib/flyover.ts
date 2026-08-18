@@ -78,19 +78,6 @@ export function buildFlightPath(trips: Trip[]): FlightStop[] {
   return stops;
 }
 
-/** Bearing iniziale (0-360°, 0=nord) da percorrere per andare da a a b. */
-export function bearingBetween(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const toDeg = (r: number) => (r * 180) / Math.PI;
-  const lat1 = toRad(a.lat);
-  const lat2 = toRad(b.lat);
-  const dLon = toRad(b.lon - a.lon);
-  const y = Math.sin(dLon) * Math.cos(lat2);
-  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-  const brng = toDeg(Math.atan2(y, x));
-  return (brng + 360) % 360;
-}
-
 /**
  * Camera per la tratta a→b: più la distanza è corta più si vola vicini al
  * suolo con inclinazione forte (effetto "cinematografico"), più è lunga
@@ -138,13 +125,6 @@ export function computeLegCamera(from: { lat: number; lon: number }, to: { lat: 
 export function easeInOutCubic(t: number): number {
   const c = Math.min(1, Math.max(0, t));
   return c < 0.5 ? 4 * c * c * c : 1 - Math.pow(-2 * c + 2, 3) / 2;
-}
-
-/** Interpola un bearing (0-360°) da `from` a `to` seguendo il verso più breve. */
-export function lerpBearing(from: number, to: number, t: number): number {
-  const c = Math.min(1, Math.max(0, t));
-  const delta = ((to - from + 540) % 360) - 180;
-  return (from + delta * c + 360) % 360;
 }
 
 /**
