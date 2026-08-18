@@ -397,7 +397,6 @@ export function WorldMap({
     if (!mapRef.current) return;
     if (autoRotateSetting === "on") startRotation();
     else stopRotation();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRotateSetting]);
 
   // ── Add trips ──────────────────────────────────────────────────────────────
@@ -825,7 +824,6 @@ export function WorldMap({
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     applySelection(mapRef.current, selectedId ?? null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapReady, selectedId]);
 
   // Focus selected trip. Deps SOLO su selectedId: con ordered in dipendenza,
