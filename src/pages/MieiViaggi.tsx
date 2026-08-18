@@ -9,7 +9,37 @@ import { PlanCard } from "@/components/PlanCard";
 import { TripPlanner } from "@/components/TripPlanner";
 import { loadTrips, loadPlans, deleteTrip, parseLocalDate, Trip } from "@/lib/storage";
 import { deletePhotosForTrip } from "@/lib/photoStorage";
-import { Search, X, Video, Plane, Plus, Sparkles, Globe2, CalendarClock, ArrowRight } from "lucide-react";
+import { Search, X, Video, Plane, Plus, Sparkles, Globe2, CalendarClock, ArrowRight, List, LayoutGrid } from "lucide-react";
+import { transportColor } from "@/lib/transport";
+
+/**
+ * Card compatta della vista a griglia: SOLO overview (bandiera, titolo,
+ * città · anno, pallino del mezzo). Niente azioni: il tocco riporta alla
+ * lista, scrollata sul biglietto — le azioni vivono in un posto solo.
+ * A livello di modulo, non dentro il render (un componente inline rimonta
+ * a ogni re-render e fa ripartire i fade-up: lezione già pagata in Home).
+ */
+function SchedaCompatta({ trip, anno, onApri }: { trip: Trip; anno: string; onApri: (id: string) => void }) {
+  return (
+    <button type="button" onClick={() => onApri(trip.id)}
+      aria-label={`Apri il biglietto di ${trip.title || trip.city}`}
+      style={{ textAlign: "left", background: "rgba(255,255,255,0.03)", border: "0.5px solid #1a2d4a",
+        borderRadius: 14, padding: 12, cursor: "pointer", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <img src={`https://flagcdn.com/w40/${(trip.country_code || "").toLowerCase()}.png`} width={26}
+          alt="" style={{ borderRadius: 4, display: "block" }}
+          onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}/>
+        <span aria-hidden style={{ width: 8, height: 8, borderRadius: "50%", background: transportColor(trip.transport_mode) }}/>
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f4ff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {trip.title || trip.city}
+        </div>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 2 }}>{trip.city} · {anno}</div>
+      </div>
+    </button>
+  );
+}
 
 const DELETE_ANIM_MS = 200;
 // Finestra di tempo in cui "Annulla" nel toast può ancora recuperare il
@@ -28,6 +58,16 @@ export default function MieiViaggi() {
   const [leavingId, setLeavingId] = useState<string | null>(null);
   const [flyoverYear, setFlyoverYear] = useState<string | null>(null);
   const [showLifeMap, setShowLifeMap] = useState(false);
+  // Vista della lista: biglietti (default) o griglia compatta. La scelta si
+  // ricorda: è una preferenza di consultazione, non un filtro momentaneo.
+  const [vista, setVistaState] = useState<"lista" | "griglia">(
+    () => (localStorage.getItem("navta.viaggi.vista.v1") === "griglia" ? "griglia" : "lista"));
+  const setVista = (v: "lista" | "griglia") => {
+    setVistaState(v);
+    localStorage.setItem("navta.viaggi.vista.v1", v);
+  };
+  // Il biglietto su cui atterrare (evidenziato) tornando dalla griglia.
+  const [evidenziaId, setEvidenziaId] = useState<string | null>(null);
   // Nome del compagno di cui mostrare la costellazione condivisa (null = chiusa).
   const [companionMap, setCompanionMap] = useState<string | null>(null);
   const pendingDeletesRef = useRef<Map<string, {
@@ -38,6 +78,17 @@ export default function MieiViaggi() {
   }>>(new Map());
 
   useEffect(() => { setTrips(loadTrips()); setPlans(loadPlans()); }, []);
+
+  // Tocco su una card della griglia → lista scrollata su quel biglietto,
+  // evidenziato per un momento così l'occhio sa dove è atterrato.
+  useEffect(() => {
+    if (vista !== "lista" || !evidenziaId) return;
+    document.getElementById(`viaggio-${evidenziaId}`)?.scrollIntoView({ block: "center" });
+    const t = setTimeout(() => setEvidenziaId(null), 1600);
+    return () => clearTimeout(t);
+  }, [vista, evidenziaId]);
+
+  const apriDallaGriglia = (id: string) => { setEvidenziaId(id); setVista("lista"); };
   useEffect(() => {
     // Le cancellazioni "in sospeso" (in attesa che scada la finestra per
     // l'Annulla) vanno eseguite subito quando la pagina se ne va, in ENTRAMBI
@@ -247,6 +298,28 @@ export default function MieiViaggi() {
               ))}
             </div>
           )}
+
+          {/* Vista: biglietti o griglia compatta (overview). Fuori dal
+              condizionale dei chip-anno: un'espressione JSX ammette un solo
+              elemento radice, e il toggle serve anche con un anno solo. */}
+          <div style={{display:"flex",justifyContent:"flex-end",marginTop:10}}>
+              <div style={{display:"inline-flex",border:"0.5px solid #1a2d4a",borderRadius:9,overflow:"hidden"}}>
+                <button type="button" onClick={() => setVista("lista")} aria-pressed={vista === "lista"}
+                  style={{display:"flex",alignItems:"center",gap:5,padding:"6px 12px",fontSize:11,border:"none",cursor:"pointer",
+                    background: vista === "lista" ? "rgba(96,165,250,0.15)" : "transparent",
+                    color: vista === "lista" ? "#60a5fa" : "rgba(255,255,255,0.4)",
+                    fontWeight: vista === "lista" ? 600 : 400}}>
+                  <List style={{width:12,height:12}}/> Lista
+                </button>
+                <button type="button" onClick={() => setVista("griglia")} aria-pressed={vista === "griglia"}
+                  style={{display:"flex",alignItems:"center",gap:5,padding:"6px 12px",fontSize:11,border:"none",cursor:"pointer",
+                    background: vista === "griglia" ? "rgba(96,165,250,0.15)" : "transparent",
+                    color: vista === "griglia" ? "#60a5fa" : "rgba(255,255,255,0.4)",
+                    fontWeight: vista === "griglia" ? 600 : 400}}>
+                  <LayoutGrid style={{width:12,height:12}}/> Griglia
+                </button>
+              </div>
+            </div>
         </div>
 
         {/* Trips */}
@@ -295,16 +368,29 @@ export default function MieiViaggi() {
                     <Sparkles style={{width:14,height:14}}/>
                   </Link>
                 </div>
+                {vista === "griglia" ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+                    {byYear[year].map((t, i) => (
+                      <div key={t.id} className="animate-fade-up" style={{ animationDelay: `${i * 40}ms`, display: "grid" }}>
+                        <SchedaCompatta trip={t} anno={year} onApri={apriDallaGriglia}/>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {byYear[year].map((t, i) => (
                     // Wrapper esterno per la comparsa scaglionata (fade-up): il
                     // transform dell'animazione di eliminazione (scale) vive sul
                     // div interno, così i due transform non si sovrascrivono.
-                    <div key={t.id} className="animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
+                    <div key={t.id} id={`viaggio-${t.id}`} className="animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
                       <div style={{
-                        transition: `opacity ${DELETE_ANIM_MS}ms ease, transform ${DELETE_ANIM_MS}ms ease`,
+                        transition: `opacity ${DELETE_ANIM_MS}ms ease, transform ${DELETE_ANIM_MS}ms ease, box-shadow 300ms ease`,
                         opacity: leavingId === t.id ? 0 : 1,
                         transform: leavingId === t.id ? "scale(0.95)" : "none",
+                        // Anello di atterraggio: si arriva qui dalla griglia e
+                        // l'occhio deve trovare subito il biglietto giusto.
+                        boxShadow: evidenziaId === t.id ? "0 0 0 2px #60a5fa, 0 0 24px rgba(96,165,250,0.35)" : "none",
+                        borderRadius: 16,
                       }}>
                         <TripCardTicket trip={t} onDeleteRequested={handleDeleteRequested}
                           onSelectCompanion={setCompanionMap}/>
@@ -312,6 +398,7 @@ export default function MieiViaggi() {
                     </div>
                   ))}
                 </div>
+                )}
               </div>
             ))}
           </div>

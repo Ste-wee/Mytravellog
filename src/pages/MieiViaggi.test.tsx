@@ -450,3 +450,43 @@ describe("MieiViaggi — eliminazione con Annulla", () => {
     expect(mockToastDismiss).toHaveBeenCalledTimes(1); // niente "Annulla" ingannevole rimasto
   });
 });
+
+describe("MieiViaggi — vista a griglia", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    // jsdom non implementa scrollIntoView: l'atterraggio dalla griglia lo usa.
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  it("il toggle porta alla griglia: card compatte al posto dei biglietti", () => {
+    addTrip(baseTrip({ city: "Roma", title: "Capitale" }));
+    addTrip(baseTrip({ city: "Milano", title: "Design week" }));
+    renderPage();
+    expect(screen.getAllByTestId("trip-card")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: /Griglia/ }));
+    // biglietti spariti, card compatte presenti (una per viaggio)
+    expect(screen.queryByTestId("trip-card")).toBeNull();
+    expect(screen.getByRole("button", { name: "Apri il biglietto di Capitale" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apri il biglietto di Design week" })).toBeInTheDocument();
+    // la preferenza si ricorda
+    expect(localStorage.getItem("navta.viaggi.vista.v1")).toBe("griglia");
+  });
+
+  it("toccare una card riporta alla lista, scrollata sul biglietto", () => {
+    addTrip(baseTrip({ city: "Roma", title: "Capitale" }));
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /Griglia/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Apri il biglietto di Capitale" }));
+    // di nuovo in lista, e l'occhio viene portato sul biglietto
+    expect(screen.getByTestId("trip-card")).toBeInTheDocument();
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it("la preferenza griglia sopravvive al ritorno sulla pagina", () => {
+    localStorage.setItem("navta.viaggi.vista.v1", "griglia");
+    addTrip(baseTrip({ city: "Roma", title: "Capitale" }));
+    renderPage();
+    expect(screen.queryByTestId("trip-card")).toBeNull();
+    expect(screen.getByRole("button", { name: "Apri il biglietto di Capitale" })).toBeInTheDocument();
+  });
+});
