@@ -72,6 +72,26 @@ describe("searchLandmarks", () => {
     expect(r[0].admin1).toBe("Lazio");
   });
 
+  it("un monumento mostra la CITTÀ, non la regione (località prima)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => risposta([
+      { class: "amenity", type: "place_of_worship", name: "Pantheon", lat: "41.898", lon: "12.476", osm_id: 7,
+        address: { country: "Italia", country_code: "it", city: "Roma", state: "Lazio" } },
+    ])));
+    __resetLandmarkCache();
+    const r = await searchLandmarks("Pantheon");
+    expect(r[0].admin1).toBe("Roma");     // non "Lazio": la città disambigua meglio
+  });
+
+  it("un lago senza città ricade sulla regione", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => risposta([
+      { class: "water", type: "lake", name: "Lago di Garda", lat: "45.66", lon: "10.68", osm_id: 8,
+        address: { country: "Italia", country_code: "it", state: "Lombardia" } },
+    ])));
+    __resetLandmarkCache();
+    const r = await searchLandmarks("Lago di Garda");
+    expect(r[0].admin1).toBe("Lombardia");
+  });
+
   it("non interroga la rete per query troppo corte", async () => {
     expect(await searchLandmarks("La")).toEqual([]);
     expect(fetch).not.toHaveBeenCalled();

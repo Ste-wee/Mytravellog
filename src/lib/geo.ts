@@ -132,7 +132,11 @@ export async function searchLandmarks(query: string, count = 4): Promise<GeoResu
         name: String(d?.name || String(d?.display_name ?? "").split(",")[0] || q),
         country: String(a.country ?? ""),
         country_code: String(a.country_code ?? "").toUpperCase(),
-        admin1: a.state ?? a.region ?? a.county ?? a.city ?? undefined,
+        // Località prima, regione come ripiego: un monumento si pensa per
+        // città ("Pantheon · Roma", non "· Lazio") e disambigua meglio
+        // (Roma vs Parigi). Laghi e monti una città non ce l'hanno e ricadono
+        // da soli sulla regione. Scelta di Stefano, 2026-08-19.
+        admin1: a.city ?? a.town ?? a.village ?? a.municipality ?? a.state ?? a.region ?? a.county ?? undefined,
         latitude: lat,
         longitude: lon,
         kind,
