@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { SettingsProvider } from "@/lib/settings";
 import { ItineraryPanel, type Waypoint } from "./TripFormParts";
 
 /**
@@ -28,7 +29,7 @@ function setup(over: Partial<React.ComponentProps<typeof ItineraryPanel>> = {}) 
     wpResults: [], wpLoading: false, onAddWaypoint: vi.fn(),
     ...over,
   };
-  render(<ItineraryPanel {...props} />);
+  render(<SettingsProvider><ItineraryPanel {...props} /></SettingsProvider>);
   return props;
 }
 
@@ -60,6 +61,8 @@ describe("Itinerario — azionabile da tastiera", () => {
     const arco = screen.getAllByRole("button", { name: /Cambia il mezzo per arrivare a/i })[0];
     fireEvent.keyDown(arco, { key: "Enter" });
 
+    // Il titolo ora dice anche quanto è lunga la tratta (linea d'aria).
+    expect(screen.getByText(/Cambia mezzo · ~/)).toBeInTheDocument();
     const treno = screen.getByRole("button", { name: "Treno" });
     fireEvent.keyDown(treno, { key: "Enter" });
     expect(p.onChangeTransport).toHaveBeenCalledWith(0, "train");

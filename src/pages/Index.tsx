@@ -203,6 +203,14 @@ function HomeInner() {
               selectionOpen={!!selectedTrip}
             />
 
+            {/* Velo che scioglie il bordo inferiore del cielo nel fondo pagina:
+                senza, su desktop il contenitore tagliava stelle e scia con una
+                riga netta. Solo CSS in overlay (pointer-events none): il
+                rendering WebGL di globo e stelle non viene toccato. */}
+            <div aria-hidden style={{ position:"absolute", left:0, right:0, bottom:0, height:64,
+              background:"linear-gradient(to bottom, rgba(6,14,30,0), #060e1e)",
+              pointerEvents:"none", zIndex:5 }}/>
+
             {/* Primo avvio: senza viaggi il globo era muto (zeri e nessun
                 invito). Card di benvenuto con la prima azione da fare. */}
             {trips.length === 0 && (

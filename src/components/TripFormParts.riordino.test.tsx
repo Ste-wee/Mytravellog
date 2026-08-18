@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { StrictMode } from "react";
 import { MemoryRouter } from "react-router-dom";
+import { SettingsProvider } from "@/lib/settings";
 import { ItineraryPanel, Waypoint } from "./TripFormParts";
 import { moveItem } from "@/lib/utils";
 
@@ -48,7 +49,7 @@ function renderPannello(extra: Partial<React.ComponentProps<typeof ItineraryPane
     wpResults: [], wpLoading: false, onAddWaypoint: vi.fn(),
     ...extra,
   };
-  render(<MemoryRouter><ItineraryPanel {...props} /></MemoryRouter>);
+  render(<MemoryRouter><SettingsProvider><ItineraryPanel {...props} /></SettingsProvider></MemoryRouter>);
   return props;
 }
 
@@ -129,7 +130,7 @@ describe("trascinamento delle tappe", () => {
       wpOpen: false, setWpOpen: vi.fn(), wpQuery: "", setWpQuery: vi.fn(),
       wpResults: [], wpLoading: false, onAddWaypoint: vi.fn(),
     };
-    render(<StrictMode><MemoryRouter><ItineraryPanel {...props} /></MemoryRouter></StrictMode>);
+    render(<StrictMode><MemoryRouter><SettingsProvider><ItineraryPanel {...props} /></SettingsProvider></MemoryRouter></StrictMode>);
     const napoli = screen.getAllByRole("button", { name: /^Napoli,/ })[0];
     fireEvent.pointerDown(napoli, { pointerId: 1, clientY: 292 });
     fireEvent.pointerMove(napoli, { pointerId: 1, clientY: 124 });

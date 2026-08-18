@@ -8,7 +8,9 @@
 // versione è una sola (icone Lucide, le stesse delle Statistiche).
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { GeoResult, PlaceKind } from "@/lib/geo";
+import { GeoResult, PlaceKind, distanceKm } from "@/lib/geo";
+import { hasCoords } from "@/lib/coords";
+import { fmtDistance, useSettings } from "@/lib/settings";
 import { parseLocalDate } from "@/lib/storage";
 import { Loader2, MapPin, Plane, Route, Search, AlertCircle, X } from "lucide-react";
 import { TRANSPORT as TRANSPORT_INFO, TRANSPORT_MODES, TRANSPORT_LIST, transportBg, type TransportMode } from "@/lib/transport";
@@ -172,6 +174,8 @@ function RouteHero({
   const svgRef = React.useRef<SVGSVGElement>(null);
   const [containerW, setContainerW] = React.useState(600);
   const [activeArc, setActiveArc] = React.useState<number | null>(null);
+  // Per i km della tratta nel selettore: rispetta l'unità scelta (km/mi).
+  const { distanceUnit } = useSettings();
   /** Trascinamento in corso: quale tappa ho in mano, dov'è il dito e dove
    *  cadrebbe se lo alzassi adesso. `null` = nessun trascinamento. */
   const [drag, setDrag] = React.useState<{ da: number; y: number; a: number } | null>(null);
@@ -396,6 +400,19 @@ function RouteHero({
                 const stop = stops[activeArc];
                 const midX = VBW / 2;
                 const py = Math.max(6, (a.p0.y + a.p2.y) / 2 - 30);
+                // La distanza della tratta: stai decidendo COME percorrerla,
+                // e quanto è lunga è l'informazione che serve in quel momento.
+                // Linea d'aria (~): il percorso stradale vero si calcola solo
+                // al salvataggio. Se mancano le coordinate, il titolo resta
+                // "Cambia mezzo" e basta.
+                const daCoord = activeArc === 1
+                  ? (home ? { lat: home.lat, lon: home.lon } : null)
+                  : (waypoints[activeArc - 2] ?? null);
+                const aCoord = waypoints[activeArc - 1] ?? null;
+                const kmTratta = daCoord && aCoord
+                  && hasCoords(daCoord.lat, daCoord.lon) && hasCoords(aCoord.lat, aCoord.lon)
+                  ? distanceKm(daCoord.lat, daCoord.lon, aCoord.lat, aCoord.lon)
+                  : null;
                 return (
                   <g onClick={e => e.stopPropagation()} role="group" aria-label="Scegli il mezzo">
                     {/* Larghezza derivata dal numero di mezzi: era fissa a 238
@@ -404,7 +421,11 @@ function RouteHero({
                     <rect x={midX - (TRANSPORT.length * 32 + 14) / 2} y={py}
                       width={TRANSPORT.length * 32 + 14} height="60" rx="10"
                       fill="#0d1f3c" stroke="#1a2d4a" strokeWidth="0.5"/>
-                    <text x={midX} y={py+18} fontSize="9" textAnchor="middle" fill="rgba(255,255,255,0.4)">Cambia mezzo</text>
+                    <text x={midX} y={py+18} fontSize="9" textAnchor="middle" fill="rgba(255,255,255,0.4)">
+                      {kmTratta != null
+                        ? `Cambia mezzo · ~${fmtDistance(Math.round(kmTratta), distanceUnit)}`
+                        : "Cambia mezzo"}
+                    </text>
                     {TRANSPORT.map((opt, j) => {
                       const bx = midX - ((TRANSPORT.length - 1) * 32) / 2 + j * 32, by = py + 40;
                       return (
