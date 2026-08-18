@@ -5,7 +5,7 @@ import { AutoRotate } from "@/lib/settings";
 import { unwrapPath } from "@/lib/lonWrap";
 import { hasCoords } from "@/lib/coords";
 import { TRANSPORT, TRANSPORT_MODES, TRANSPORT_FALLBACK_COLOR } from "@/lib/transport";
-import { Play, Square, Hand } from "lucide-react";
+import { Hand } from "lucide-react";
 // SOLO i tipi: `import type` sparisce alla compilazione, quindi maplibre-gl
 // continua ad arrivare dall'import dinamico più sotto e non entra nel bundle
 // iniziale (il globo resta un pezzo a parte, caricato quando serve).
@@ -166,7 +166,6 @@ export function WorldMap({
   const mapRef        = useRef<MapLibreMap | null>(null);
   const markersRef    = useRef<Marker[]>([]);
   const rotTimerRef   = useRef<number | null>(null);
-  const [playing, setPlaying] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   // Hint "Trascina per ruotare" al primo caricamento: "visible" → "fading"
   // (CSS opacity transition) → "hidden" (rimosso dal DOM). Il flag in
@@ -185,7 +184,6 @@ export function WorldMap({
       return "fading";
     });
   };
-  const playingRef    = useRef(false);
   const onSelectCityRef = useRef(onSelectCity);
   const onSelectTripRef = useRef(onSelectTrip);
   const cityMarkerRefs = useRef<{marker:Marker;el:HTMLElement;city:CityInfo}[]>([]);
@@ -380,7 +378,7 @@ export function WorldMap({
     if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
     const rotate = () => {
       const map = mapRef.current;
-      if (!map || playingRef.current) return;
+      if (!map) return;
       const center = map.getCenter();
       map.setCenter([center.lng + 0.1, center.lat]);
       rotTimerRef.current = requestAnimationFrame(rotate) as unknown as number;
@@ -839,30 +837,6 @@ export function WorldMap({
     mapRef.current.flyTo({ center:[t.longitude,t.latitude], zoom:Math.max(mapRef.current.getZoom(),5), duration:1000 });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
-
-  // ── Replay ─────────────────────────────────────────────────────────────────
-  const startReplay = () => {
-    if (!ordered.length || !mapRef.current || playing) return;
-    setPlaying(true); playingRef.current = true; stopRotation();
-    const pts = [
-      [ordered[0].home_longitude, ordered[0].home_latitude],
-      ...ordered.map(t => [t.longitude, t.latitude]),
-    ];
-    let i = 0;
-    const flyNext = () => {
-      if (!playingRef.current || !mapRef.current || i >= pts.length) { stopReplay(); return; }
-      mapRef.current.flyTo({ center: pts[i] as [number,number], zoom:4, duration:2000, essential:true });
-      i++;
-      setTimeout(flyNext, 2500);
-    };
-    mapRef.current.flyTo({ center: pts[0] as [number,number], zoom:2, duration:800 });
-    setTimeout(flyNext, 1000);
-  };
-
-  const stopReplay = () => {
-    setPlaying(false); playingRef.current = false;
-    if (autoRotateSetting === "on") startRotation();
-  };
 
   // Popup styles
   useEffect(() => {
