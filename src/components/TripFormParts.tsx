@@ -320,7 +320,12 @@ function RouteHero({
                     <path d={d} stroke={t.color} strokeWidth="8" fill="none" opacity="0.06"/>
                     <path d={d} stroke={t.color} strokeWidth="2" strokeDasharray="5 3"
                       fill="none" opacity="0.6" markerEnd={`url(#tf-arr-${t.value})`}/>
+                    {/* outline-none: al tocco/click Chromium disegnava l'anello
+                        di focus sul BOUNDING BOX dell'arco — un riquadrone
+                        bianco su mezza serpentina. Da tastiera il focus resta
+                        visibile (focus-visible). */}
                     <path d={d} stroke="transparent" strokeWidth="22" fill="none" style={{cursor:"pointer"}}
+                      className="outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#60a5fa]"
                       onClick={() => setActiveArc(activeArc === k + 1 ? null : k + 1)}
                       {...svgButton(`Cambia il mezzo per arrivare a ${stops[k + 1]?.label ?? "questa tappa"}`,
                         () => setActiveArc(activeArc === k + 1 ? null : k + 1))}/>
@@ -393,10 +398,15 @@ function RouteHero({
                 const py = Math.max(6, (a.p0.y + a.p2.y) / 2 - 30);
                 return (
                   <g onClick={e => e.stopPropagation()} role="group" aria-label="Scegli il mezzo">
-                    <rect x={midX-119} y={py} width="238" height="60" rx="10" fill="#0d1f3c" stroke="#1a2d4a" strokeWidth="0.5"/>
+                    {/* Larghezza derivata dal numero di mezzi: era fissa a 238
+                        (tarata su 7) e l'ottavo, il pullman, sforava dal
+                        riquadro di 25px. */}
+                    <rect x={midX - (TRANSPORT.length * 32 + 14) / 2} y={py}
+                      width={TRANSPORT.length * 32 + 14} height="60" rx="10"
+                      fill="#0d1f3c" stroke="#1a2d4a" strokeWidth="0.5"/>
                     <text x={midX} y={py+18} fontSize="9" textAnchor="middle" fill="rgba(255,255,255,0.4)">Cambia mezzo</text>
                     {TRANSPORT.map((opt, j) => {
-                      const bx = midX - 96 + j * 32, by = py + 40;
+                      const bx = midX - ((TRANSPORT.length - 1) * 32) / 2 + j * 32, by = py + 40;
                       return (
                         <g key={opt.value} style={{cursor:"pointer"}} aria-pressed={stop.transport === opt.value}
                           onClick={() => { onChangeTransport(activeArc-1, opt.value); setActiveArc(null); }}

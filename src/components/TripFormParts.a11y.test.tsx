@@ -65,6 +65,30 @@ describe("Itinerario — azionabile da tastiera", () => {
     expect(p.onChangeTransport).toHaveBeenCalledWith(0, "train");
   });
 
+  it("tutte le chip dei mezzi stanno DENTRO il riquadro del selettore", () => {
+    // Il riquadro era largo 238px fisso, tarato su 7 mezzi: l'ottavo (il
+    // pullman) sforava di 25px. In jsdom le coordinate SVG sono attributi:
+    // si misura senza layout.
+    setup();
+    const arco = screen.getAllByRole("button", { name: /Cambia il mezzo per arrivare a/i })[0];
+    fireEvent.keyDown(arco, { key: "Enter" });
+
+    const gruppo = screen.getByRole("group", { name: "Scegli il mezzo" });
+    const riquadro = gruppo.querySelector("rect")!;
+    const sx = Number(riquadro.getAttribute("x"));
+    const dx = sx + Number(riquadro.getAttribute("width"));
+    // Solo il rettangolo di sfondo della chip (figlio diretto): le icone
+    // lucide contengono a loro volta dei piccoli <rect> nel loro viewBox
+    // 24×24, che qui sembrerebbero chip fuori dal riquadro.
+    const chip = [...gruppo.querySelectorAll('[role="button"] > rect[rx]')];
+    expect(chip.length).toBeGreaterThanOrEqual(8);   // tutti i mezzi, pullman incluso
+    for (const c of chip) {
+      const cx = Number(c.getAttribute("x"));
+      expect(cx).toBeGreaterThanOrEqual(sx);
+      expect(cx + Number(c.getAttribute("width"))).toBeLessThanOrEqual(dx);
+    }
+  });
+
   // Il form NUOVO parte senza tappe e mostra un disegno diverso, con i suoi
   // controlli: la prima versione del fix copriva solo l'itinerario pieno, e
   // dal vivo il form vuoto risultava ancora inaccessibile.
