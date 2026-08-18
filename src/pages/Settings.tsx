@@ -2,7 +2,8 @@
 import { AppHeader } from "@/components/AppHeader";
 import { MapPin, Search, X, Ruler, RotateCw, CircleDot, UserCircle } from "lucide-react";
 import { useSettings, DistanceUnit, TemperatureUnit, AutoRotate, HomeCity } from "@/lib/settings";
-import { searchPlaces, GeoResult } from "@/lib/geo";
+import { GeoResult } from "@/lib/geo";
+import { usePlaceSearch } from "@/lib/usePlaceSearch";
 import { useState, useEffect } from "react";
 import { GoogleDriveSection } from "@/components/GoogleDriveSection";
 
@@ -84,23 +85,10 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 
 function HomeCityPicker({ value, onChange }: { value: HomeCity; onChange: (v: HomeCity) => void }) {
   const [query, setQuery] = useState(value?.label ?? "");
-  const [results, setResults] = useState<GeoResult[]>([]);
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // `cancelled`: due fetch sovrapposte facevano flickerare loading e potevano
-    // mostrare i suggerimenti della query vecchia sopra quella nuova.
-    let cancelled = false;
-    const t = setTimeout(async () => {
-      if (query.length < 2 || query === value?.label) { setResults([]); return; }
-      setLoading(true);
-      const r = await searchPlaces(query);
-      if (cancelled) return;
-      setResults(r);
-      setLoading(false);
-    }, 300);
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [query]);
+  // Ricerca unificata (usePlaceSearch): solo città — è una residenza.
+  // `ignora`: l'etichetta già scelta non deve riaprire la lista.
+  const { results, loading, clear: clearResults } = usePlaceSearch(query, { ignora: value?.label ?? null });
 
   return (
     <div className="relative mt-2">
@@ -135,7 +123,7 @@ function HomeCityPicker({ value, onChange }: { value: HomeCity; onChange: (v: Ho
               onClick={() => {
                 onChange({ label: `${r.name}, ${r.country}`, lat: r.latitude, lon: r.longitude });
                 setQuery(`${r.name}, ${r.country}`);
-                setResults([]);
+                clearResults();
               }}
               className="w-full text-left px-4 py-2.5 text-sm hover:bg-accent/10 flex items-center gap-2 border-b border-border last:border-0">
               <MapPin className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0"/>

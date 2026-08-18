@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Trip, updatePlan, deletePlan, promotePlanToTrip } from "@/lib/storage";
 import { moveItem } from "@/lib/utils";
-import { searchPlaces, searchAnyPlace, GeoResult } from "@/lib/geo";
+import { GeoResult } from "@/lib/geo";
+import { usePlaceSearch } from "@/lib/usePlaceSearch";
 import { useSettings } from "@/lib/settings";
 import { ItineraryPanel, Waypoint, TransportMode } from "@/components/TripFormParts";
 import { X, Plus, Trash2, Check } from "lucide-react";
@@ -67,38 +68,14 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
   );
   const [editingHome, setEditingHome] = useState(false);
   const [homeQuery, setHomeQuery] = useState("");
-  const [homeResults, setHomeResults] = useState<GeoResult[]>([]);
   const [wpQuery, setWpQuery] = useState("");
-  const [wpResults, setWpResults] = useState<GeoResult[]>([]);
-  const [wpLoading, setWpLoading] = useState(false);
   const [wpOpen, setWpOpen] = useState(false);
   const [wpTransport, setWpTransport] = useState<TransportMode>("plane");
 
-  useEffect(() => {
-    // `cancelled`: il debounce annulla il timer, ma una searchPlaces GIÀ in volo
-    // no — due risposte possono arrivare fuori ordine e lasciare a schermo i
-    // suggerimenti della query precedente (o fare setState su smontato).
-    let cancelled = false;
-    const t = setTimeout(async () => {
-      if (homeQuery.length < 2) { setHomeResults([]); return; }
-      const r = await searchPlaces(homeQuery);
-      if (!cancelled) setHomeResults(r);
-    }, 300);
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [homeQuery]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const t = setTimeout(async () => {
-      if (wpQuery.length < 2) { setWpResults([]); setWpLoading(false); return; }
-      setWpLoading(true);
-      const r = await searchAnyPlace(wpQuery);
-      if (cancelled) return; // una ricerca più recente ha già preso il posto
-      setWpResults(r.slice(0, 5));
-      setWpLoading(false);
-    }, 300);
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [wpQuery]);
+  // Le due ricerche (residenza e mete) vivono in usePlaceSearch: debounce,
+  // guardia anti-race e scelta della fonte sono scritti UNA volta sola.
+  const { results: homeResults, clear: clearHomeResults } = usePlaceSearch(homeQuery);
+  const { results: wpResults, loading: wpLoading, clear: clearWpResults } = usePlaceSearch(wpQuery, { luoghi: true, limite: 5 });
 
   const addWaypoint = (r: GeoResult) => {
     dirtyRef.current = true;
@@ -107,7 +84,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
       city: r.name, country: r.country, country_code: r.country_code ?? "",
       lat: r.latitude, lon: r.longitude, transport_mode: wpTransport,
     }]);
-    setWpQuery(""); setWpResults([]); setWpOpen(false);
+    setWpQuery(""); clearWpResults(); setWpOpen(false);
   };
   const removeWaypoint = (i: number) => { dirtyRef.current = true; setWaypoints(prev => prev.filter((_, idx) => idx !== i)); };
   // dirtyRef va segnato anche qui: prima ci pensava l'hack onRemoveWaypoint(-99)
@@ -247,7 +224,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
                 dirtyRef.current = true;
                 setHome({ lat: r.latitude, lon: r.longitude, label: `${r.name}, ${r.country}` });
                 setHomeQuery(`${r.name}, ${r.country}`);
-                setHomeResults([]); setEditingHome(false);
+                clearHomeResults(); setEditingHome(false);
               }}
               onRemoveWaypoint={removeWaypoint}
               onChangeTransport={changeTransport}

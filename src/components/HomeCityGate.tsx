@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Search, Loader2, Home } from "lucide-react";
-import { searchPlaces, GeoResult } from "@/lib/geo";
+import { GeoResult } from "@/lib/geo";
+import { usePlaceSearch } from "@/lib/usePlaceSearch";
 import { useSettings } from "@/lib/settings";
 import { adoptHomeForTripsWithout, countTripsWithoutHome } from "@/lib/storage";
 import { useModalFocus } from "@/lib/useModalFocus";
@@ -33,8 +34,6 @@ export function HomeCityGate() {
     return () => window.removeEventListener("navta:welcome-dismissed", onDismiss);
   }, []);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<GeoResult[]>([]);
-  const [loading, setLoading] = useState(false);
   // Contato una volta all'apertura: dopo l'adozione tornerebbe zero e il
   // messaggio cambierebbe sotto gli occhi mentre si sceglie la città.
   const [orfani] = useState(() => (homeCity ? 0 : countTripsWithoutHome()));
@@ -53,22 +52,9 @@ export function HomeCityGate() {
   const attivo = !homeCity && welcomeGone && !rimandato;
   const modalRef = useModalFocus<HTMLDivElement>(attivo);
 
-  // Ricerca con attesa, e guardia contro le risposte fuori ordine: la lenta
-  // di ieri non deve sovrascrivere la veloce di adesso.
-  useEffect(() => {
-    if (!attivo) return;
-    const q = query.trim();
-    if (q.length < 2) { setResults([]); setLoading(false); return; }
-    let cancelled = false;
-    setLoading(true);
-    const t = setTimeout(async () => {
-      const r = await searchPlaces(q);
-      if (cancelled) return;
-      setResults(r);
-      setLoading(false);
-    }, 350);
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [query, attivo]);
+  // Ricerca unificata (usePlaceSearch): solo città — è la residenza.
+  // A gate spento la query passata è vuota: nessuna ricerca in sottofondo.
+  const { results, loading } = usePlaceSearch(attivo ? query : "");
 
   if (!attivo) return null;
 

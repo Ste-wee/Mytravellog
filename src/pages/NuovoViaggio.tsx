@@ -2,7 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { useNavigate } from "react-router-dom";
-import { searchPlaces, searchAnyPlace, fetchElevation, fetchTemperature, fetchRegion, fetchDrivingRoute, mergeRegions, distanceKm, GeoResult } from "@/lib/geo";
+import { fetchElevation, fetchTemperature, fetchRegion, fetchDrivingRoute, mergeRegions, distanceKm, GeoResult } from "@/lib/geo";
+import { usePlaceSearch } from "@/lib/usePlaceSearch";
 import { hasCoords } from "@/lib/coords";
 import { followsRoad } from "@/lib/transport";
 import { addTrip, todayLocalISO } from "@/lib/storage";
@@ -53,8 +54,6 @@ const NuovoViaggio = () => {
   // al prossimo ingresso. Idempotente (StrictMode rimonta gli effect).
   useEffect(() => { try { sessionStorage.removeItem("navta.prefill.city"); } catch { /* storage negato */ } }, []);
   const [wpQuery, setWpQuery] = useState("");
-  const [wpResults, setWpResults] = useState<GeoResult[]>([]);
-  const [wpLoading, setWpLoading] = useState(false);
   const [wpOpen, setWpOpen] = useState(false);
   const [wpTransport, setWpTransport] = useState<TransportMode>("plane");
   const homeCity = s.homeCity;
@@ -63,7 +62,6 @@ const NuovoViaggio = () => {
   );
   const [editingHome, setEditingHome] = useState(false);
   const [homeQuery, setHomeQuery] = useState(homeCity?.label ?? "");
-  const [homeResults, setHomeResults] = useState<GeoResult[]>([]);
   const [saving, setSaving] = useState(false);
   const [destinationError, setDestinationError] = useState(false);
 
@@ -79,31 +77,10 @@ const NuovoViaggio = () => {
 
   const { confirmDiscard } = useUnsavedChangesGuard([title, dateStart, dateEnd, notes, rating, purpose, companions, waypoints, home]);
 
-  useEffect(() => {
-    // `cancelled`: il debounce annulla il timer, ma una searchPlaces GIÀ in volo
-    // no — due risposte possono arrivare fuori ordine e lasciare a schermo i
-    // suggerimenti della query precedente (o fare setState su smontato).
-    let cancelled = false;
-    const t = setTimeout(async () => {
-      if (homeQuery.length < 2) { setHomeResults([]); return; }
-      const r = await searchPlaces(homeQuery);
-      if (!cancelled) setHomeResults(r);
-    }, 300);
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [homeQuery]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const t = setTimeout(async () => {
-      if (wpQuery.length < 2) { setWpResults([]); setWpLoading(false); return; }
-      setWpLoading(true);
-      const r = await searchAnyPlace(wpQuery);
-      if (cancelled) return; // una ricerca più recente ha già preso il posto
-      setWpResults(r.slice(0, 5));
-      setWpLoading(false);
-    }, 300);
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [wpQuery]);
+  // Le due ricerche (residenza e mete) vivono in usePlaceSearch: debounce,
+  // guardia anti-race e scelta della fonte sono scritti UNA volta sola.
+  const { results: homeResults, clear: clearHomeResults } = usePlaceSearch(homeQuery);
+  const { results: wpResults, loading: wpLoading, clear: clearWpResults } = usePlaceSearch(wpQuery, { luoghi: true, limite: 5 });
 
   const addWaypoint = (r: GeoResult) => {
     setWaypoints(prev => [...prev, {
@@ -111,7 +88,7 @@ const NuovoViaggio = () => {
       city: r.name, country: r.country, country_code: r.country_code ?? "",
       lat: r.latitude, lon: r.longitude, transport_mode: wpTransport,
     }]);
-    setWpQuery(""); setWpResults([]); setWpOpen(false);
+    setWpQuery(""); clearWpResults(); setWpOpen(false);
     setDestinationError(false);
   };
 
@@ -284,7 +261,7 @@ const NuovoViaggio = () => {
           onSelectHome={r => {
             setHome({ lat:r.latitude, lon:r.longitude, label:`${r.name}, ${r.country}` });
             setHomeQuery(`${r.name}, ${r.country}`);
-            setHomeResults([]); setEditingHome(false);
+            clearHomeResults(); setEditingHome(false);
           }}
           onRemoveWaypoint={removeWaypoint}
           onChangeTransport={changeTransport}
