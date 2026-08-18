@@ -335,32 +335,43 @@ function HomeInner() {
             all'approfondimento invece di ripeterlo: sommario → dettaglio.
             Solo icone e numeri, niente parole: coi valori grandi
             (24 · 37 · 152 · 145.678 km) icone+parole strabordano a 390px. */}
-        {stats.trips > 0 && (
+        {stats.trips > 0 && (() => {
+          // I dati stanno NELL'aria-label, non in testi nascosti dentro il
+          // bottone: l'aria-label SOSTITUISCE il contenuto per lo screen
+          // reader, quindi con gli sr-only dentro si sentiva solo "vai alla
+          // pagina Statistiche" — i numeri sparivano proprio a chi non li vede.
+          const voce = [
+            `${stats.trips} ${stats.trips === 1 ? "viaggio" : "viaggi"}`,
+            `${stats.countries} ${stats.countries === 1 ? "paese" : "paesi"}`,
+            `${stats.cities} città`,
+            `${fmtDistance(stats.km, distanceUnit)} percorsi`,
+          ].join(", ");
+          return (
           <button type="button" onClick={() => navigate("/statistiche")}
-            aria-label="Le tue statistiche di viaggio: vai alla pagina Statistiche"
+            aria-label={`Le tue statistiche: ${voce}. Vai alla pagina Statistiche`}
             style={{ display:"flex", alignItems:"center", justifyContent:"center", flexWrap:"wrap",
               gap:12, width:"100%", padding:"9px 12px", background:"none", border:"none", cursor:"pointer" }}>
             {[
-              { Icona: Plane,  valore: fmtNumber(stats.trips),    voce: stats.trips === 1 ? "viaggio" : "viaggi", colore:"#f0f4ff", iconaColore:"#60a5fa" },
-              { Icona: Globe,  valore: fmtNumber(stats.countries), voce: stats.countries === 1 ? "paese" : "paesi", colore:"#f0f4ff", iconaColore:"#60a5fa" },
-              { Icona: MapPin, valore: fmtNumber(stats.cities),   voce: stats.cities === 1 ? "città" : "città", colore:"#f0f4ff", iconaColore:"#60a5fa" },
+              { Icona: Plane,  valore: fmtNumber(stats.trips),     chiave:"viaggi", colore:"#f0f4ff", iconaColore:"#60a5fa" },
+              { Icona: Globe,  valore: fmtNumber(stats.countries), chiave:"paesi",  colore:"#f0f4ff", iconaColore:"#60a5fa" },
+              { Icona: MapPin, valore: fmtNumber(stats.cities),    chiave:"citta",  colore:"#f0f4ff", iconaColore:"#60a5fa" },
               // L'ambra è dei km, come le rotte sul globo (regola di colore
               // dell'app: blu = conteggi, ambra = strada percorsa).
-              { Icona: Route,  valore: fmtDistance(stats.km, distanceUnit), voce:"percorsi", colore:"#fbbf24", iconaColore:"#fbbf24" },
-            ].map(({ Icona, valore, voce, colore, iconaColore }, i) => (
-              <span key={voce + i} style={{ display:"inline-flex", alignItems:"center", gap:5 }}>
+              { Icona: Route,  valore: fmtDistance(stats.km, distanceUnit), chiave:"km", colore:"#fbbf24", iconaColore:"#fbbf24" },
+            ].map(({ Icona, valore, chiave, colore, iconaColore }, i) => (
+              <span key={chiave} style={{ display:"inline-flex", alignItems:"center", gap:5 }}>
                 {i > 0 && <span aria-hidden style={{ width:3, height:3, borderRadius:"50%", background:"rgba(255,255,255,0.25)", marginRight:7 }}/>}
-                {/* L'icona è muta per lo screen reader: il senso lo dà il
-                    testo nascosto qui sotto ("24 viaggi"), così chi ascolta
-                    non sente "aereo 24" e chi vede non legge parole di troppo. */}
+                {/* Tutto il contenuto è muto per lo screen reader (aria-hidden
+                    sulle icone, numeri senza etichetta): il senso lo porta
+                    l'aria-label del bottone qui sopra, che li elenca a parole. */}
                 <Icona className="w-[13px] h-[13px]" style={{ color: iconaColore }} aria-hidden/>
                 <b className="font-mono" style={{ fontSize:15, fontWeight:700, color: colore }}>{valore}</b>
-                <span className="sr-only">{voce}</span>
               </span>
             ))}
             <ChevronRight className="w-3 h-3" style={{ color:"rgba(96,165,250,0.9)" }} aria-hidden/>
           </button>
-        )}
+          );
+        })()}
       </div>
 
       {selectedCity && (

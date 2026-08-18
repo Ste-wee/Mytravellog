@@ -174,6 +174,10 @@ describe("Home — benvenuto al primo avvio", () => {
 // niente più gesto per vedere quattro numeri, e il tocco porta alla pagina
 // invece di duplicarla.
 describe("Home — riga-sommario sotto il globo", () => {
+  // Questo describe è fuori dal beforeEach di sopra: senza pulizia i viaggi
+  // dei test precedenti si accumulano e i conteggi non sono più prevedibili.
+  beforeEach(() => { localStorage.clear(); mockNavigate.mockClear(); });
+
   it("mostra i numeri sempre, senza cassetto da aprire", async () => {
     addTrip(baseTrip());
     renderHome();
@@ -183,11 +187,19 @@ describe("Home — riga-sommario sotto il globo", () => {
     expect(screen.queryByRole("button", { name: /Mostra le tue statistiche/i })).toBeNull();
   });
 
-  it("le icone sono mute per lo screen reader: il senso lo danno i testi nascosti", async () => {
+  // I DATI devono stare nell'aria-label, non in sr-only dentro il bottone:
+  // l'aria-label SOSTITUISCE il contenuto per lo screen reader, quindi con i
+  // testi nascosti si sentiva solo "vai alla pagina Statistiche" e i numeri
+  // sparivano proprio a chi non li vede.
+  it("chi ascolta sente i NUMERI, non solo l'invito a navigare", async () => {
     addTrip(baseTrip());
     renderHome();
     const riga = await screen.findByRole("button", { name: /statistiche/i });
-    expect(riga.textContent).toMatch(/viaggi|viaggio/);
+    const nome = riga.getAttribute("aria-label") ?? "";
+    expect(nome).toMatch(/1 viaggio/);
+    expect(nome).toMatch(/1 paese/);
+    expect(nome).toMatch(/km percorsi/);
+    // le icone restano mute: il senso lo porta il nome del bottone
     expect(riga.querySelectorAll("svg[aria-hidden]").length).toBeGreaterThanOrEqual(4);
   });
 
