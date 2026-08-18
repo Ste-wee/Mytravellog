@@ -126,7 +126,10 @@ const ModificaViaggio = () => {
 
   // Le due ricerche (residenza e mete) vivono in usePlaceSearch: debounce,
   // guardia anti-race e scelta della fonte sono scritti UNA volta sola.
-  const { results: homeResults, clear: clearHomeResults } = usePlaceSearch(homeQuery);
+  // ignora: aprendo ✎ la query parte già uguale all'etichetta corrente e
+  // senza guardia si cercava subito "Milano, Italia" aprendo una lista inutile
+  // (stessa semantica di Impostazioni).
+  const { results: homeResults, clear: clearHomeResults } = usePlaceSearch(homeQuery, { ignora: home?.label ?? null });
   const { results: wpResults, loading: wpLoading, clear: clearWpResults } = usePlaceSearch(wpQuery, { luoghi: true, limite: 5 });
 
   // Prima questo controllo (e il redirect) precedeva tutti gli hook sopra:
