@@ -9,7 +9,7 @@ import { Play, Square, Hand } from "lucide-react";
 // SOLO i tipi: `import type` sparisce alla compilazione, quindi maplibre-gl
 // continua ad arrivare dall'import dinamico più sotto e non entra nel bundle
 // iniziale (il globo resta un pezzo a parte, caricato quando serve).
-import type { Map as MapLibreMap, Marker, MapMouseEvent, MapLayerMouseEvent, StyleSpecification, LayerSpecification, FilterSpecification, GeoJSONSource } from "maplibre-gl";
+import type { Map as MapLibreMap, Marker, MapMouseEvent, MapLayerMouseEvent, StyleSpecification, LayerSpecification, GeoJSONSource } from "maplibre-gl";
 import { loadMapLibre, type MapLibreModule, type StyleExpr } from "@/lib/maplibre";
 
 export interface CityInfo {
@@ -32,14 +32,6 @@ interface Props {
   selectionOpen?: boolean;
 }
 
-/**
- * La barra del tempo compare con ≥2 viaggi con data valida — la STESSA
- * condizione del timeRange interno. Esportata perché chi posa overlay sul
- * globo (la mini-card in Index) deve sapere se in basso c'è la barra.
- */
-export function hasTimeBar(trips: Trip[]): boolean {
-  return trips.filter(t => Number.isFinite(new Date(t.trip_date + "T00:00:00").getTime())).length >= 2;
-}
 
 const MAPTILER_KEY = "J3c87wVeji5QqN7DSqJX";
 const GLOBE_HINT_SEEN_KEY = "navta.globe_hint_seen";
@@ -223,31 +215,6 @@ export function WorldMap({
       .filter(t => hasCoords(t.latitude, t.longitude))
       .sort((a,b) => a.trip_date.localeCompare(b.trip_date)), [trips]);
 
-  // ── Timeline scrubber ────────────────────────────────────────────────────
-  // Cursore temporale: mostra solo le tratte con data ≤ cursore. Implementato
-  // con setFilter/visibility (NESSUN rebuild di sorgenti/layer) → non riapre il
-  // memory-leak WebGL. Default = "tutto visibile" (Infinity): il globo resta
-  // identico a prima finché non si trascina.
-  const dayNum = (iso: string) => new Date(iso + "T00:00:00").getTime();
-  const timeRange = useMemo(() => {
-    // La condizione di esistenza è hasTimeBar (esportata: Index la usa per
-    // alzare la mini-card sopra la barra) — qui si aggiunge solo min/max.
-    // Le date malformate vanno scartate: un solo NaN rendeva min/max NaN e
-    // lo scrubber (input range, label, riga degli anni) moriva per TUTTI.
-    if (!hasTimeBar(ordered)) return null;
-    const ts = ordered.map(t => dayNum(t.trip_date)).filter(Number.isFinite);
-    return { min: Math.min(...ts), max: Math.max(...ts) };
-  }, [ordered]);
-  const [cursor, setCursor] = useState<number>(Infinity);
-  const cursorRef = useRef<number>(Infinity);
-  // Reset a "tutto visibile" quando cambia l'insieme dei viaggi.
-  useEffect(() => { setCursor(timeRange ? timeRange.max : Infinity); }, [timeRange]);
-  // Riapplica il cursore quando lo si trascina (o appena la mappa è pronta).
-  useEffect(() => {
-    cursorRef.current = cursor;
-    if (mapRef.current && mapReady) applyCursor(mapRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cursor, mapReady]);
 
   // ── Init MapLibre ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -538,7 +505,7 @@ export function WorldMap({
       .filter((t: Trip) => !t.waypoints?.length)
       .map((t: Trip) => ({
         type: "Feature" as const,
-        properties: { id: t.id, transport: t.transport_mode ?? "plane", td: dayNum(t.trip_date) },
+        properties: { id: t.id, transport: t.transport_mode ?? "plane" },
         geometry: { type: "Point" as const, coordinates: [t.longitude, t.latitude] }
       }));
 
@@ -547,7 +514,7 @@ export function WorldMap({
       .filter((t: Trip) => (t.waypoints?.length ?? 0) > 0)
       .map((t: Trip) => ({
         type: "Feature" as const,
-        properties: { id: t.id, transport: t.transport_mode ?? "plane", td: dayNum(t.trip_date) },
+        properties: { id: t.id, transport: t.transport_mode ?? "plane" },
         geometry: { type: "Point" as const, coordinates: [t.longitude, t.latitude] }
       }));
 
@@ -639,7 +606,7 @@ export function WorldMap({
           // `id` = il VIAGGIO a cui appartiene la tappa: senza, toccare Trieste
           // sul globo non apriva nulla (il gestore del click legge l'id dalla
           // feature). I pallini di destinazione ce l'avevano, le tappe no.
-          properties: { id: t.id, transport: w.transport_mode ?? "plane", td: dayNum(t.trip_date) },
+          properties: { id: t.id, transport: w.transport_mode ?? "plane" },
           geometry: { type: "Point" as const, coordinates: [w.lon, w.lat] }
         }))
     );
@@ -676,8 +643,6 @@ export function WorldMap({
     // Layer nuovi di zecca: la selezione va riapplicata da zero.
     appliedSelRef.current = null;
     applySelection(map, selectedIdRef.current);
-    // I layer appena ricreati non hanno filtro: riapplico il cursore corrente.
-    applyCursor(map);
   }
 
   // ── Selezione incrementale ─────────────────────────────────────────────────
@@ -728,10 +693,6 @@ export function WorldMap({
           paint: { "line-color": "#f472b6", "line-width": 2.5,
             "line-opacity": 0.9, "line-dasharray": [4, 3] },
         }, beforeId);
-        // Il layer appena nato deve rispettare il cursore temporale corrente.
-        const c = cursorRef.current;
-        map.setLayoutProperty(lineId, "visibility",
-          (!Number.isFinite(c) || dayNum(trip.trip_date) <= c) ? "visible" : "none");
       }
     }
 
@@ -758,24 +719,6 @@ export function WorldMap({
     (map.getSource("trips-labels") as GeoJSONSource).setData({ type: "FeatureCollection", features: labelFeatures });
 
     appliedSelRef.current = selId;
-  }
-
-  // Applica il cursore temporale ai layer dei viaggi: nasconde marker/tratte con
-  // data successiva. setFilter + visibility, nessun rebuild → nessun rischio leak.
-  function applyCursor(map: MapLibreMap) {
-    if (!map) return;
-    const c = cursorRef.current;
-    // Cursore non-finito (Infinity di default) = nessun filtro. NON passare
-    // Infinity dentro l'espressione: MapLibre valida i literal numerici e
-    // potrebbe rifiutarlo → filtro null = "mostra tutto", robusto per ogni timing.
-    const finite = Number.isFinite(c);
-    const filt = finite ? (["<=", ["get", "td"], c] as FilterSpecification) : null;
-    ["trips-single", "trips-single-icons", "trips-multi", "trips-multi-icons", "trips-waypoints", "trips-waypoints-icons"]
-      .forEach(id => { if (map.getLayer(id)) map.setFilter(id, filt); });
-    orderedRef.current.forEach((t: Trip) => {
-      const id = "route-" + t.id;
-      if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", (!finite || dayNum(t.trip_date) <= c) ? "visible" : "none");
-    });
   }
 
   // ── City labels ────────────────────────────────────────────────────────────
@@ -937,7 +880,7 @@ export function WorldMap({
       {/* Zoom (si alza sopra la barra del tempo quando presente). Con la
           mini-card aperta sparisce: a 390px si accavallava ai suoi bottoni. */}
       {!selectionOpen && (
-        <div className="absolute right-3 flex flex-col gap-1 z-40" style={{ bottom: timeRange ? 112 : 64 }}>
+        <div className="absolute right-3 flex flex-col gap-1 z-40" style={{ bottom: 64 }}>
           <button onClick={() => mapRef.current?.zoomIn()}
             className="w-8 h-8 bg-black/60 backdrop-blur border border-white/15 rounded-lg text-white text-lg font-bold flex items-center justify-center hover:bg-white/10 transition-colors select-none">+</button>
           <button onClick={() => mapRef.current?.zoomOut()}
@@ -947,7 +890,7 @@ export function WorldMap({
 
       {/* Legend — anche lei si fa da parte quando la card è aperta */}
       {!selectionOpen && (
-        <div className="absolute right-3 bg-black/50 backdrop-blur border border-white/10 rounded-lg px-3 py-2 flex items-center gap-3 text-[10px] font-mono uppercase tracking-wider text-white/60 z-40" style={{ bottom: timeRange ? 76 : 12 }}>
+        <div className="absolute right-3 bg-black/50 backdrop-blur border border-white/10 rounded-lg px-3 py-2 flex items-center gap-3 text-[10px] font-mono uppercase tracking-wider text-white/60 z-40" style={{ bottom: 12 }}>
           <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-amber-400"/>Casa</div>
         </div>
       )}
@@ -956,40 +899,13 @@ export function WorldMap({
       {globeHint !== "hidden" && (
         <div
           className="absolute left-3 z-40 flex items-center gap-2 bg-black/50 backdrop-blur border border-white/10 rounded-lg px-3 py-2 text-[11px] text-white/70"
-          style={{ transition: `opacity ${GLOBE_HINT_FADE_MS}ms ease`, opacity: globeHint === "fading" ? 0 : 1, pointerEvents: "none", bottom: timeRange ? 76 : 12 }}
+          style={{ transition: `opacity ${GLOBE_HINT_FADE_MS}ms ease`, opacity: globeHint === "fading" ? 0 : 1, pointerEvents: "none", bottom: 12 }}
         >
           <Hand className="w-3.5 h-3.5" aria-hidden/>
           Trascina per ruotare
         </div>
       )}
 
-      {/* Timeline scrubber: trascina per far comparire i viaggi in ordine
-          cronologico. Solo con ≥2 viaggi; default = tutto visibile. */}
-      {timeRange && (() => {
-        const cursorEff = cursor === Infinity ? timeRange.max : cursor;
-        const count = ordered.filter(t => dayNum(t.trip_date) <= cursorEff).length;
-        const label = new Date(cursorEff).toLocaleDateString("it-IT", { month: "short", year: "numeric" });
-        const y0 = new Date(timeRange.min).getFullYear(), y1 = new Date(timeRange.max).getFullYear();
-        const years = Array.from({ length: y1 - y0 + 1 }, (_, k) => y0 + k);
-        return (
-          <div className="absolute z-40" style={{ left: 12, right: 12, bottom: 12, background: "rgba(6,14,30,0.72)", border: "0.5px solid rgba(255,255,255,0.12)", borderRadius: 12, padding: "8px 12px", backdropFilter: "blur(4px)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <input type="range" min={timeRange.min} max={timeRange.max} step={86400000} value={cursorEff}
-                onChange={e => setCursor(Number(e.target.value))} aria-label="Timeline dei viaggi"
-                style={{ flex: 1, accentColor: "#60a5fa", cursor: "pointer" }} />
-              <div style={{ flexShrink: 0, textAlign: "right", minWidth: 78 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#f0f4ff", textTransform: "capitalize" }}>{label}</div>
-                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.6)" }}>{count} {count === 1 ? "viaggio" : "viaggi"}</div>
-              </div>
-            </div>
-            {years.length <= 12 && (
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 9, color: "rgba(255,255,255,0.6)" }}>
-                {years.map(y => <span key={y}>{y}</span>)}
-              </div>
-            )}
-          </div>
-        );
-      })()}
     </div>
   );
 }

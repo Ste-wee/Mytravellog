@@ -27,8 +27,6 @@ vi.mock("@/components/WorldMap", () => ({
   WorldMap: ({ trips, onSelectTrip }: { trips: Trip[]; onSelectTrip?: (t: Trip) => void }) => (
     <button onClick={() => trips[0] && onSelectTrip?.(trips[0])}>Simula tap pallino</button>
   ),
-  // Index la usa per alzare la mini-card sopra la barra del tempo
-  hasTimeBar: () => false,
 }));
 
 vi.mock("@/components/TripFlyover", () => ({
