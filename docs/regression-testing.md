@@ -23,9 +23,10 @@ npm run regressione
 ## Quando eseguire cosa
 
 - **Ogni giro di modifiche, prima del commit**: `npm run regressione` per intero.
-  Nessun commit con uno strato rosso (il flake noto: il menu Radix di AppHeader
-  può andare in timeout sotto carico parallelo — verde 2/2 in isolamento, si
-  rilancia il singolo file prima di incolpare il codice).
+  Nessun commit con uno strato rosso. (Storia: i rossi intermittenti di
+  AppHeader/NuovoViaggio erano TIMEOUT da carico parallelo, non fragilità —
+  risolti alzando `testTimeout` a 15s. Se ne ricompare uno, prima di
+  incolpare il codice: è un timeout? il file è verde in isolamento?)
 - **Dopo ogni push**: il deploy è automatico (GitHub Pages). Attendere il cambio
   d'hash del bundle (`curl` dell'index con `?nocache=…`) e fare la verifica
   live mirata su ciò che è cambiato. Se il deploy fallisce, PRIMA di incolpare
