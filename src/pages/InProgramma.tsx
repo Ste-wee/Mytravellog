@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
-import { searchPlaces, GeoResult } from "@/lib/geo";
+import { searchAnyPlace, GeoResult } from "@/lib/geo";
 import { Trip, loadPlans, addPlan } from "@/lib/storage";
 import { TripPlanner } from "@/components/TripPlanner";
 import { PlanCard } from "@/components/PlanCard";
@@ -74,13 +74,13 @@ const InProgramma = () => {
   }, []);
 
   useEffect(() => {
-    // `cancelled`: il debounce annulla il timer ma non una searchPlaces già in
+    // `cancelled`: il debounce annulla il timer ma non una ricerca già in
     // volo — risposte fuori ordine lasciavano i suggerimenti della query
     // precedente (stesso fix già applicato ai form dei viaggi).
     let cancelled = false;
     const t = setTimeout(async () => {
       if (query.length < 2 || dest) { setResults([]); return; }
-      const r = await searchPlaces(query);
+      const r = await searchAnyPlace(query);
       if (!cancelled) setResults(r.slice(0, 5));
     }, 300);
     return () => { cancelled = true; clearTimeout(t); };
@@ -153,7 +153,7 @@ const InProgramma = () => {
                     {results.map((r, i) => (
                       <button key={i} type="button" onMouseDown={() => { setDest(r); setResults([]); if (!title) setTitle(r.name); }}
                         style={{ display: "block", width: "100%", textAlign: "left", background: "transparent", border: "none", borderTop: i ? "0.5px solid #16233d" : "none", padding: "9px 11px", fontSize: 13, color: "#f0f4ff", cursor: "pointer" }}>
-                        {r.name} <span style={{ color: "rgba(255,255,255,0.6)" }}>· {r.country}</span>
+                        {r.name} <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 12 }}>· {[r.admin1 !== r.name ? r.admin1 : null, r.country].filter(Boolean).join(", ")}</span>{r.kind && <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginLeft: 6 }}>({r.kind})</span>}
                       </button>
                     ))}
                   </div>

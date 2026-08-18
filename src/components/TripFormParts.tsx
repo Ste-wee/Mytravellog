@@ -601,7 +601,7 @@ function RouteHero({
                   <span style={{ color:"#f0f4ff" }}>{r.name}</span>
                   {(r.admin1 || r.country) && (
                     <span style={{ color:"rgba(255,255,255,0.45)", fontSize:12 }}>
-                      {" · "}{[r.admin1, r.country].filter(Boolean).join(", ")}
+                      {" · "}{[r.admin1 !== r.name ? r.admin1 : null, r.country].filter(Boolean).join(", ")}
                     </span>
                   )}
                 </span>
