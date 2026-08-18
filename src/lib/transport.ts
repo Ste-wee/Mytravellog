@@ -40,7 +40,7 @@ export const TRANSPORT: Record<TransportMode, TransportInfo> = {
   walk:  { color: "#D85A30", label: "A piedi", labelWith: "A piedi",  labelShort: "Piedi", Icon: Footprints, emoji: "🚶" },
   bici:  { color: "#22C55E", label: "Bici",    labelWith: "In bici",  labelShort: "Bici",  Icon: Bike,       emoji: "🚲" },
   moto:  { color: "#EAB308", label: "Moto",    labelWith: "In moto",  labelShort: "Moto",  Icon: Motorcycle, emoji: "🏍️" },
-  bus:   { color: "#06B6D4", label: "Pullman", labelWith: "In pullman", labelShort: "Bus", Icon: Bus,       emoji: "🚌" },
+  bus:   { color: "#06B6D4", label: "Bus",     labelWith: "In bus",   labelShort: "Bus",   Icon: Bus,        emoji: "🚌" },
 };
 
 /**
