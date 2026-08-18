@@ -18,6 +18,21 @@ export type GeoResult = {
 export const PLACE_KINDS = ["lago", "monumento", "montagna", "parco", "spiaggia", "luogo"] as const;
 export type PlaceKind = (typeof PLACE_KINDS)[number];
 
+/**
+ * Anche il geocoder delle città (GeoNames) restituisce monti, laghi e isole:
+ * senza questa mappa uscivano SENZA etichetta accanto ai luoghi di Nominatim
+ * che ce l'hanno ("Pantheon Range, Canada" nudo sotto "Pantheon · monumento").
+ * I codici PPL* (abitati) restano senza kind: sono le città, la norma.
+ */
+const GEONAMES_KIND: Record<string, PlaceKind> = {
+  MT: "montagna", MTS: "montagna", PK: "montagna", PKS: "montagna",
+  VLC: "montagna", HLL: "montagna", HLLS: "montagna", GLCR: "montagna",
+  LK: "lago", LKS: "lago", LGN: "lago", RSV: "lago",
+  ISL: "luogo", ISLS: "luogo",
+  BCH: "spiaggia", BCHS: "spiaggia",
+  PRK: "parco", RESN: "parco", RESF: "parco",
+};
+
 export async function searchPlaces(query: string, count = 6): Promise<GeoResult[]> {
   if (!query.trim()) return [];
   try {
@@ -25,7 +40,10 @@ export async function searchPlaces(query: string, count = 6): Promise<GeoResult[
     const r = await fetch(url);
     if (!r.ok) return [];
     const data = await r.json();
-    return (data.results ?? []) as GeoResult[];
+    return ((data.results ?? []) as (GeoResult & { feature_code?: string })[]).map(p => {
+      const kind = p.feature_code ? GEONAMES_KIND[p.feature_code] : undefined;
+      return kind ? { ...p, kind } : p;
+    });
   } catch {
     return [];
   }

@@ -119,6 +119,21 @@ describe("searchLandmarks", () => {
   });
 });
 
+describe("searchPlaces — anche il geocoder delle città etichetta i non-abitati", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("un monte di GeoNames (feature_code MT) esce come montagna; le città senza etichetta", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ results: [
+      { id: 1, name: "Everest", country: "Nepal", country_code: "NP", latitude: 27.99, longitude: 86.93, feature_code: "MT" },
+      { id: 2, name: "Everest", country: "Stati Uniti", country_code: "US", latitude: 39.68, longitude: -95.42, feature_code: "PPL" },
+    ] }) })));
+    const { searchPlaces } = await import("./geo");
+    const r = await searchPlaces("Everest");
+    expect(r[0].kind).toBe("montagna");
+    expect(r[1].kind).toBeUndefined();
+  });
+});
+
 describe("searchAnyPlace — le due fonti in una lista sola", () => {
   beforeEach(() => __resetLandmarkCache());
   afterEach(() => vi.unstubAllGlobals());
