@@ -159,10 +159,10 @@ export default function Settings() {
   };
 
   return (
-    <main className="min-h-screen">
+    <main>
       <AppHeader/>
 
-      <div className="container mx-auto px-4 py-8 max-w-xl">
+      <div className="container mx-auto px-4 pt-8 pb-2 max-w-xl">
 
         <SectionHeading>Misure</SectionHeading>
 

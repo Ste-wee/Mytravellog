@@ -311,7 +311,7 @@ const ModificaViaggio = () => {
 
       {/* Main layout: itinerario hero sinistra, form destra (impilati su mobile) */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 items-stretch"
-        style={{ maxWidth:1200, margin:"0 auto", width:"100%", padding:"32px 24px" }}>
+        style={{ maxWidth:1200, margin:"0 auto", width:"100%", padding:"32px 24px 8px" }}>
 
         {/* LEFT — Itinerario hero */}
         <ItineraryPanel

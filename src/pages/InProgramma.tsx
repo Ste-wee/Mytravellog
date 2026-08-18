@@ -106,10 +106,10 @@ const InProgramma = () => {
   const openPlan = useMemo(() => plans.find(p => p.id === openId) ?? null, [plans, openId]);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#060e1e", display: "flex", flexDirection: "column" }}>
+    <div style={{ background: "#060e1e", display: "flex", flexDirection: "column" }}>
       <AppHeader />
 
-      <div style={{ maxWidth: 760, margin: "0 auto", width: "100%", padding: "28px 20px 60px" }}>
+      <div style={{ maxWidth: 760, margin: "0 auto", width: "100%", padding: "28px 20px 8px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
           <CalendarClock style={{ width: 22, height: 22, color: "#60a5fa" }} />
           <h1 style={{ fontSize: 22, fontWeight: 800, color: "#f0f4ff", margin: 0 }}>In programma</h1>
@@ -186,7 +186,7 @@ const InProgramma = () => {
 
         {/* Lista piani */}
         {plans.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "50px 20px", color: "rgba(255,255,255,0.6)" }}>
+          <div style={{ textAlign: "center", padding: "50px 20px 12px", color: "rgba(255,255,255,0.6)" }}>
             <CalendarClock style={{ width: 40, height: 40, margin: "0 auto 12px", opacity: 0.4 }} />
             <div style={{ fontSize: 14 }}>Nessun viaggio in programma.</div>
             <div style={{ fontSize: 12, marginTop: 4 }}>Programma la tua prossima avventura e segna le cose da fare.</div>

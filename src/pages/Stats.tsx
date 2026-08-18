@@ -19,13 +19,13 @@ const Stats = () => {
 
 
   return (
-    <main className="min-h-screen">
+    <main>
       <AppHeader/>
 
       {trips.length === 0 ? (
         /* Senza viaggi le sezioni mostravano un misto di zeri, un messaggio
            isolato e la heatmap sparita in silenzio: meglio un unico invito. */
-        <div className="container mx-auto px-6" style={{paddingTop:80, paddingBottom:80, display:"flex", justifyContent:"center"}}>
+        <div className="container mx-auto px-6" style={{paddingTop:80, paddingBottom:8, display:"flex", justifyContent:"center"}}>
           <div style={{maxWidth:320, textAlign:"center"}}>
             <div style={{width:48, height:48, borderRadius:"50%", background:"rgba(96,165,250,0.12)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 12px"}}>
               <PieChart style={{width:22, height:22, color:"#60a5fa"}}/>
@@ -45,7 +45,7 @@ const Stats = () => {
           </div>
         </div>
       ) : (
-        <div className="container mx-auto px-6 py-8 space-y-8 stats-stagger">
+        <div className="container mx-auto px-6 pt-8 pb-2 space-y-8 stats-stagger">
           {/* Ingresso al Recap annuale "Il tuo anno di viaggi" (card condivisibile). */}
           <Link to="/recap"
             style={{

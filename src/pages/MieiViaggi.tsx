@@ -146,9 +146,9 @@ export default function MieiViaggi() {
   const years = Object.keys(byYear).sort((a, b) => b.localeCompare(a));
 
   return (
-    <main className="min-h-screen flex flex-col" style={{backgroundColor:"#060e1e"}}>
+    <main className="flex flex-col" style={{backgroundColor:"#060e1e"}}>
       <AppHeader />
-      <div className="container mx-auto px-6 py-8 flex-1">
+      <div className="container mx-auto px-6 pt-8 pb-2 flex-1">
 
         {/* Header — con l'ingresso icona-sola alla "Mappa della vita" (tutti i
             viaggi in un'unica costellazione), a destra del titolo. */}

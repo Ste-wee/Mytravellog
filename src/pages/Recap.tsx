@@ -268,9 +268,9 @@ const Recap = () => {
   };
 
   return (
-    <main className="min-h-screen">
+    <main>
       <AppHeader />
-      <div className="container mx-auto px-6 py-8" style={{ maxWidth: 560 }}>
+      <div className="container mx-auto px-6 pt-8 pb-2" style={{ maxWidth: 560 }}>
         <button onClick={() => navigate(-1)} className="flex items-center gap-2" style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, marginBottom: 16, background: "none", border: "none", cursor: "pointer" }}>
           <ArrowLeft className="w-4 h-4" /> Indietro
         </button>

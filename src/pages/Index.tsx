@@ -170,8 +170,8 @@ function HomeInner() {
     <main className="min-h-screen flex flex-col" style={{backgroundColor:"#060e1e"}}>
       <AppHeader/>
 
-      <div className="container mx-auto px-4 py-6 flex-1 flex flex-col gap-6">
-        <div style={{ display:"flex", height:"calc(100vh - 220px)", minHeight:"460px", overflow:"hidden", transition:"all 0.3s ease" }}>
+      <div className="container mx-auto px-4 pt-6 pb-2 flex-1 flex flex-col gap-6">
+        <div style={{ display:"flex", flex:"1 1 auto", minHeight:"460px", overflow:"hidden", transition:"all 0.3s ease" }}>
           {/* Globe */}
           <div style={{ flex:1, position:"relative", overflow:"hidden", transition:"all 0.3s ease" }}
             onMouseMove={(e) => {
