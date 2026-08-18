@@ -7,13 +7,12 @@ import { distanceKm } from "@/lib/geo";
 import { hasCoords } from "@/lib/coords";
 import { tripTotalKm } from "@/lib/flyover";
 import { stopChain } from "@/lib/stops";
-import { fmtDistance, useSettings } from "@/lib/settings";
+import { fmtDistance, fmtNumber, useSettings } from "@/lib/settings";
 import { TRANSPORT, isTransportMode } from "@/lib/transport";
-import { Route, Globe, MapPin, Pencil, Plane, Plus, Video, X, ChevronDown } from "lucide-react";
+import { Route, Globe, MapPin, Pencil, Plane, Plus, Video, X, ChevronRight } from "lucide-react";
 import { WorldMap, CityInfo } from "@/components/WorldMap";
 import { StarField, StarFieldController } from "@/components/StarField";
 import { TripFlyover } from "@/components/TripFlyover";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 
 
 /**
@@ -77,46 +76,11 @@ export function backfillDistanceFromHome(trip: Trip, homeCity: { lat: number; lo
   };
 }
 
-// Card statistica della Home. Definita a livello di MODULO (non dentro
-// HomeInner): se fosse dichiarata nel render, ogni ri-render creerebbe una
-// nuova funzione — per React un componente "diverso" — che rimonta le card da
-// zero e fa ripartire l'animazione fade-up da opacity 0. Durante la rotazione
-// del globo il mousemove ri-renderizza la Home decine di volte al secondo,
-// quindi le card lampeggiavano/sparivano finché non ci si fermava. Con il tipo
-// stabile React riconcilia il nodo esistente e l'animazione parte una volta sola.
-interface StatCardProps {
-  icon: ReactNode; label: string; value: string; accent: string; bg: string; i?: number;
-  /** Unità di misura (km/mi): resa più piccola e tenue, così l'occhio legge
-   *  prima il numero — con lo stesso peso si prendeva metà dell'attenzione. */
-  unit?: string;
-}
-function StatCard({ icon, label, value, accent, bg, i = 0, unit }: StatCardProps) {
-  return (
-    <div className="animate-fade-up" style={{
-      background:"#0a1628", border:"0.5px solid #1a2d4a", borderRadius:12,
-      padding:"14px 16px", display:"flex", alignItems:"center", gap:12,
-      position:"relative", overflow:"hidden",
-      // Comparsa scaglionata: prima le quattro card apparivano di colpo
-      // tutte insieme (nessuna animazione d'ingresso in Home).
-      animationDelay: `${i * 60}ms`,
-    }}>
-      {/* NB: qui c'era una barretta accento da 2px in cima. Ripeteva il colore
-          dell'icona — due decorazioni per la stessa informazione assente. */}
-      <div style={{width:36,height:36,borderRadius:9,background:bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-        <span style={{color:accent}}>{icon}</span>
-      </div>
-      <div>
-        <div className="font-mono" style={{fontSize:20,fontWeight:700,color:"#f0f4ff",lineHeight:1.1}}>
-          {/* Lo spazio sta DENTRO il testo, non è un margine: così il valore
-              letto resta "10.193 km" come prima anche per un lettore di
-              schermo (con il solo margine diventava "10.193km"). */}
-          {value}{unit && <span style={{fontSize:12,fontWeight:400,color:"rgba(255,255,255,0.55)"}}> {unit}</span>}
-        </div>
-        <div style={{fontSize:10,letterSpacing:"1.2px",textTransform:"uppercase",color:"rgba(255,255,255,0.6)",marginTop:3}}>{label}</div>
-      </div>
-    </div>
-  );
-}
+// NB storico: qui viveva StatCard, la card 2×2 del cassetto "Statistiche".
+// Il cassetto è stato sostituito da una riga-sommario sotto il globo (vedi
+// più giù): quattro icone con i numeri, sempre visibile, che porta alla
+// pagina Statistiche invece di duplicarla. Il commento sull'anti-pattern del
+// componente-nel-render vive ora in memoria e in StarField.
 
 class ErrorBoundary extends Component<{children:ReactNode},{error:string|null}> {
   state = { error: null };
@@ -156,7 +120,6 @@ function HomeInner() {
   // Solo su mobile le 4 card sono a comparsa (chiuse di default, per non
   // occupare spazio sopra il globo) — da desktop restano sempre visibili,
   // vedi il rendering "hidden sm:grid" più sotto.
-  const [statsOpen, setStatsOpen] = useState(false);
   // Clean up legacy visited cities data
   useEffect(() => { localStorage.removeItem("atlas.visited.v1"); }, []);
   const refresh = () => setTrips(loadTrips());
@@ -208,52 +171,6 @@ function HomeInner() {
       <AppHeader/>
 
       <div className="container mx-auto px-4 py-6 flex-1 flex flex-col gap-6">
-        {(() => {
-          // Distanza: numero ed unità separati, così l'unità può essere resa
-          // più piccola nella card (fmtDistance dà "34.812 km", oppure "—").
-          const dist = fmtDistance(stats.km, distanceUnit);
-          const distSpace = dist.lastIndexOf(" ");
-          // Colore con una REGOLA, non a scacchiera: i conteggi sono blu,
-          // l'ambra è riservata ai km perché sul globo le rotte sono ambra —
-          // così il colore dice "questa è la strada percorsa". Prima blu e
-          // ambra si alternavano senza significato (Paesi ambra, Città blu).
-          const statItems = [
-            { icon: <Plane  className="w-[18px] h-[18px]"/>, label: "Viaggi", value: stats.trips.toString(),     accent: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
-            { icon: <Globe  className="w-[18px] h-[18px]"/>, label: "Paesi",  value: stats.countries.toString(), accent: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
-            { icon: <MapPin className="w-[18px] h-[18px]"/>, label: "Città",  value: stats.cities.toString(),    accent: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
-            { icon: <Route  className="w-[18px] h-[18px]"/>, label: "Totali",
-              value: distSpace > 0 ? dist.slice(0, distSpace) : dist,
-              unit: distSpace > 0 ? dist.slice(distSpace + 1) : undefined,
-              accent: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
-          ];
-          return (
-            <>
-              {/* Statistiche a comparsa ovunque (desktop = mobile): chiuse di
-                  default per non occupare spazio sopra il globo, si aprono 2×2
-                  dalla maniglia. Prima su desktop erano 4 card sempre visibili. */}
-              <div>
-                <Collapsible open={statsOpen} onOpenChange={setStatsOpen}>
-                  <CollapsibleTrigger asChild>
-                    <button type="button" className="flex flex-col items-center w-full py-1.5 gap-0.5"
-                      aria-label={statsOpen ? "Nascondi le tue statistiche" : "Mostra le tue statistiche"}>
-                      <span style={{width:30,height:3,borderRadius:2,background:"rgba(255,255,255,0.25)"}}/>
-                      {/* Etichetta VISIBILE, non solo aria-label: chi vede era
-                          informato peggio di chi ascolta (maniglia muta). */}
-                      <span style={{fontSize:9, letterSpacing:".08em", textTransform:"uppercase", color:"rgba(255,255,255,0.6)"}}>Statistiche</span>
-                      <ChevronDown className="w-3 h-3 transition-transform" style={{ color:"rgba(255,255,255,0.6)", transform: statsOpen ? "rotate(180deg)" : "none" }}/>
-                    </button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-2">
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {statItems.map((item, i) => <StatCard key={item.label} {...item} i={i}/>)}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              </div>
-            </>
-          );
-        })()}
-
         <div style={{ display:"flex", height:"calc(100vh - 220px)", minHeight:"460px", overflow:"hidden", transition:"all 0.3s ease" }}>
           {/* Globe */}
           <div style={{ flex:1, position:"relative", overflow:"hidden", transition:"all 0.3s ease" }}
@@ -409,6 +326,41 @@ function HomeInner() {
 
 
         </div>
+
+        {/* Sommario sotto il globo — sostituisce il cassetto "Statistiche" a
+            comparsa (4 card 2×2). Perché: aperto spingeva il globo 118px sotto
+            la piega per mostrare quattro numeri, richiedeva un gesto ogni
+            volta, e duplicava paesi e km che la pagina Statistiche già mostra.
+            Qui i numeri si vedono SEMPRE, a costo zero, e il tocco porta
+            all'approfondimento invece di ripeterlo: sommario → dettaglio.
+            Solo icone e numeri, niente parole: coi valori grandi
+            (24 · 37 · 152 · 145.678 km) icone+parole strabordano a 390px. */}
+        {stats.trips > 0 && (
+          <button type="button" onClick={() => navigate("/statistiche")}
+            aria-label="Le tue statistiche di viaggio: vai alla pagina Statistiche"
+            style={{ display:"flex", alignItems:"center", justifyContent:"center", flexWrap:"wrap",
+              gap:12, width:"100%", padding:"9px 12px", background:"none", border:"none", cursor:"pointer" }}>
+            {[
+              { Icona: Plane,  valore: fmtNumber(stats.trips),    voce: stats.trips === 1 ? "viaggio" : "viaggi", colore:"#f0f4ff", iconaColore:"#60a5fa" },
+              { Icona: Globe,  valore: fmtNumber(stats.countries), voce: stats.countries === 1 ? "paese" : "paesi", colore:"#f0f4ff", iconaColore:"#60a5fa" },
+              { Icona: MapPin, valore: fmtNumber(stats.cities),   voce: stats.cities === 1 ? "città" : "città", colore:"#f0f4ff", iconaColore:"#60a5fa" },
+              // L'ambra è dei km, come le rotte sul globo (regola di colore
+              // dell'app: blu = conteggi, ambra = strada percorsa).
+              { Icona: Route,  valore: fmtDistance(stats.km, distanceUnit), voce:"percorsi", colore:"#fbbf24", iconaColore:"#fbbf24" },
+            ].map(({ Icona, valore, voce, colore, iconaColore }, i) => (
+              <span key={voce + i} style={{ display:"inline-flex", alignItems:"center", gap:5 }}>
+                {i > 0 && <span aria-hidden style={{ width:3, height:3, borderRadius:"50%", background:"rgba(255,255,255,0.25)", marginRight:7 }}/>}
+                {/* L'icona è muta per lo screen reader: il senso lo dà il
+                    testo nascosto qui sotto ("24 viaggi"), così chi ascolta
+                    non sente "aereo 24" e chi vede non legge parole di troppo. */}
+                <Icona className="w-[13px] h-[13px]" style={{ color: iconaColore }} aria-hidden/>
+                <b className="font-mono" style={{ fontSize:15, fontWeight:700, color: colore }}>{valore}</b>
+                <span className="sr-only">{voce}</span>
+              </span>
+            ))}
+            <ChevronRight className="w-3 h-3" style={{ color:"rgba(96,165,250,0.9)" }} aria-hidden/>
+          </button>
+        )}
       </div>
 
       {selectedCity && (

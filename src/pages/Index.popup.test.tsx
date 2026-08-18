@@ -169,3 +169,33 @@ describe("Home — benvenuto al primo avvio", () => {
     expect(screen.queryByText("Benvenuto su NAV·TA")).not.toBeInTheDocument();
   });
 });
+
+// La riga-sommario sotto il globo ha sostituito il cassetto "Statistiche":
+// niente più gesto per vedere quattro numeri, e il tocco porta alla pagina
+// invece di duplicarla.
+describe("Home — riga-sommario sotto il globo", () => {
+  it("mostra i numeri sempre, senza cassetto da aprire", async () => {
+    addTrip(baseTrip());
+    renderHome();
+    const riga = await screen.findByRole("button", { name: /statistiche/i });
+    expect(riga).toBeInTheDocument();
+    // il vecchio cassetto non esiste più
+    expect(screen.queryByRole("button", { name: /Mostra le tue statistiche/i })).toBeNull();
+  });
+
+  it("le icone sono mute per lo screen reader: il senso lo danno i testi nascosti", async () => {
+    addTrip(baseTrip());
+    renderHome();
+    const riga = await screen.findByRole("button", { name: /statistiche/i });
+    expect(riga.textContent).toMatch(/viaggi|viaggio/);
+    expect(riga.querySelectorAll("svg[aria-hidden]").length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("il tocco porta alla pagina Statistiche", async () => {
+    addTrip(baseTrip());
+    renderHome();
+    const riga = await screen.findByRole("button", { name: /statistiche/i });
+    fireEvent.click(riga);
+    expect(mockNavigate).toHaveBeenCalledWith("/statistiche");
+  });
+});
