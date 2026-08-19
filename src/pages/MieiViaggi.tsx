@@ -24,7 +24,11 @@ function SchedaCompatta({ trip, anno, onApri }: { trip: Trip; anno: string; onAp
     <button type="button" onClick={() => onApri(trip.id)}
       aria-label={`Apri il biglietto di ${trip.title || trip.city}`}
       style={{ textAlign: "left", background: "rgba(255,255,255,0.03)", border: "0.5px solid #1a2d4a",
-        borderRadius: 14, padding: 12, cursor: "pointer", display: "flex", flexDirection: "column", gap: 8 }}>
+        borderRadius: 14, padding: 12, cursor: "pointer", display: "flex", flexDirection: "column", gap: 8,
+        // min-width 0: gli item di una grid hanno min-width AUTO, e il titolo
+        // nowrap gonfiava la colonna fino a sbordare sotto la card vicina
+        // (visto su desktop col titolo dei castelli della Loira).
+        minWidth: 0, width: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <img src={`https://flagcdn.com/w40/${(trip.country_code || "").toLowerCase()}.png`} width={26}
           alt="" style={{ borderRadius: 4, display: "block" }}
@@ -371,7 +375,7 @@ export default function MieiViaggi() {
                 {vista === "griglia" ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
                     {byYear[year].map((t, i) => (
-                      <div key={t.id} className="animate-fade-up" style={{ animationDelay: `${i * 40}ms`, display: "grid" }}>
+                      <div key={t.id} className="animate-fade-up" style={{ animationDelay: `${i * 40}ms`, display: "grid", minWidth: 0 }}>
                         <SchedaCompatta trip={t} anno={year} onApri={apriDallaGriglia}/>
                       </div>
                     ))}
