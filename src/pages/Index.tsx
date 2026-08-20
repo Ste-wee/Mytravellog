@@ -7,6 +7,7 @@ import { distanceKm } from "@/lib/geo";
 import { hasCoords } from "@/lib/coords";
 import { tripTotalKm } from "@/lib/flyover";
 import { stopChain } from "@/lib/stops";
+import { ricalcolaTemperature } from "@/lib/ricalcolaTemperature";
 import { fmtDistance, fmtNumber, useSettings } from "@/lib/settings";
 import { TRANSPORT, isTransportMode } from "@/lib/transport";
 import { Route, Globe, MapPin, Pencil, Plane, Plus, Video, X } from "lucide-react";
@@ -139,6 +140,17 @@ function HomeInner() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedCity, selectedId]);
+
+  // Una volta sola: riporta i viaggi già salvati al criterio nuovo della
+  // temperatura (l'estremo del periodo invece della media del primo giorno).
+  // In sottofondo e senza bloccare nulla; se la Home se ne va prima della
+  // fine, il flag non viene scritto e si riprende al prossimo avvio.
+  useEffect(() => {
+    let annullato = false;
+    ricalcolaTemperature(() => annullato).then(n => { if (n > 0 && !annullato) refresh(); });
+    return () => { annullato = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Ricalcola distanze per viaggi senza distance_from_home_km quando homeCity è impostata
   useEffect(() => {

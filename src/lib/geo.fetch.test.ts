@@ -74,10 +74,13 @@ describe("fetchTemperature", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("usa archive-api per date passate", async () => {
-    (fetch as any).mockReturnValue(okJson({ daily: { temperature_2m_mean: [17.5] } }));
+  it("usa archive-api per date passate, con min e max (non più la media)", async () => {
+    // Il criterio è cambiato il 2026-08-20: la media giornaliera annacquava
+    // il dato memorabile (Lapponia a -31 mostrata come -12). Ora si prende
+    // l'estremo del periodo — v. geo.temperatura.test.ts.
+    (fetch as any).mockReturnValue(okJson({ daily: { temperature_2m_min: [12.1], temperature_2m_max: [24.9] } }));
     const r = await fetchTemperature(0, 0, "2000-01-01");
-    expect(r).toBe(17.5);
+    expect(r).toBe(24.9);
     expect((fetch as any).mock.calls[0][0]).toContain("archive-api");
   });
 

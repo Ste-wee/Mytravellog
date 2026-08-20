@@ -234,7 +234,7 @@ const ModificaViaggio = () => {
     const [...rest] = await Promise.all([
       // hasCoords, non il truthy su s.lat: a lat 0 la tappa perdeva meteo e
       // altitudine (e il gemello NuovoViaggio chiama senza alcuna guardia).
-      ...allStopsWithCoords.map(s => hasCoords(s.lat, s.lon) ? fetchTemperature(s.lat, s.lon, dateStart) : Promise.resolve(null)),
+      ...allStopsWithCoords.map(s => hasCoords(s.lat, s.lon) ? fetchTemperature(s.lat, s.lon, dateStart, dateEnd || null) : Promise.resolve(null)),
       ...allStopsWithCoords.map(s => hasCoords(s.lat, s.lon) ? fetchElevation(s.lat, s.lon) : Promise.resolve(null)),
     ]);
     const routeGeometries = await routeGeometriesPromise;

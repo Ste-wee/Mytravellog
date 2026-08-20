@@ -203,7 +203,7 @@ const NuovoViaggio = () => {
     // restano invece in parallelo tra loro e rispetto alle chiamate a Nominatim.
     const [stopRegions, stopTemps, stopAlts] = await Promise.all([
       sequentialMap(allStopsWithCoords, s => fetchRegion(s.lat, s.lon)),
-      Promise.all(allStopsWithCoords.map(s => fetchTemperature(s.lat, s.lon, dateStart))),
+      Promise.all(allStopsWithCoords.map(s => fetchTemperature(s.lat, s.lon, dateStart, dateEnd || null))),
       Promise.all(allStopsWithCoords.map(s => fetchElevation(s.lat, s.lon))),
     ]);
     const routeGeometries = await routeGeometriesPromise;

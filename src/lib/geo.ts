@@ -274,7 +274,20 @@ export async function fetchElevation(lat: number, lon: number): Promise<number |
   }
 }
 
-export async function fetchTemperature(lat: number, lon: number, dateISO: string): Promise<number | null> {
+/**
+ * La temperatura che si RACCONTA di un viaggio: d'inverno la minima toccata,
+ * d'estate la massima. Prima mostravamo la media giornaliera, che annacqua di
+ * ~10 gradi il dato memorabile (Lapponia: media -20 mentre il termometro
+ * segnava -31; Siviglia: media 31 con 40,7 di massima).
+ * Il criterio è la distanza da una temperatura mite: vince l'estremo più
+ * lontano dai 18°, a parità la massima (l'estate è la norma).
+ */
+export function temperaturaMemorabile(min: number, max: number): number {
+  const MITE = 18;
+  return Math.abs(min - MITE) > Math.abs(max - MITE) ? min : max;
+}
+
+export async function fetchTemperature(lat: number, lon: number, dateISO: string, dateEndISO?: string | null): Promise<number | null> {
   try {
     // Locale, non UTC: dateISO è una data di calendario scelta dall'utente
     // (fuso locale), confrontarla con "oggi" in UTC farebbe scegliere il ramo
@@ -283,11 +296,18 @@ export async function fetchTemperature(lat: number, lon: number, dateISO: string
     // Future dates: no historical data available
     if (dateISO > today) return null;
     if (dateISO < today) {
-      const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${dateISO}&end_date=${dateISO}&daily=temperature_2m_mean&timezone=auto`;
+      // Il periodo INTERO del viaggio, non il solo giorno di partenza: il
+      // freddo che si ricorda può essere caduto al terzo giorno. Se il
+      // viaggio è ancora in corso ci si ferma a oggi.
+      const fine = dateEndISO && dateEndISO > dateISO ? (dateEndISO > today ? today : dateEndISO) : dateISO;
+      const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${dateISO}&end_date=${fine}&daily=temperature_2m_min,temperature_2m_max&timezone=auto`;
       const r = await fetch(url);
       if (!r.ok) return null;
       const d = await r.json();
-      return d?.daily?.temperature_2m_mean?.[0] ?? null;
+      const min = (d?.daily?.temperature_2m_min ?? []).filter((v: unknown): v is number => typeof v === "number");
+      const max = (d?.daily?.temperature_2m_max ?? []).filter((v: unknown): v is number => typeof v === "number");
+      if (!min.length || !max.length) return null;
+      return temperaturaMemorabile(Math.min(...min), Math.max(...max));
     } else {
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m&timezone=auto`;
       const r = await fetch(url);
