@@ -6,7 +6,7 @@ import { setStorageErrorHandler, dropBudgetData } from "./lib/storage";
 import { Loader2 } from "lucide-react";
 import { SettingsProvider } from "./lib/settings";
 import { GoogleDriveProvider } from "./lib/googleDriveContext";
-import { BrandBadge } from "./components/BrandBadge";
+import { BrandBadgeSlot } from "./components/BrandBadge";
 import { WelcomeGate } from "./components/WelcomeGate";
 import { HomeCityGate } from "./components/HomeCityGate";
 import { AppTour } from "./components/AppTour";
@@ -108,7 +108,7 @@ ReactDOM.createRoot(rootEl).render(
             </Routes>
           </Suspense>
           <Toaster richColors position="top-right" />
-          <BrandBadge />
+          <BrandBadgeSlot />
           {/* Benvenuto SOLO al primo avvio (dispositivo vergine): overlay sopra
               tutto, si archivia per sempre al primo tap. */}
           <WelcomeGate />

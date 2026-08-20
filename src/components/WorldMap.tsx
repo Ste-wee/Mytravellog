@@ -856,12 +856,12 @@ export function WorldMap({
         </div>
       )}
 
-      {/* Legend — anche lei si fa da parte quando la card è aperta */}
-      {!selectionOpen && (
-        <div className="absolute right-3 bg-black/50 backdrop-blur border border-white/10 rounded-lg px-3 py-2 flex items-center gap-3 text-[10px] font-mono uppercase tracking-wider text-white/60 z-40" style={{ bottom: 12 }}>
-          <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-amber-400"/>Casa</div>
-        </div>
-      )}
+      {/* Qui c'era la legenda "● Casa". RIMOSSA: una legenda con UNA sola voce
+          non è una legenda, è un'etichetta che spiega un pallino già evidente
+          (l'unico ambra del globo, da cui partono tutte le rotte). Non era
+          cliccabile e non centrava nulla: occupava un angolo per zero
+          informazione. Il pallino di casa sul globo RESTA — senza, il punto di
+          partenza sparisce e le rotte nascono dal nulla. */}
 
       {/* Hint drag-per-ruotare: solo al primo caricamento (flag in localStorage) */}
       {globeHint !== "hidden" && (

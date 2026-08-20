@@ -8,6 +8,24 @@
  * comunque dall'export. Il logo è servito da public/ via BASE_URL (funziona
  * anche sotto /Mytravellog/ su Pages).
  */
+import { useLocation } from "react-router-dom";
+/**
+ * Dove montare la firma: ovunque TRANNE la Home.
+ *
+ * In Home il badge costava esattamente lo scroll della pagina — 916px di
+ * contenuto su 844 di schermo, e quei 72px sono suoi: padding 18+24 più i 30
+ * del logo. Senza, la Home entra al pixel nello schermo e smette di
+ * rimbalzare. Il marchio lì non sparisce comunque: NAV·TA col suo logo è
+ * nell'header, quindi la firma era la seconda della stessa schermata.
+ *
+ * La conoscenza delle rotte sta QUI e non dentro BrandBadge: la firma resta un
+ * componente puro, montabile ovunque anche fuori da un Router.
+ */
+export function BrandBadgeSlot() {
+  const { pathname } = useLocation();
+  return pathname === "/" ? null : <BrandBadge />;
+}
+
 export function BrandBadge() {
   return (
     <div

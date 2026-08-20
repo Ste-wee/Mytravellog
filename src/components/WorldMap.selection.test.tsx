@@ -268,23 +268,29 @@ describe("WorldMap — anche le tappe aprono il viaggio", () => {
   });
 });
 
-// Con la mini-card aperta i controlli si fanno da parte: a 390px zoom e
-// legenda CASA si accavallavano ai bottoni della card (e la barra del tempo
-// la copriva: per quella la card si ALZA, vedi Index + hasTimeBar).
-describe("WorldMap — selectionOpen nasconde zoom e legenda", () => {
+// Con la mini-card aperta i controlli si fanno da parte: a 390px lo zoom si
+// accavallava ai bottoni della card (e la barra del tempo la copriva: per
+// quella la card si ALZA, vedi Index + hasTimeBar).
+describe("WorldMap — selectionOpen nasconde lo zoom", () => {
   beforeEach(() => { lastMap = null; });
 
-  it("con la card chiusa zoom e CASA ci sono", async () => {
+  it("con la card chiusa lo zoom c'è", async () => {
     const { getByText } = render(<WorldMap trips={TRIPS} selectedId={null} />);
     await settle();
     expect(getByText("+")).toBeInTheDocument();
-    expect(getByText("Casa")).toBeInTheDocument();
   });
 
-  it("con la card aperta spariscono (a 390px coprivano i suoi bottoni)", async () => {
+  it("con la card aperta sparisce (a 390px copriva i suoi bottoni)", async () => {
     const { queryByText } = render(<WorldMap trips={TRIPS} selectedId="secco" selectionOpen />);
     await settle();
     expect(queryByText("+")).toBeNull();
+  });
+
+  // La legenda "● Casa" è stata RIMOSSA: una voce sola non è una legenda, e
+  // spiegava un pallino già evidente. Il pallino di casa sul globo resta.
+  it("nessuna legenda 'Casa' sul globo", async () => {
+    const { queryByText } = render(<WorldMap trips={TRIPS} selectedId={null} />);
+    await settle();
     expect(queryByText("Casa")).toBeNull();
   });
 
