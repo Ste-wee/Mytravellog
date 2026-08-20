@@ -89,11 +89,24 @@ export function placeKindOf(osmClass: string, osmType: string): PlaceKind | null
 // mettono in fila da sole, così un utente che digita in fretta non genera
 // una raffica (il debounce del form non basta: sono due form diversi).
 let ultimaChiamata = 0;
-async function attendiTurno(minMs = 1100) {
-  const ora = Date.now();
-  const attesa = Math.max(0, ultimaChiamata + minMs - ora);
-  ultimaChiamata = ora + attesa;
-  if (attesa > 0) await new Promise(r => setTimeout(r, attesa));
+/**
+ * Aspetta il proprio turno e lo prenota SOLO nell'istante in cui si parte
+ * davvero. Prima la prenotazione avveniva all'ingresso in coda: le query
+ * abbandonate a metà digitazione spostavano comunque la fila, e la query
+ * buona ereditava l'attesa dei morti (misurato: partiva a +1336ms invece
+ * che appena scaduto l'intervallo). `ancoraValida` viene richiesta a ogni
+ * giro: chi è stato superato esce senza consumare nulla.
+ */
+async function attendiTurno(minMs = 1100, ancoraValida: () => boolean = () => true): Promise<boolean> {
+  for (;;) {
+    if (!ancoraValida()) return false;
+    const attesa = ultimaChiamata + minMs - Date.now();
+    if (attesa <= 0) {
+      ultimaChiamata = Date.now();     // prenoto adesso, che parto davvero
+      return true;
+    }
+    await new Promise(r => setTimeout(r, Math.min(attesa, 100)));
+  }
 }
 
 const cacheLuoghi = new Map<string, GeoResult[]>();
@@ -119,8 +132,8 @@ export async function searchLandmarks(query: string, count = 4, superabile = tru
   if (inCache) return inCache.slice(0, count);
   const mia = superabile ? ++generazioneLuoghi : 0;
   try {
-    await attendiTurno();
-    if (superabile && mia !== generazioneLuoghi) return [];   // superata mentre aspettava
+    const tocca = await attendiTurno(1100, () => !superabile || mia === generazioneLuoghi);
+    if (!tocca) return [];   // superata mentre aspettava: niente rete, niente turno
     // `extratags`/`namedetails` non servono: bastano class/type e l'indirizzo.
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}` +
       `&format=json&limit=12&addressdetails=1&accept-language=it`;

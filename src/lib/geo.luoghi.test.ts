@@ -262,10 +262,14 @@ describe("searchAnyPlace — la velocità percepita", () => {
     const p3 = searchLandmarks("colosseo roma");// la più nuova
     await vi.advanceTimersByTimeAsync(4000);
     await Promise.all([p1, p2, p3]);
-    // in una raffica va in rete SOLO la più nuova: le altre due sono state
-    // superate mentre aspettavano il loro turno di coda
-    expect(urlNominatim).toHaveLength(1);
-    expect(urlNominatim[0]).toMatch(/q=colosseo roma/);
+    // In una raffica: la PRIMA parte subito (coda libera, nessun motivo di
+    // scartarla) e la PIÙ NUOVA parte al turno successivo. Quella di mezzo,
+    // superata mentre aspettava, non va in rete E non consuma il turno —
+    // altrimenti la buona erediterebbe l'attesa dei morti.
+    expect(urlNominatim).toHaveLength(2);
+    expect(urlNominatim[0]).toMatch(/q=colosseo&/);
+    expect(urlNominatim[1]).toMatch(/q=colosseo roma/);
+    expect(urlNominatim.some(u => /q=colosseo r&/.test(u))).toBe(false);
   });
 });
 
