@@ -8,6 +8,7 @@ import { hasCoords } from "@/lib/coords";
 import { tripTotalKm } from "@/lib/flyover";
 import { stopChain } from "@/lib/stops";
 import { ricalcolaTemperature } from "@/lib/ricalcolaTemperature";
+import { ricalcolaTracciati } from "@/lib/ricalcolaTracciati";
 import { fmtDistance, fmtNumber, useSettings } from "@/lib/settings";
 import { TRANSPORT, isTransportMode } from "@/lib/transport";
 import { Route, Globe, MapPin, Pencil, Plane, Plus, Video, X } from "lucide-react";
@@ -147,7 +148,12 @@ function HomeInner() {
   // fine, il flag non viene scritto e si riprende al prossimo avvio.
   useEffect(() => {
     let annullato = false;
-    ricalcolaTemperature(() => annullato).then(n => { if (n > 0 && !annullato) refresh(); });
+    // Prima le temperature, poi i tracciati mancanti: entrambi girano una
+    // volta sola e in fila, per non aprire due raffiche di rete insieme.
+    ricalcolaTemperature(() => annullato)
+      .then(n => { if (n > 0 && !annullato) refresh(); })
+      .then(() => ricalcolaTracciati(() => annullato))
+      .then(n => { if (n && n > 0 && !annullato) refresh(); });
     return () => { annullato = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
