@@ -10,6 +10,81 @@
 import type { Trip } from "@/lib/storage";
 import { loadWorldAtlasCountries, polygonsOf } from "@/lib/worldAtlas";
 
+/**
+ * Le quattro nazioni del Regno Unito contano come paesi a sé.
+ *
+ * Non è un errore geografico: la Scozia non è uno stato sovrano, e per l'ONU
+ * il paese è il Regno Unito. Ma un diario di viaggio racconta dove sei stato,
+ * e Scozia, Inghilterra, Galles e Irlanda del Nord hanno identità, bandiera e
+ * confini propri — le app di viaggio le contano separate, e Stefano se lo
+ * aspettava ("la Scozia dovrebbe essere a parte").
+ *
+ * Il riconoscimento passa dal codice ISO 3166-2 che salviamo già in
+ * `region_details` (Nominatim dà GB-SCT, GB-WLS...), col nome come rete di
+ * sicurezza per i viaggi vecchi che hanno solo quello. I codici valgono anche
+ * come bandiera: flagcdn serve gb-sct, gb-eng, gb-wls, gb-nir.
+ */
+export const NAZIONI_UK: Record<string, string> = {
+  "GB-SCT": "Scozia",
+  "GB-ENG": "Inghilterra",
+  "GB-WLS": "Galles",
+  "GB-NIR": "Irlanda del Nord",
+};
+const NOME_A_CODICE_UK: Record<string, string> = {
+  scozia: "GB-SCT", scotland: "GB-SCT",
+  inghilterra: "GB-ENG", england: "GB-ENG",
+  galles: "GB-WLS", wales: "GB-WLS",
+  "irlanda del nord": "GB-NIR", "northern ireland": "GB-NIR",
+};
+
+/**
+ * Il paese da MOSTRARE per un luogo: di norma quello che arriva dal geocoder,
+ * ma dentro il Regno Unito la nazione (Scozia, Galles...). Fonte unica, così
+ * conteggio della Home, elenco delle Statistiche e globo dicono lo stesso
+ * numero: prima bastava che uno dei tre contasse diversamente per far
+ * litigare "16 paesi" con un elenco di 15 chip.
+ */
+export function paeseVisibile(
+  nome: string | null | undefined,
+  codice: string | null | undefined,
+  regione?: string | null,
+  codiceRegione?: string | null,
+): { nome: string; codice: string | null } {
+  const base = { nome: (nome ?? "").trim(), codice: codice ?? null };
+  if ((codice ?? "").toUpperCase() !== "GB") return base;
+  const daCodice = (codiceRegione ?? "").toUpperCase();
+  const iso = NAZIONI_UK[daCodice]
+    ? daCodice
+    : NOME_A_CODICE_UK[(regione ?? "").trim().toLowerCase()] ?? null;
+  if (!iso) return base;                    // GB senza regione nota: resta Regno Unito
+  return { nome: NAZIONI_UK[iso], codice: iso };
+}
+
+/** Il paese visibile di un viaggio, leggendo la regione dove l'abbiamo salvata. */
+export function paeseVisibileDiViaggio(t: {
+  country?: string | null; country_code?: string | null;
+  region?: string | null; region_details?: { name: string; code: string | null }[] | null;
+}) {
+  const primaRegione = t.region_details?.[0];
+  return paeseVisibile(t.country, t.country_code, primaRegione?.name ?? t.region, primaRegione?.code);
+}
+
+/**
+ * Il paese visibile di una TAPPA. Le tappe non hanno una regione salvata: da
+ * sole, dentro il Regno Unito, resterebbero "Regno Unito" — e il viaggio in
+ * Scozia di Stefano (Pitlochry, con tappe Edimburgo e Fort Augustus) avrebbe
+ * contato DUE paesi, Scozia più Regno Unito, gonfiando il totale.
+ * Una tappa britannica di un viaggio scozzese sta in Scozia: eredita.
+ */
+export function paeseVisibileDiTappa(
+  w: { country?: string | null; country_code?: string | null },
+  paeseDelViaggio: { nome: string; codice: string | null },
+) {
+  const eredita = (w.country_code ?? "").toUpperCase() === "GB"
+    && !!paeseDelViaggio.codice && !!NAZIONI_UK[paeseDelViaggio.codice];
+  return eredita ? paeseDelViaggio : { nome: (w.country ?? "").trim(), codice: w.country_code ?? null };
+}
+
 /** Il minimo che serve per rispondere "il punto è dentro?": niente disegno. */
 export type PaeseGeom = {
   id: string;
@@ -121,10 +196,35 @@ let cachePaesi: Promise<PaeseMondo[]> | null = null;
 /** Test-only: azzera la cache dei paesi fra un test e l'altro. */
 export function __clearPaesiCache() { cachePaesi = null; }
 
+/**
+ * Le quattro nazioni del Regno Unito come poligoni separati, dal pacchetto di
+ * confini che ospitiamo noi (`public/confini/GB.json`, 30 KB: c'è già, serviva
+ * alle regioni). Se non arriva — offline, pacchetto assente — si torna al
+ * Regno Unito intero: meglio un confine grossolano che nessuna mappa.
+ */
+async function caricaNazioniUK(): Promise<PaeseMondo[]> {
+  try {
+    const r = await fetch(`${import.meta.env.BASE_URL}confini/GB.json`);
+    if (!r.ok) return [];
+    const j = await r.json();
+    const feats: { properties?: { shapeISO?: string }; geometry: GeoJSON.Geometry }[] = j?.features ?? [];
+    return feats.flatMap(f => {
+      const iso = (f.properties?.shapeISO ?? "").toUpperCase();
+      const nome = NAZIONI_UK[iso];
+      if (!nome) return [];
+      const polygons = polygonsOf(f.geometry);
+      if (!polygons.length) return [];
+      return [{ id: iso, name: nome, polygons, bbox: bboxDiPoligoni(polygons), geometry: f.geometry }];
+    });
+  } catch {
+    return [];
+  }
+}
+
 export function caricaPaesi(): Promise<PaeseMondo[]> {
   if (!cachePaesi) {
-    cachePaesi = loadWorldAtlasCountries("110m").then(geo =>
-      geo.features.map((f, i) => {
+    cachePaesi = Promise.all([loadWorldAtlasCountries("110m"), caricaNazioniUK()]).then(([geo, nazioniUK]) => {
+      const mondo = geo.features.map((f, i) => {
         const polygons = polygonsOf(f.geometry);
         return {
           id: deriveCountryId(f, i),
@@ -133,7 +233,15 @@ export function caricaPaesi(): Promise<PaeseMondo[]> {
           bbox: bboxDiPoligoni(polygons),
           geometry: f.geometry,
         };
-      }));
+      });
+      if (!nazioniUK.length) return mondo;
+      // Il Regno Unito esce dall'elenco e al suo posto entrano le quattro
+      // nazioni: così il match geometrico restituisce direttamente "Scozia" e
+      // il globo colora la Scozia, non tutta l'isola.
+      // id 826 = codice ISO numerico del Regno Unito: regge anche se un domani
+      // il world-atlas cambia il nome (il nome resta come rete di sicurezza).
+      return [...mondo.filter(p => p.id !== "826" && p.name !== "United Kingdom"), ...nazioniUK];
+    });
     // niente cache avvelenata: un errore di rete non deve condannare la sessione
     cachePaesi.catch(() => { cachePaesi = null; });
   }
@@ -165,9 +273,13 @@ export function paesiVisitati(trips: Trip[], paesi: PaeseMondo[]) {
       const c = paeseDelPunto(p.lon, p.lat, paesi);
       if (!c) continue;
       const gia = visitati.get(c.id);
+      // Dentro il Regno Unito la bandiera è quella della nazione (gb-sct...),
+      // non l'union jack: il poligono è quello della Scozia, e una bandiera
+      // britannica sopra la Scozia sarebbe una contraddizione visibile.
+      const code = NAZIONI_UK[c.id] ? c.id : p.code ?? null;
       // il primo codice utile vince: i successivi non devono sovrascriverlo con null
-      if (!gia) visitati.set(c.id, { paese: c, code: p.code ?? null });
-      else if (!gia.code && p.code) gia.code = p.code;
+      if (!gia) visitati.set(c.id, { paese: c, code });
+      else if (!gia.code && code) gia.code = code;
     }
   }
   return visitati;

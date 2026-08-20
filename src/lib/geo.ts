@@ -142,10 +142,27 @@ export async function searchLandmarks(query: string, count = 4, superabile = tru
     const dati = await r.json();
     if (!Array.isArray(dati)) return [];
     const out: GeoResult[] = [];
+    const abitati: PuntoOSM[] = [];
     for (const d of dati) {
-      const kind = placeKindOf(String(d?.class ?? ""), String(d?.type ?? ""));
-      if (!kind) continue;
-      const lat = Number(d?.lat), lon = Number(d?.lon);
+      const classe = String(d?.class ?? ""), tipo = String(d?.type ?? "");
+      const kind = placeKindOf(classe, tipo);
+      const lat0 = Number(d?.lat), lon0 = Number(d?.lon);
+      if (!kind) {
+        // Non è una meta da mostrare (è il comune o il centro abitato: quelli
+        // li porta la ricerca città), MA la sua posizione è più precisa di
+        // quella del geocoder delle città — vedi affinaCitta.
+        if ((classe === "place" || classe === "boundary") && Number.isFinite(lat0) && Number.isFinite(lon0)) {
+          abitati.push({
+            nome: String(d?.name || String(d?.display_name ?? "").split(",")[0] || "").toLowerCase(),
+            cc: String(d?.address?.country_code ?? "").toUpperCase(),
+            lat: lat0, lon: lon0,
+            // un nodo "place" batte il centroide di un confine amministrativo
+            preciso: classe === "place",
+          });
+        }
+        continue;
+      }
+      const lat = lat0, lon = lon0;
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
       const a = d?.address ?? {};
       out.push({
@@ -175,10 +192,48 @@ export async function searchLandmarks(query: string, count = 4, superabile = tru
       return true;
     });
     cacheLuoghi.set(chiave, unici);
+    cacheAbitati.set(chiave, abitati);
     return unici.slice(0, count);
   } catch {
     return [];
   }
+}
+
+/** Un posto abitato visto da OSM: serve solo a correggere le coordinate. */
+type PuntoOSM = { nome: string; cc: string; lat: number; lon: number; preciso: boolean };
+const cacheAbitati = new Map<string, PuntoOSM[]>();
+
+/**
+ * Corregge le coordinate delle città con quelle di OpenStreetMap.
+ *
+ * Il geocoder delle città (open-meteo, dati GeoNames) è veloce e senza code,
+ * ma per i comuni dà un punto "amministrativo" che può cadere lontano dal
+ * paese: **Montepulciano finiva a 946 metri dal centro storico** (segnalato da
+ * Stefano su un suo viaggio vero), mentre lo stesso posto in OSM sta a 241 m.
+ *
+ * La correzione non costa NIENTE: la richiesta a Nominatim per i monumenti la
+ * facciamo già ad ogni ricerca, e i suoi risultati "città/comune" venivano
+ * buttati via perché non sono mete da mostrare. Ora li teniamo da parte e li
+ * usiamo per spostare il punto, senza aggiungere righe alla lista né latenza.
+ *
+ * Guardie: stesso nome, stesso paese, e non oltre 25 km — oltre quella
+ * distanza non è più "lo stesso posto più preciso" ma un omonimo (i due
+ * Montepulciano, Toscana e Marche, distano 131 km).
+ */
+const MAX_CORREZIONE_KM = 25;
+export function affinaCitta(citta: GeoResult[], q: string): GeoResult[] {
+  const abitati = cacheAbitati.get(q.trim().toLowerCase());
+  if (!abitati?.length) return citta;
+  return citta.map(c => {
+    const candidati = abitati.filter(a =>
+      a.nome === c.name.toLowerCase() &&
+      (!a.cc || !c.country_code || a.cc === c.country_code) &&
+      distanceKm(c.latitude, c.longitude, a.lat, a.lon) <= MAX_CORREZIONE_KM);
+    if (!candidati.length) return c;
+    // il nodo del centro abitato batte il centroide del confine comunale
+    const scelto = candidati.find(a => a.preciso) ?? candidati[0];
+    return { ...c, latitude: scelto.lat, longitude: scelto.lon };
+  });
 }
 
 /**
@@ -233,7 +288,10 @@ export async function searchAnyPlace(query: string, count = 6, onParziale?: (r: 
       if (!luoghiArrivati && c.length) onParziale(ordinaEDeduplica(q, c, [], count));
     });
   }
-  const [citta, luoghi] = await Promise.all([cittaP, luoghiP]);
+  const [cittaGrezze, luoghi] = await Promise.all([cittaP, luoghiP]);
+  // Le città arrivano dal geocoder veloce ma con punti "amministrativi": la
+  // risposta di Nominatim, già in casa per i monumenti, le rende precise.
+  const citta = affinaCitta(cittaGrezze, q);
   let luoghiTrovati = luoghi;
   if (luoghiTrovati.length === 0 && PREFISSO_GENERICO.test(q)) {
     const senzaPrefisso = q.replace(PREFISSO_GENERICO, "").trim();
@@ -260,6 +318,7 @@ export function placeSubtitle(p: Pick<GeoResult, "name" | "admin1" | "country">)
 /** Solo per i test: svuota la cache dei luoghi e azzera il turno di attesa. */
 export function __resetLandmarkCache() {
   cacheLuoghi.clear();
+  cacheAbitati.clear();   // le due cache si riempiono insieme: si svuotano insieme
   ultimaChiamata = 0;
 }
 

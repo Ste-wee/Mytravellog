@@ -1,6 +1,7 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
 import { useMemo, useState } from "react";
 import { Trip as LocalTrip } from "@/lib/storage";
+import { paeseVisibileDiViaggio, paeseVisibileDiTappa } from "@/lib/paesi";
 import { CountryMapModal } from "@/components/CountryMapModal";
 
 // Total recognized sovereign countries (UN members + observers, commonly used as 195)
@@ -33,8 +34,17 @@ export function StatsSection({ trips }: Props) {
         if (!existing) seen.set(key, { key, name, code: code || undefined });
         else if (!existing.code && code) existing.code = code;
       };
-      add(t.country, t.country_code);
-      for (const w of t.waypoints ?? []) add(w.country, w.country_code);
+      // Dentro il Regno Unito vale la NAZIONE (Scozia, Galles...), con la sua
+      // bandiera: stessa funzione che usa il conteggio della Home, così i due
+      // numeri non possono divergere.
+      const p = paeseVisibileDiViaggio(t);
+      add(p.nome, p.codice ?? undefined);
+      for (const w of t.waypoints ?? []) {
+        // stessa eredità del conteggio in Home: una tappa britannica di un
+        // viaggio scozzese non aggiunge un secondo chip "Regno Unito"
+        const pw = paeseVisibileDiTappa(w, p);
+        add(pw.nome, pw.codice ?? undefined);
+      }
       return { trip: t, countries: Array.from(seen.values()) };
     });
   }, [trips]);

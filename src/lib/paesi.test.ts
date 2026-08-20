@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { paesiVisitati, centroPaese, bboxDiPoligoni, paeseDelPunto, type PaeseMondo } from "./paesi";
+import { paesiVisitati, centroPaese, bboxDiPoligoni, paeseDelPunto, paeseVisibile, paeseVisibileDiViaggio, paeseVisibileDiTappa, type PaeseMondo } from "./paesi";
 import type { Trip } from "./storage";
 
 /** Quadrato [minLon,minLat]-[maxLon,maxLat] come paese finto. */
@@ -90,5 +90,65 @@ describe("paeseDelPunto — la regola del poligono più piccolo, condivisa", () 
     expect(paeseDelPunto(18.8, 68.3, [gigante, SVEZIA])?.id).toBe("se");
     // ...e l'ordine dell'elenco non deve contare
     expect(paeseDelPunto(18.8, 68.3, [SVEZIA, gigante])?.id).toBe("se");
+  });
+});
+
+/**
+ * Le quattro nazioni del Regno Unito contano come paesi a sé (richiesta di
+ * Stefano, 2026-08-21: "la Scozia dovrebbe essere a parte"). Il suo viaggio
+ * "Scozia" ha davvero country "Regno Unito" + region_details [GB-SCT].
+ */
+describe("paeseVisibile — Scozia, Galles e le altre nazioni UK", () => {
+  it("il viaggio con region GB-SCT diventa Scozia, con la sua bandiera", () => {
+    expect(paeseVisibileDiViaggio({
+      country: "Regno Unito", country_code: "GB",
+      region: "Scozia", region_details: [{ name: "Scozia", code: "GB-SCT" }],
+    })).toEqual({ nome: "Scozia", codice: "GB-SCT" });
+  });
+
+  it("riconosce anche le altre tre", () => {
+    const naz = (code: string) => paeseVisibileDiViaggio({
+      country: "Regno Unito", country_code: "GB", region_details: [{ name: "x", code }],
+    }).nome;
+    expect(naz("GB-WLS")).toBe("Galles");
+    expect(naz("GB-ENG")).toBe("Inghilterra");
+    expect(naz("GB-NIR")).toBe("Irlanda del Nord");
+  });
+
+  it("senza codice ISO ricade sul NOME della regione (viaggi vecchi)", () => {
+    expect(paeseVisibile("Regno Unito", "GB", "Scozia", null).nome).toBe("Scozia");
+    expect(paeseVisibile("Regno Unito", "GB", "Scotland", null).nome).toBe("Scozia");
+  });
+
+  it("un viaggio britannico senza regione resta Regno Unito: niente invenzioni", () => {
+    expect(paeseVisibileDiViaggio({ country: "Regno Unito", country_code: "GB" }))
+      .toEqual({ nome: "Regno Unito", codice: "GB" });
+  });
+
+  it("gli altri paesi non vengono toccati", () => {
+    expect(paeseVisibileDiViaggio({
+      country: "Italia", country_code: "IT",
+      region_details: [{ name: "Toscana", code: "IT-52" }],
+    })).toEqual({ nome: "Italia", codice: "IT" });
+  });
+});
+
+describe("paeseVisibileDiTappa — le tappe non gonfiano il conteggio", () => {
+  const SCOZIA = { nome: "Scozia", codice: "GB-SCT" };
+
+  it("una tappa britannica di un viaggio scozzese conta come Scozia", () => {
+    // Il caso vero: viaggio "Scozia" (Pitlochry) con tappe Edimburgo e Fort
+    // Augustus, entrambe con country_code GB e senza regione salvata.
+    expect(paeseVisibileDiTappa({ country: "Regno Unito", country_code: "GB" }, SCOZIA)).toEqual(SCOZIA);
+  });
+
+  it("una tappa in un ALTRO paese resta sé stessa", () => {
+    expect(paeseVisibileDiTappa({ country: "Francia", country_code: "FR" }, SCOZIA))
+      .toEqual({ nome: "Francia", codice: "FR" });
+  });
+
+  it("se il viaggio non è in una nazione UK non eredita niente", () => {
+    expect(paeseVisibileDiTappa({ country: "Regno Unito", country_code: "GB" }, { nome: "Italia", codice: "IT" }))
+      .toEqual({ nome: "Regno Unito", codice: "GB" });
   });
 });

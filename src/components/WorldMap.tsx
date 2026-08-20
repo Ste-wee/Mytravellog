@@ -122,9 +122,16 @@ const LAYER_PAESI_FILL = "paesi-visitati-fill";
 const LAYER_PAESI_BORDO = "paesi-visitati-bordo";
 const LAYER_BANDIERE = "paesi-bandiere-layer";
 const IMG_BANDIERA = "bandiera-";
-/** Zoom della modalità paesi: il globo INTERO resta in vista, col cielo
- *  attorno. Misurato a 390px: da 0.95 in su la sfera esce dai bordi. */
-const ZOOM_PAESI = 0.8;
+/**
+ * Quanto è grande il globo, in Home e in modalità paesi: lo STESSO valore,
+ * una costante sola perché le due viste non possano più divergere (era la
+ * richiesta: "i pallini alla stessa dimensione dell'altro con le bandiere").
+ *
+ * 0.8 è misurato a 390px: il globo riempie lo schermo restando INTERO, col
+ * cielo attorno; da 0.95 in su la sfera esce dai bordi e diventa una mappa.
+ * Storia del valore, tutta a vista dell'utente: 1.5 → 0.8 → 0.5 → 0.8.
+ */
+const ZOOM_GLOBO = 0.8;
 /** I layer dei viaggi, che in modalità paesi si fanno da parte. */
 const LAYER_VIAGGI = ["trips-single", "trips-multi", "trips-waypoints", "trips-labels"];
 
@@ -323,10 +330,7 @@ export function WorldMap({
         container: containerRef.current!,
         style,
         center: [10, 20],
-        // Globo più "profondo"/distante all'apertura della Home (1.5 → 0.8 →
-        // 0.5, sempre su richiesta a vista dell'utente): lascia più cielo
-        // attorno.
-        zoom: 0.5,
+        zoom: ZOOM_GLOBO,
         attributionControl: false,
       });
       // Se la cleanup è scattata proprio durante l'ultimo await, distruggi
@@ -953,7 +957,7 @@ export function WorldMap({
       // grandi ma la sfera uscirebbe dallo schermo e diventerebbe una mappa.
       if (bandiere.length || poligoni.length) {
         const n = visitati.length;
-        map.flyTo({ center: [sommaLon / n, sommaLat / n], zoom: ZOOM_PAESI, duration: 1100 });
+        map.flyTo({ center: [sommaLon / n, sommaLat / n], zoom: ZOOM_GLOBO, duration: 1100 });
       }
 
       // Le bandiere sono immagini di rete: si registrano PRIMA del layer che le

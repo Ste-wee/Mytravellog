@@ -171,6 +171,18 @@ describe("WorldMap — modalità paesi", () => {
     expect(volo?.zoom).toBeLessThanOrEqual(0.9);
   });
 
+  // Richiesta di Stefano: "porta il globo in home page con i pallini alla
+  // stessa dimensione dell'altro con le bandiere". Una costante sola per
+  // entrambe le viste, così non possono più divergere.
+  it("il globo dei viaggi e quello dei paesi hanno la STESSA dimensione", async () => {
+    render(<WorldMap trips={TRIPS} selectedId={null} modalitaPaesi />);
+    await settle();
+    await respira(); await respira();
+    const zoomIniziale = lastMap!.opts.zoom;      // com'è nato il globo in Home
+    const zoomPaesi = lastMap!.voli.at(-1)?.zoom; // dove vola in modalità paesi
+    expect(zoomIniziale).toBe(zoomPaesi);
+  });
+
   // Bug trovato dal vivo: uscendo, la rotazione ripartiva SUBITO e il suo
   // setCenter a ogni frame cancellava il volo di ritorno — il globo restava
   // allo zoom della modalità paesi invece di tornare come prima.

@@ -7,6 +7,7 @@ import { distanceKm } from "@/lib/geo";
 import { hasCoords } from "@/lib/coords";
 import { tripTotalKm } from "@/lib/flyover";
 import { stopChain } from "@/lib/stops";
+import { paeseVisibileDiViaggio, paeseVisibileDiTappa } from "@/lib/paesi";
 import { ricalcolaTemperature } from "@/lib/ricalcolaTemperature";
 import { ricalcolaTracciati } from "@/lib/ricalcolaTracciati";
 import { fmtDistance, fmtNumber, useSettings } from "@/lib/settings";
@@ -35,10 +36,16 @@ export function computeHomeStats(trips: Trip[]) {
     if (key) countries.add(key);
   };
   for (const t of trips) {
-    addCountry(t.country, t.country_code);
+    // Dentro il Regno Unito conta la NAZIONE (Scozia, Galles...): stessa
+    // regola dell'elenco in Statistiche, che legge la stessa funzione.
+    const p = paeseVisibileDiViaggio(t);
+    addCountry(p.nome, p.codice ?? undefined);
     cities.add(`${t.city}|${t.country}`);
     for (const w of t.waypoints ?? []) {
-      addCountry(w.country, w.country_code);
+      // Le tappe britanniche di un viaggio scozzese sono in Scozia: senza
+      // questa eredità lo stesso viaggio contava Scozia E Regno Unito.
+      const pw = paeseVisibileDiTappa(w, p);
+      addCountry(pw.nome, pw.codice ?? undefined);
       cities.add(`${w.city}|${w.country}`);
     }
   }
