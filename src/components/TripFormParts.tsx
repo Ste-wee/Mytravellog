@@ -14,6 +14,10 @@ import { fmtDistance, useSettings } from "@/lib/settings";
 import { parseLocalDate } from "@/lib/storage";
 import { Loader2, MapPin, Plane, Route, Search, AlertCircle, X } from "lucide-react";
 import { TRANSPORT as TRANSPORT_INFO, TRANSPORT_MODES, TRANSPORT_LIST, transportBg, type TransportMode } from "@/lib/transport";
+// lazy: il picker monta MapLibre (~1 MB) e si apre di rado — non deve
+// pesare sul primo caricamento del form.
+const GlobePlacePicker = React.lazy(() =>
+  import("@/components/GlobePlacePicker").then(m => ({ default: m.GlobePlacePicker })));
 
 // Il tipo vive in @/lib/transport; qui si ri-esporta perché i due form e i
 // loro test lo importano storicamente da questo modulo.
@@ -174,6 +178,8 @@ function RouteHero({
   const svgRef = React.useRef<SVGSVGElement>(null);
   const [containerW, setContainerW] = React.useState(600);
   const [activeArc, setActiveArc] = React.useState<number | null>(null);
+  // Globo a tutto schermo per scegliere la tappa toccando un punto.
+  const [globoAperto, setGloboAperto] = React.useState(false);
   // Per i km della tratta nel selettore: rispetta l'unità scelta (km/mi).
   const { distanceUnit } = useSettings();
   /** Trascinamento in corso: quale tappa ho in mano, dov'è il dito e dove
@@ -599,12 +605,29 @@ function RouteHero({
               <input autoFocus style={{ background:"transparent", border:"none", outline:"none",
                 color:"#f0f4ff", fontSize:13, flex:1 }}
                 value={wpQuery} onChange={e => setWpQuery(e.target.value)} placeholder="Cerca città, lago, monumento…"/>
+              {/* Il globo come alternativa alla scrittura: sta qui perché è
+                  qui che si cerca la tappa — e certi posti è più facile
+                  indicarli che nominarli. */}
+              <button type="button" onClick={() => setGloboAperto(true)}
+                aria-label="Scegli la tappa sul globo"
+                style={{ background:"rgba(96,165,250,0.15)", border:"1px solid rgba(96,165,250,0.45)",
+                  borderRadius:8, width:28, height:28, cursor:"pointer", display:"flex",
+                  alignItems:"center", justifyContent:"center", flexShrink:0, padding:0, fontSize:14 }}>
+                🌍
+              </button>
               <button type="button" onClick={() => { setWpQuery(""); setWpOpen(false); }}
                 aria-label="Chiudi ricerca tappa"
                 style={{ background:"none", border:"none", cursor:"pointer", color:"rgba(255,255,255,0.6)", display:"flex", alignItems:"center", flexShrink:0 }}>
                 <X className="w-4 h-4"/>
               </button>
             </div>
+            {globoAperto && (
+              <React.Suspense fallback={null}>
+                <GlobePlacePicker
+                  onClose={() => setGloboAperto(false)}
+                  onPick={r => { onAddWaypoint(r); setWpQuery(""); setWpOpen(false); }}/>
+              </React.Suspense>
+            )}
             {wpResults.map((r,i) => (
               <button key={i} type="button" onClick={() => onAddWaypoint(r)}
                 style={{ width:"100%", textAlign:"left", padding:"10px 14px", fontSize:13,
