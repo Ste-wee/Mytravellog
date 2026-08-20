@@ -105,11 +105,17 @@ export function TripPurposeCompanions({ purpose, setPurpose, companions, setComp
             ))}
           </div>
         )}
+        {/* Il campo e il suo "+": aggiungere un compagno era possibile SOLO
+            premendo Invio, e il placeholder che lo diceva sparisce appena si
+            digita — nessun modo visibile di confermare, tanto che sembrava si
+            potesse inserire una persona sola. */}
+        <div style={{ position: "relative" }}>
         <input
           value={nameInput}
           onChange={e => { setNameInput(e.target.value); setHideSug(false); setHi(-1); }}
           role="combobox" aria-expanded={suggestions.length > 0} aria-autocomplete="list"
           aria-controls="companion-suggestions"
+          enterKeyHint="done"
           onKeyDown={e => {
             // Combobox da tastiera: il focus resta sull'input (spostarlo sui
             // bottoni farebbe scattare il blur che committa il testo parziale).
@@ -126,9 +132,34 @@ export function TripPurposeCompanions({ purpose, setPurpose, companions, setComp
             }
           }}
           onBlur={() => addName(nameInput)}
-          placeholder="Aggiungi un nome e premi Invio…"
-          style={smallInput}
+          placeholder="Aggiungi un nome…"
+          style={{ ...smallInput, paddingRight: 46 }}
         />
+        {/* onMouseDown+preventDefault: senza, il tocco sul + toglie prima il
+            focus all'input (e la tastiera del telefono si chiude). Così il
+            focus resta dov'è e si può incatenare il nome successivo. */}
+        <button type="button" aria-label="Aggiungi il compagno"
+          disabled={!nameInput.trim()}
+          onMouseDown={e => e.preventDefault()}
+          onClick={() => { addName(nameInput); setHi(-1); }}
+          style={{
+            position: "absolute", right: 7, top: "50%", transform: "translateY(-50%)",
+            width: 30, height: 30, borderRadius: 8, lineHeight: 1,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 18, fontWeight: 600, fontFamily: "inherit",
+            background: nameInput.trim() ? "rgba(96,165,250,0.18)" : "transparent",
+            border: `1px solid ${nameInput.trim() ? "rgba(96,165,250,0.5)" : "#16263f"}`,
+            color: nameInput.trim() ? "#60a5fa" : "rgba(255,255,255,0.2)",
+            cursor: nameInput.trim() ? "pointer" : "default",
+          }}>
+          +
+        </button>
+        </div>
+        {/* Riga d'aiuto PERSISTENTE: il placeholder sparisce proprio quando
+            servirebbe, cioè mentre si scrive il nome. */}
+        <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.4)", marginTop: 5 }}>
+          Tocca + o premi Invio per aggiungere
+        </div>
         {suggestions.length > 0 && (
           <div id="companion-suggestions" role="listbox"
             style={{ marginTop: 6, background: "#0b1524", border: "0.5px solid #1a2d4a", borderRadius: 8, overflow: "hidden" }}>

@@ -78,3 +78,41 @@ describe("TripPurposeCompanions — suggerimenti da tastiera", () => {
     expect(companionsOut()).toBe("Giuseppe");
   });
 });
+
+describe("TripPurposeCompanions — aggiungere più persone è VISIBILE", () => {
+  beforeEach(() => { localStorage.clear(); saveTrips([aTrip]); });
+
+  it("c'è un bottone per aggiungere: si spegne a campo vuoto, si accende scrivendo", () => {
+    render(<Harness />);
+    const piu = screen.getByRole("button", { name: "Aggiungi il compagno" });
+    expect(piu).toBeDisabled();                       // niente da aggiungere
+    fireEvent.change(input(), { target: { value: "Marta" } });
+    expect(piu).toBeEnabled();
+  });
+
+  it("col solo bottone (mai un Invio) si aggiungono DUE compagni di fila", () => {
+    // È il difetto segnalato: col dito non c'era modo di confermare, e
+    // sembrava si potesse mettere una persona sola.
+    render(<Harness />);
+    const piu = () => screen.getByRole("button", { name: "Aggiungi il compagno" });
+    fireEvent.change(input(), { target: { value: "Marta" } });
+    fireEvent.click(piu());
+    fireEvent.change(input(), { target: { value: "Luca" } });
+    fireEvent.click(piu());
+    expect(companionsOut()).toBe("Marta,Luca");
+    expect((input() as HTMLInputElement).value).toBe("");   // pronto per il terzo
+  });
+
+  it("il tocco sul + non ruba il focus (la tastiera del telefono resta aperta)", () => {
+    render(<Harness />);
+    fireEvent.change(input(), { target: { value: "Marta" } });
+    const ev = fireEvent.mouseDown(screen.getByRole("button", { name: "Aggiungi il compagno" }));
+    expect(ev).toBe(false);   // preventDefault ⇒ niente blur ⇒ focus e tastiera restano
+  });
+
+  it("l'aiuto resta leggibile anche mentre si scrive (il placeholder no)", () => {
+    render(<Harness />);
+    fireEvent.change(input(), { target: { value: "Mar" } });
+    expect(screen.getByText(/Tocca \+ o premi Invio per aggiungere/)).toBeInTheDocument();
+  });
+});
