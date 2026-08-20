@@ -73,7 +73,7 @@ interface Props {
   trips: LocalTrip[];
 }
 
-type CountryFeat = {
+export type CountryFeat = {
   id: string;
   name: string;
   path: string;
@@ -163,13 +163,8 @@ export function ContinentsMap({ trips }: Props) {
     const set = new Set<string>();
     if (!countries.length) return set;
     for (const p of visitedPoints) {
-      for (const c of countries) {
-        if (p.lon < c.bbox[0] || p.lon > c.bbox[2] || p.lat < c.bbox[1] || p.lat > c.bbox[3]) continue;
-        if (pointInCountry(p.lon, p.lat, c.polygons)) {
-          set.add(c.id);
-          break;
-        }
-      }
+      const c = paeseDelPunto(p.lon, p.lat, countries);
+      if (c) set.add(c.id);
     }
     return set;
   }, [visitedPoints, countries]);
@@ -199,15 +194,14 @@ export function ContinentsMap({ trips }: Props) {
       ];
       const touchedIds = new Set<string>();
       for (const p of points) {
-        for (const c of countries) {
-          if (touchedIds.has(c.id)) continue;
-          if (p.lon < c.bbox[0] || p.lon > c.bbox[2] || p.lat < c.bbox[1] || p.lat > c.bbox[3]) continue;
-          if (!pointInCountry(p.lon, p.lat, c.polygons)) continue;
-          touchedIds.add(c.id);
-          // Il primo punto che cade qui dà il nome: è nella lingua dell'utente
-          // e col codice alpha-2, che il topojson non ha (nomi inglesi, id M49).
-          if (!info.has(c.id) && p.name) info.set(c.id, { name: p.name, code: p.code ?? "" });
-        }
+        // Stessa regola di visitedCountryIds (poligono più piccolo): altrimenti
+        // il tap su un paese mostrerebbe i viaggi di un altro.
+        const c = paeseDelPunto(p.lon, p.lat, countries);
+        if (!c) continue;
+        touchedIds.add(c.id);
+        // Il primo punto che cade qui dà il nome: è nella lingua dell'utente
+        // e col codice alpha-2, che il topojson non ha (nomi inglesi, id M49).
+        if (!info.has(c.id) && p.name) info.set(c.id, { name: p.name, code: p.code ?? "" });
       }
       for (const id of touchedIds) {
         const arr = map.get(id) ?? [];
@@ -431,6 +425,53 @@ function pointInRing(lon: number, lat: number, ring: number[][]): boolean {
     if (intersect) inside = !inside;
   }
   return inside;
+}
+
+/**
+ * Area del bounding box del poligono PIÙ PICCOLO che contiene il punto,
+ * o Infinity se nessuno lo contiene. Serve a scegliere fra più candidati.
+ */
+export function areaPoligonoCheContiene(lon: number, lat: number, polygons: number[][][][]): number {
+  let minima = Infinity;
+  for (const poly of polygons) {
+    if (!poly.length || !pointInRing(lon, lat, poly[0])) continue;
+    let inHole = false;
+    for (let h = 1; h < poly.length; h++) if (pointInRing(lon, lat, poly[h])) { inHole = true; break; }
+    if (inHole) continue;
+    let mnLo = Infinity, mxLo = -Infinity, mnLa = Infinity, mxLa = -Infinity;
+    for (const [lo, la] of poly[0]) {
+      if (lo < mnLo) mnLo = lo; if (lo > mxLo) mxLo = lo;
+      if (la < mnLa) mnLa = la; if (la > mxLa) mxLa = la;
+    }
+    const area = (mxLo - mnLo) * (mxLa - mnLa);
+    if (area < minima) minima = area;
+  }
+  return minima;
+}
+
+/**
+ * In quale paese cade il punto? Vince il poligono PIÙ PICCOLO fra quelli che
+ * lo contengono, non il primo dell'elenco.
+ *
+ * Perché: il poligono continentale della Russia va da -180° a +180° (scavalca
+ * l'antimeridiano in Chukotka) e il ray casting su una forma che avvolge il
+ * mondo dà falsi positivi — Kiruna e Abisko, in Svezia, risultavano dentro la
+ * Russia. Fermandosi al primo match vinceva la Russia solo perché nel
+ * world-atlas è la 18ª feature e la Svezia la 110ª: la mappa mostrava la
+ * Russia visitata per un viaggio in Lapponia (segnalato da Stefano).
+ * Il poligono svedese è minuscolo rispetto a quello russo: il più piccolo è
+ * sempre il più specifico. Verificato che Mosca, Vladivostok, Chukotka,
+ * Alaska, Fiji e Nuova Zelanda restano attribuite correttamente.
+ */
+export function paeseDelPunto(lon: number, lat: number, countries: CountryFeat[]): CountryFeat | null {
+  let vincitore: CountryFeat | null = null;
+  let areaMin = Infinity;
+  for (const c of countries) {
+    if (lon < c.bbox[0] || lon > c.bbox[2] || lat < c.bbox[1] || lat > c.bbox[3]) continue;
+    const area = areaPoligonoCheContiene(lon, lat, c.polygons);
+    if (area < areaMin) { areaMin = area; vincitore = c; }
+  }
+  return vincitore;
 }
 
 function pointInCountry(lon: number, lat: number, polygons: number[][][][]): boolean {
