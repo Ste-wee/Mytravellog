@@ -36,8 +36,12 @@ const DEFAULTS: Settings = {
   temperatureUnit: "celsius",
   autoRotate: "on",
   homeCity: null,
-  minMarkerScale: 0.5,
-  maxMarkerScale: 1.0,
+  // "Piccoli" (0,3-0,7) invece di "Standard": con l'archivio che cresce i
+  // pallini si impastano (44 punti in Europa centrale = 35 coppie sovrapposte),
+  // mentre col primo viaggio la differenza è appena percettibile. Chi ha già
+  // scelto una dimensione non viene toccato: le impostazioni salvate vincono.
+  minMarkerScale: 0.3,
+  maxMarkerScale: 0.7,
 };
 
 function clampScale(v: number): number {

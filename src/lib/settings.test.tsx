@@ -35,8 +35,8 @@ describe("settings — minMarkerScale / maxMarkerScale", () => {
 
   it("espone i default corretti", () => {
     const s = mount();
-    expect(s.minMarkerScale).toBe(0.5);
-    expect(s.maxMarkerScale).toBe(1.0);
+    expect(s.minMarkerScale).toBe(0.3);   // preset "Piccoli"
+    expect(s.maxMarkerScale).toBe(0.7);
   });
 
   it("aggiorna min/max e li persiste in localStorage", () => {
@@ -90,16 +90,16 @@ describe("settings — minMarkerScale / maxMarkerScale", () => {
 describe("parseStoredSettings — compatibilità retroattiva", () => {
   it("ritorna i default con raw null", () => {
     const s = parseStoredSettings(null);
-    expect(s.minMarkerScale).toBe(0.5);
-    expect(s.maxMarkerScale).toBe(1.0);
+    expect(s.minMarkerScale).toBe(0.3);
+    expect(s.maxMarkerScale).toBe(0.7);
   });
 
   it("fonde payload legacy senza campi marker con i default", () => {
     const legacy = JSON.stringify({ distanceUnit: "imperial", temperatureUnit: "celsius" });
     const s = parseStoredSettings(legacy);
     expect(s.distanceUnit).toBe("imperial");
-    expect(s.minMarkerScale).toBe(0.5);
-    expect(s.maxMarkerScale).toBe(1.0);
+    expect(s.minMarkerScale).toBe(0.3);
+    expect(s.maxMarkerScale).toBe(0.7);
   });
 
   it("preserva i valori marker scale quando presenti", () => {
@@ -111,8 +111,8 @@ describe("parseStoredSettings — compatibilità retroattiva", () => {
 
   it("ritorna i default su JSON malformato", () => {
     const s = parseStoredSettings("{not json");
-    expect(s.minMarkerScale).toBe(0.5);
-    expect(s.maxMarkerScale).toBe(1.0);
+    expect(s.minMarkerScale).toBe(0.3);
+    expect(s.maxMarkerScale).toBe(0.7);
   });
 });
 
