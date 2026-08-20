@@ -63,6 +63,18 @@ const TRANSPORT_SVG: Record<string, (color: string, size?: number) => React.Reac
     return [m, (c: string, s = 24) => <Icon width={s} height={s} stroke={c} strokeWidth={1.5}/>];
   }));
 
+/**
+ * Le tappe che lasciano il posto a quella trascinata SCIVOLANO invece di
+ * saltare: senza, il riordino sembrava a scatti (confronto video alla mano).
+ * Chi è in mano non transisce — deve restare incollato al dito — e al
+ * rilascio riprende la transizione, così atterra scivolando.
+ * cx/cy/x/y sono proprietà geometriche SVG: animabili via CSS.
+ */
+const SCORRIMENTO = (inMano: boolean) =>
+  inMano ? "none" : "cx 190ms cubic-bezier(.2,.8,.25,1), cy 190ms cubic-bezier(.2,.8,.25,1), " +
+    "x 190ms cubic-bezier(.2,.8,.25,1), y 190ms cubic-bezier(.2,.8,.25,1), " +
+    "left 190ms cubic-bezier(.2,.8,.25,1), top 190ms cubic-bezier(.2,.8,.25,1)";
+
 type Pt = { x: number; y: number };
 type ArcSeg = { p0: Pt; p1: Pt; p2: Pt; transport: string | null };
 
@@ -373,7 +385,8 @@ function RouteHero({
                         muovere la tappa. */}
                     <circle cx={x} cy={y} r={r} fill={bgFill} stroke={borderColor}
                       strokeWidth={isLast ? 2.5 : 1.5} strokeDasharray={stop.isHome ? "3 2" : "none"}
-                      style={{ filter: inMano ? "drop-shadow(0 4px 10px rgba(0,0,0,0.5))" : undefined }}/>
+                      style={{ filter: inMano ? "drop-shadow(0 4px 10px rgba(0,0,0,0.5))" : undefined,
+                        transition: SCORRIMENTO(inMano) }}/>
                     {stop.isHome ? (
                       <g style={{cursor:"pointer"}} onClick={onEditHome}
                         {...svgButton("Cambia la città di partenza", onEditHome)}>
@@ -392,6 +405,7 @@ function RouteHero({
                       </g>
                     )}
                     <text x={labelX} y={y+4} fontSize="12" textAnchor={leftCol ? "start" : "end"}
+                      style={{ transition: SCORRIMENTO(inMano) }}
                       fill={isLast ? borderColor : stop.isHome ? "#fbbf24" : "rgba(255,255,255,0.7)"}
                       fontWeight={isLast || stop.isHome ? "700" : "500"}>
                       {stop.label.length > 16 ? stop.label.slice(0,15)+"…" : stop.label}
@@ -483,6 +497,7 @@ function RouteHero({
                     position:"absolute",
                     left: (x / VBW) * 100 + "%",
                     top: y - r * 0.65,
+                    transition: SCORRIMENTO(drag?.da === i),
                     transform: "translateX(-50%)",
                     width: size, height: size,
                     display:"flex", alignItems:"center", justifyContent:"center",
