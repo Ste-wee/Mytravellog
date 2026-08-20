@@ -24,8 +24,12 @@ vi.mock("@/components/StarField", () => ({
 // Il globo vero richiede WebGL: qui basta un bottone che simula il tap su un
 // pallino viaggio, chiamando onSelectTrip con il primo viaggio come fa WorldMap.
 vi.mock("@/components/WorldMap", () => ({
-  WorldMap: ({ trips, onSelectTrip }: { trips: Trip[]; onSelectTrip?: (t: Trip) => void }) => (
-    <button onClick={() => trips[0] && onSelectTrip?.(trips[0])}>Simula tap pallino</button>
+  WorldMap: ({ trips, onSelectTrip, modalitaPaesi }: { trips: Trip[]; onSelectTrip?: (t: Trip) => void; modalitaPaesi?: boolean }) => (
+    <>
+      <button onClick={() => trips[0] && onSelectTrip?.(trips[0])}>Simula tap pallino</button>
+      {/* così il test vede in che modalità è il globo */}
+      <span data-testid="modalita-globo">{modalitaPaesi ? "paesi" : "viaggi"}</span>
+    </>
   ),
 }));
 
@@ -203,11 +207,38 @@ describe("Home — riga-sommario sotto il globo", () => {
     expect(riga.querySelectorAll("svg[aria-hidden]").length).toBeGreaterThanOrEqual(4);
   });
 
-  it("il tocco porta alla pagina Statistiche", async () => {
+  // Il tocco NON naviga più: accende la modalità paesi sul globo (la pagina
+  // Statistiche resta nel menu in alto). Scelta di Stefano: "cliccando lì
+  // sotto non si aprono le statistiche, il globo cambia".
+  it("il tocco accende la modalità paesi sul globo, e non naviga", async () => {
+    addTrip(baseTrip());
+    renderHome();
+    const riga = await screen.findByRole("button", { name: /statistiche/i });
+    expect(screen.getByTestId("modalita-globo").textContent).toBe("viaggi");
+
+    fireEvent.click(riga);
+    expect(screen.getByTestId("modalita-globo").textContent).toBe("paesi");
+    expect(mockNavigate).not.toHaveBeenCalledWith("/statistiche");
+  });
+
+  it("toccando di nuovo si torna ai viaggi", async () => {
     addTrip(baseTrip());
     renderHome();
     const riga = await screen.findByRole("button", { name: /statistiche/i });
     fireEvent.click(riga);
-    expect(mockNavigate).toHaveBeenCalledWith("/statistiche");
+    fireEvent.click(await screen.findByRole("button", { name: /statistiche/i }));
+    expect(screen.getByTestId("modalita-globo").textContent).toBe("viaggi");
+  });
+
+  // Chi non vede lo schermo deve sapere cosa fa il bottone ADESSO, non cosa
+  // faceva prima: l'etichetta cambia insieme allo stato.
+  it("l'etichetta dice sempre cosa succede al prossimo tocco", async () => {
+    addTrip(baseTrip());
+    renderHome();
+    const riga = await screen.findByRole("button", { name: /statistiche/i });
+    expect(riga.getAttribute("aria-label")).toMatch(/paesi che hai visitato/i);
+    fireEvent.click(riga);
+    const dopo = await screen.findByRole("button", { name: /statistiche/i });
+    expect(dopo.getAttribute("aria-label")).toMatch(/pallini dei viaggi/i);
   });
 });

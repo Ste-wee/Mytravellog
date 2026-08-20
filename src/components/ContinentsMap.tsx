@@ -3,6 +3,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { Trip as LocalTrip } from "@/lib/storage";
 import { loadWorldAtlasCountries, polygonsOf } from "@/lib/worldAtlas";
+// La geometria "in quale paese cade il punto" vive in lib/paesi.ts: la usa
+// anche il globo della Home, e la regola del poligono più piccolo (nata dal
+// caso Russia/Lapponia) deve avere UNA sola implementazione.
+import { areaPoligonoCheContiene, deriveCountryId, paeseDelPunto, bboxDiPoligoni, type PaeseGeom } from "@/lib/paesi";
+export { areaPoligonoCheContiene, deriveCountryId, paeseDelPunto } from "@/lib/paesi";
 import { CountryMapModal } from "@/components/CountryMapModal";
 
 // Approximate continent bounding boxes (lat, lon)
@@ -73,41 +78,11 @@ interface Props {
   trips: LocalTrip[];
 }
 
-export type CountryFeat = {
-  id: string;
-  name: string;
+export type CountryFeat = PaeseGeom & {
   path: string;
   centroid: [number, number]; // lon, lat
-  polygons: number[][][][]; // list of polygons; each polygon = list of rings of [lon,lat]
-  bbox: [number, number, number, number]; // [minLon, minLat, maxLon, maxLat] — prefiltro per pointInCountry
 };
 
-/**
- * Bounding box [minLon, minLat, maxLon, maxLat] di un paese. Prefiltro
- * economico prima del costoso pointInCountry (ray casting su ogni vertice di
- * ogni ring): se il punto è fuori dal box è sicuramente fuori dal paese.
- * Conservativo: per i paesi che attraversano ±180° (Russia, Fiji) il box
- * risulta molto ampio → nessuno speedup ma nemmeno falsi negativi.
- */
-function computeBbox(polygons: number[][][][]): [number, number, number, number] {
-  let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
-  for (const poly of polygons) {
-    for (const ring of poly) {
-      for (const [lon, lat] of ring) {
-        if (lon < minLon) minLon = lon;
-        if (lon > maxLon) maxLon = lon;
-        if (lat < minLat) minLat = lat;
-        if (lat > maxLat) maxLat = lat;
-      }
-    }
-  }
-  return [minLon, minLat, maxLon, maxLat];
-}
-
-// I confini dei paesi non cambiano a runtime, ma senza cache il topojson
-// (e il ricalcolo di path/centroidi/poligoni per ogni paese) verrebbe
-// ri-scaricato ed elaborato ogni volta che questa pagina si smonta e
-// rimonta — es. navigando Statistiche → Home → Statistiche con HashRouter.
 let cachedCountryFeats: CountryFeat[] | null = null;
 
 /** Test-only: reset la cache dei country feats tra i test. */
@@ -134,7 +109,7 @@ export function ContinentsMap({ trips }: Props) {
           const c = polyCentroid(f.geometry);
           const polygons = extractPolygons(f.geometry);
           const id = deriveCountryId(f, idx);
-          return { id, name: f.properties?.name ?? id, path, centroid: c, polygons, bbox: computeBbox(polygons) };
+          return { id, name: f.properties?.name ?? id, path, centroid: c, polygons, bbox: bboxDiPoligoni(polygons) };
         });
         cachedCountryFeats = feats;
         setCountries(feats);
@@ -337,11 +312,6 @@ export function ContinentsMap({ trips }: Props) {
  * Fall back to the feature name, then to the array index, to guarantee
  * uniqueness.
  */
-export function deriveCountryId(f: { id?: unknown; properties?: { name?: string } }, index: number): string {
-  if (f.id != null) return String(f.id);
-  if (f.properties?.name) return f.properties.name;
-  return `unknown-${index}`;
-}
 
 function geoToPath(geom: GeoJSON.Geometry | null | undefined): string {
   if (!geom) return "";
@@ -425,53 +395,6 @@ function pointInRing(lon: number, lat: number, ring: number[][]): boolean {
     if (intersect) inside = !inside;
   }
   return inside;
-}
-
-/**
- * Area del bounding box del poligono PIÙ PICCOLO che contiene il punto,
- * o Infinity se nessuno lo contiene. Serve a scegliere fra più candidati.
- */
-export function areaPoligonoCheContiene(lon: number, lat: number, polygons: number[][][][]): number {
-  let minima = Infinity;
-  for (const poly of polygons) {
-    if (!poly.length || !pointInRing(lon, lat, poly[0])) continue;
-    let inHole = false;
-    for (let h = 1; h < poly.length; h++) if (pointInRing(lon, lat, poly[h])) { inHole = true; break; }
-    if (inHole) continue;
-    let mnLo = Infinity, mxLo = -Infinity, mnLa = Infinity, mxLa = -Infinity;
-    for (const [lo, la] of poly[0]) {
-      if (lo < mnLo) mnLo = lo; if (lo > mxLo) mxLo = lo;
-      if (la < mnLa) mnLa = la; if (la > mxLa) mxLa = la;
-    }
-    const area = (mxLo - mnLo) * (mxLa - mnLa);
-    if (area < minima) minima = area;
-  }
-  return minima;
-}
-
-/**
- * In quale paese cade il punto? Vince il poligono PIÙ PICCOLO fra quelli che
- * lo contengono, non il primo dell'elenco.
- *
- * Perché: il poligono continentale della Russia va da -180° a +180° (scavalca
- * l'antimeridiano in Chukotka) e il ray casting su una forma che avvolge il
- * mondo dà falsi positivi — Kiruna e Abisko, in Svezia, risultavano dentro la
- * Russia. Fermandosi al primo match vinceva la Russia solo perché nel
- * world-atlas è la 18ª feature e la Svezia la 110ª: la mappa mostrava la
- * Russia visitata per un viaggio in Lapponia (segnalato da Stefano).
- * Il poligono svedese è minuscolo rispetto a quello russo: il più piccolo è
- * sempre il più specifico. Verificato che Mosca, Vladivostok, Chukotka,
- * Alaska, Fiji e Nuova Zelanda restano attribuite correttamente.
- */
-export function paeseDelPunto(lon: number, lat: number, countries: CountryFeat[]): CountryFeat | null {
-  let vincitore: CountryFeat | null = null;
-  let areaMin = Infinity;
-  for (const c of countries) {
-    if (lon < c.bbox[0] || lon > c.bbox[2] || lat < c.bbox[1] || lat > c.bbox[3]) continue;
-    const area = areaPoligonoCheContiene(lon, lat, c.polygons);
-    if (area < areaMin) { areaMin = area; vincitore = c; }
-  }
-  return vincitore;
 }
 
 function pointInCountry(lon: number, lat: number, polygons: number[][][][]): boolean {

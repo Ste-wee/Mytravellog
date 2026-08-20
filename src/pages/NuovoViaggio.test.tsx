@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import NuovoViaggio from "./NuovoViaggio";
 import { SettingsProvider } from "@/lib/settings";
-import { loadTrips } from "@/lib/storage";
+import { loadTrips, todayLocalISO } from "@/lib/storage";
 
 vi.mock("@/components/AppHeader", () => ({
   AppHeader: () => <header data-testid="app-header" />,
@@ -183,7 +183,11 @@ describe("NuovoViaggio — avviso doppione", () => {
       homeCity: { label: "Milano, Italia", lat: 45.46, lon: 9.19 },
     }));
     // Un viaggio a Parigi già in archivio, stesse date del form (oggi).
-    const oggi = new Date().toISOString().slice(0, 10);
+    // Data LOCALE come quella che il form propone: con toISOString (UTC) il
+    // test falliva fra mezzanotte e le 2 italiane, quando in UTC è ancora ieri
+    // — l'archivio finiva un giorno indietro rispetto al form e le date non si
+    // sovrapponevano più. Un test che dipende dall'ora del giorno è rotto.
+    const oggi = todayLocalISO();
     localStorage.setItem("atlas.trips.v1", JSON.stringify([{
       id: "esistente", city: "Parigi", title: "Parigi", country: "Francia", country_code: "FR",
       trip_date: oggi, date_end: null, latitude: 48.85, longitude: 2.35,

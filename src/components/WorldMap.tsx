@@ -5,6 +5,7 @@ import { AutoRotate } from "@/lib/settings";
 import { unwrapPath } from "@/lib/lonWrap";
 import { hasCoords } from "@/lib/coords";
 import { TRANSPORT, TRANSPORT_MODES, TRANSPORT_FALLBACK_COLOR } from "@/lib/transport";
+import { caricaPaesi, paesiVisitati, centroPaese } from "@/lib/paesi";
 import { Hand } from "lucide-react";
 // SOLO i tipi: `import type` sparisce alla compilazione, quindi maplibre-gl
 // continua ad arrivare dall'import dinamico più sotto e non entra nel bundle
@@ -33,6 +34,11 @@ interface Props {
    *  preset disegnavano tutti pallini identici (raggio 7 fisso). */
   minMarkerScale?: number;
   maxMarkerScale?: number;
+  /** Modalità "paesi": invece dei pallini dei viaggi il globo evidenzia i
+   *  paesi visitati, con la bandiera al centro di ciascuno. La telecamera si
+   *  porta sui propri paesi (globo INTERO, col cielo attorno) e la rotazione
+   *  automatica va in pausa: con la vista ravvicinata scapperebbe via. */
+  modalitaPaesi?: boolean;
   /** La mini-card del viaggio è aperta sopra il globo: zoom e legenda CASA si
    *  nascondono per non accavallarsi (a 390px le coprivano i bottoni). */
   selectionOpen?: boolean;
@@ -109,30 +115,70 @@ export const ALL_CITIES: CityInfo[] = [
   {name:"Tel Aviv",country:"Israele",country_code:"IL",latitude:32.08,longitude:34.78,tier:3},
 ];
 
-const TRANSPORT_EMOJI: Record<string, string> =
-  Object.fromEntries(TRANSPORT_MODES.map(m => [m, TRANSPORT[m].emoji]));
+// ── Modalità paesi: nomi delle cose che appaiono e spariscono insieme ───────
+const SRC_PAESI = "paesi-visitati";
+const SRC_BANDIERE = "paesi-bandiere";
+const LAYER_PAESI_FILL = "paesi-visitati-fill";
+const LAYER_PAESI_BORDO = "paesi-visitati-bordo";
+const LAYER_BANDIERE = "paesi-bandiere-layer";
+const IMG_BANDIERA = "bandiera-";
+/** Zoom della modalità paesi: il globo INTERO resta in vista, col cielo
+ *  attorno. Misurato a 390px: da 0.95 in su la sfera esce dai bordi. */
+const ZOOM_PAESI = 0.8;
+/** I layer dei viaggi, che in modalità paesi si fanno da parte. */
+const LAYER_VIAGGI = ["trips-single", "trips-multi", "trips-waypoints", "trips-labels"];
+
+function aggiungiSorgente(map: MapLibreMap, id: string, features: GeoJSON.Feature[]) {
+  const data = { type: "FeatureCollection", features } as GeoJSON.FeatureCollection;
+  const src = map.getSource(id) as { setData?: (d: GeoJSON.FeatureCollection) => void } | undefined;
+  if (src?.setData) src.setData(data);
+  else map.addSource(id, { type: "geojson", data });
+}
+
+function mostraLayerViaggi(map: MapLibreMap, visibili: boolean) {
+  for (const id of LAYER_VIAGGI) {
+    if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visibili ? "visible" : "none");
+  }
+}
+
+function pulisciModalitaPaesi(map: MapLibreMap) {
+  for (const id of [LAYER_BANDIERE, LAYER_PAESI_BORDO, LAYER_PAESI_FILL]) {
+    if (map.getLayer(id)) map.removeLayer(id);
+  }
+  for (const id of [SRC_BANDIERE, SRC_PAESI]) {
+    if (map.getSource(id)) map.removeSource(id);
+  }
+}
 
 /**
- * Registra su MapLibre (via addImage) una piccola icona per ogni mezzo di
- * trasporto, disegnando l'emoji su un canvas 2D (il font di sistema la
- * renderizza a colori) — i layer "circle" da soli non possono mostrare
- * testo/icone, serve un layer "symbol" con icon-image che punti a queste.
- * Idempotente: ogni mezzo viene registrato una sola volta per istanza mappa.
+ * Scarica le bandiere e le registra come immagini della mappa, restituendo
+ * solo le feature che ce l'hanno fatta. Le immagini vanno registrate PRIMA del
+ * layer che le nomina, altrimenti MapLibre non trova l'icona e non disegna
+ * nulla. Chi fallisce (offline, paese senza bandiera) viene semplicemente
+ * lasciato indietro: il paese colorato basta da solo.
  */
-function ensureTransportIcons(map: MapLibreMap) {
-  Object.entries(TRANSPORT_EMOJI).forEach(([mode, emoji]) => {
-    const id = `transport-icon-${mode}`;
-    if (map.hasImage(id)) return;
-    const canvas = document.createElement("canvas");
-    canvas.width = 28; canvas.height = 28;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.font = "20px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(emoji, 14, 15);
-    map.addImage(id, ctx.getImageData(0, 0, 28, 28), { pixelRatio: 2 });
-  });
+async function registraBandiere(map: MapLibreMap, features: GeoJSON.Feature[]) {
+  const ok: GeoJSON.Feature[] = [];
+  await Promise.all(features.map(async f => {
+    const id = String(f.properties?.icona ?? "");
+    const cc = id.slice(IMG_BANDIERA.length);
+    if (!cc) return;
+    try {
+      if (!map.hasImage(id)) {
+        const r = await fetch(`https://flagcdn.com/w40/${cc}.png`);
+        if (!r.ok) return;
+        const bmp = await createImageBitmap(await r.blob());
+        // Ricontrolla DOPO l'attesa: due bandiere dello stesso paese possono
+        // arrivare insieme, e registrare due volte la stessa immagine è un
+        // errore in MapLibre.
+        if (!map.hasImage(id)) map.addImage(id, bmp, { pixelRatio: 3 });
+      }
+      ok.push(f);
+    } catch {
+      /* bandiera non disponibile: il paese resta colorato senza */
+    }
+  }));
+  return ok;
 }
 
 /**
@@ -167,7 +213,7 @@ export function buildRouteCoords(t: Trip): [number, number][] {
 
 export function WorldMap({
   trips, selectedId, onSelectTrip, onSelectCity, autoRotateSetting = "on", selectionOpen = false,
-  minMarkerScale = 0.3, maxMarkerScale = 0.7,
+  minMarkerScale = 0.3, maxMarkerScale = 0.7, modalitaPaesi = false,
 }: Props) {
   // Raggio dei pallini: il 7 storico moltiplicato per la scala scelta, che
   // cresce con lo zoom (min da lontano, max da vicino). Con "Piccoli"
@@ -208,6 +254,16 @@ export function WorldMap({
   // viaggi corrente invece di una chiusura stantia.
   const tripLayerHandlersRef = useRef<Set<string>>(new Set());
   const orderedRef = useRef<Trip[]>([]);
+  /** Dove guardava il globo prima di entrare in modalità paesi: uscendo si
+   *  torna lì, così il gesto è reversibile davvero e non lascia la vista
+   *  spostata a caso. */
+  const vistaPrimaRef = useRef<{ center: [number, number]; zoom: number } | null>(null);
+  /** Serve a chi RICOSTRUISCE i layer dei viaggi (un refresh dei trips, il
+   *  sync, un backfill): nascono visibili, e in modalità paesi ricomparirebbero
+   *  sopra i paesi colorati. Un ref e non la prop: addTripsToMap gira dentro
+   *  una promise e leggerebbe una chiusura vecchia. */
+  const modalitaPaesiRef = useRef(false);
+  useEffect(() => { modalitaPaesiRef.current = modalitaPaesi; }, [modalitaPaesi]);
   // Selezione applicata in modo INCREMENTALE (setPaintProperty/setData), non
   // col rebuild di tutti i layer: selectedIdRef dà il valore corrente al
   // rebuild asincrono, appliedSelRef ricorda cosa c'è già sulla mappa.
@@ -455,14 +511,6 @@ export function WorldMap({
       ...TRANSPORT_MODES.flatMap(m => [m, TRANSPORT_COLORS_MAP[m]]),
       TRANSPORT_FALLBACK_COLOR
     ];
-    // Espressione gemella: sceglie l'icona (immagine registrata via addImage,
-    // vedi ensureTransportIcons) invece del colore, stessa property "transport".
-    const ICON_MATCH_EXPR: StyleExpr = [
-      "match", ["get", "transport"],
-      ...TRANSPORT_MODES.flatMap(m => [m, `transport-icon-${m}`]),
-      "transport-icon-plane"
-    ];
-    ensureTransportIcons(map);
     // Solo le rotte SEMPRE visibili (multi-tappa), con paint di base: la
     // selezione (rotta rosa dei viaggi secchi, spessore/opacità) viene
     // applicata in modo incrementale da applySelection, senza rebuild.
@@ -636,6 +684,10 @@ export function WorldMap({
     // Layer nuovi di zecca: la selezione va riapplicata da zero.
     appliedSelRef.current = null;
     applySelection(map, selectedIdRef.current);
+    // ...e se il globo è in modalità paesi devono nascere già nascosti: un
+    // refresh dei viaggi (sync, backfill) li ricrea VISIBILI, e i pallini
+    // ricomparirebbero sopra i paesi colorati.
+    if (modalitaPaesiRef.current) mostraLayerViaggi(map, false);
   }
 
   // ── Selezione incrementale ─────────────────────────────────────────────────
@@ -821,6 +873,109 @@ export function WorldMap({
     if (!mapReady || !mapRef.current) return;
     applySelection(mapRef.current, selectedId ?? null);
   }, [mapReady, selectedId]);
+
+  // ── Modalità paesi ─────────────────────────────────────────────────────────
+  // Entrando: i paesi visitati si colorano, ognuno con la sua bandiera, e i
+  // pallini dei viaggi si nascondono (non spariscono: torneranno identici).
+  // Uscendo: tutto come prima, telecamera e rotazione comprese.
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const map = mapRef.current;
+    let annullato = false;
+
+    if (!modalitaPaesi) {
+      pulisciModalitaPaesi(map);
+      mostraLayerViaggi(map, true);
+      // la vista di prima, se l'avevamo messa da parte entrando
+      const prima = vistaPrimaRef.current;
+      if (prima) {
+        vistaPrimaRef.current = null;
+        map.flyTo({ center: prima.center, zoom: prima.zoom, duration: 900 });
+        // La rotazione riparte SOLO a volo finito: gira chiamando setCenter a
+        // ogni frame, e un setCenter durante un flyTo lo cancella — il globo
+        // restava allo zoom della modalità paesi invece di tornare com'era.
+        if (autoRotateSetting === "on") map.once("moveend", () => startRotation());
+      } else if (autoRotateSetting === "on") {
+        startRotation();
+      }
+      return;
+    }
+
+    // Con la telecamera ferma sui propri paesi, la rotazione automatica li
+    // porterebbe fuori vista in pochi secondi: si mette in pausa.
+    stopRotation();
+    mostraLayerViaggi(map, false);
+    if (!vistaPrimaRef.current) {
+      const c = map.getCenter();
+      vistaPrimaRef.current = { center: [c.lng, c.lat], zoom: map.getZoom() };
+    }
+
+    caricaPaesi().then(async paesi => {
+      if (annullato || !mapRef.current) return;
+      // `ordered` del render, non orderedRef: il ref lo riempie l'effetto dei
+      // viaggi, che passa da un import asincrono — entrando in modalità paesi
+      // troppo presto sarebbe ancora vuoto e non si colorerebbe niente.
+      const visitati = [...paesiVisitati(ordered, paesi).values()];
+      if (!visitati.length) return;
+
+      const poligoni: GeoJSON.Feature[] = [];
+      const bandiere: GeoJSON.Feature[] = [];
+      let sommaLon = 0, sommaLat = 0;
+      for (const { paese, code } of visitati) {
+        poligoni.push({ type: "Feature", properties: { nome: paese.name }, geometry: paese.geometry });
+        const centro = centroPaese(paese);
+        if (!centro) continue;
+        sommaLon += centro[0];
+        sommaLat += centro[1];
+        if (code) {
+          bandiere.push({
+            type: "Feature",
+            properties: { icona: IMG_BANDIERA + code.toLowerCase() },
+            geometry: { type: "Point", coordinates: centro },
+          });
+        }
+      }
+
+      aggiungiSorgente(map, SRC_PAESI, poligoni);
+      if (!map.getLayer(LAYER_PAESI_FILL)) {
+        map.addLayer({
+          id: LAYER_PAESI_FILL, type: "fill", source: SRC_PAESI,
+          paint: { "fill-color": "#60a5fa", "fill-opacity": 0.45 },
+        });
+        map.addLayer({
+          id: LAYER_PAESI_BORDO, type: "line", source: SRC_PAESI,
+          paint: { "line-color": "#93c5fd", "line-width": 0.8, "line-opacity": 0.9 },
+        });
+      }
+
+      // La telecamera va sui propri paesi tenendo il GLOBO INTERO in vista
+      // (zoom basso apposta): avvicinandosi di più le bandiere sarebbero più
+      // grandi ma la sfera uscirebbe dallo schermo e diventerebbe una mappa.
+      if (bandiere.length || poligoni.length) {
+        const n = visitati.length;
+        map.flyTo({ center: [sommaLon / n, sommaLat / n], zoom: ZOOM_PAESI, duration: 1100 });
+      }
+
+      // Le bandiere sono immagini di rete: si registrano PRIMA del layer che le
+      // nomina, e chi non arriva (offline) semplicemente non compare — il paese
+      // resta comunque colorato, che è l'informazione principale.
+      const arrivate = await registraBandiere(map, bandiere);
+      if (annullato || !mapRef.current) return;
+      aggiungiSorgente(map, SRC_BANDIERE, arrivate);
+      if (arrivate.length && !map.getLayer(LAYER_BANDIERE)) {
+        map.addLayer({
+          id: LAYER_BANDIERE, type: "symbol", source: SRC_BANDIERE,
+          layout: {
+            "icon-image": ["get", "icona"] as unknown as StyleExpr,
+            "icon-size": 1.05, "icon-allow-overlap": true, "icon-ignore-placement": true,
+          },
+        });
+      }
+    });
+
+    return () => { annullato = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapReady, modalitaPaesi, ordered, autoRotateSetting]);
 
   // Focus selected trip. Deps SOLO su selectedId: con ordered in dipendenza,
   // ogni backfill/refresh dei viaggi rilanciava un flyTo di 1s a caso.
