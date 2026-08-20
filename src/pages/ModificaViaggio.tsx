@@ -69,7 +69,9 @@ const ModificaViaggio = () => {
   const [title, setTitle] = useState(trip?.title ?? "");
   const [dateStart, setDateStart] = useState(trip?.trip_date ?? todayLocalISO());
   const [dateEnd, setDateEnd] = useState(trip?.date_end ?? "");
-  const [notes, setNotes] = useState(trip?.notes ?? "");
+  // Note rimosse dal form (2026-08-20): il valore del viaggio si conserva
+  // inalterato al salvataggio, semplicemente non si edita più da qui.
+  const [notes] = useState(trip?.notes ?? "");
   const [rating, setRating] = useState(trip?.rating ?? 0);
   const [purpose, setPurpose] = useState<string | null>(trip?.purpose ?? null);
   const [companions, setCompanions] = useState<string[]>(trip?.companions ?? []);
@@ -322,7 +324,6 @@ const ModificaViaggio = () => {
             title={title} setTitle={setTitle}
             dateStart={dateStart} setDateStart={setDateStart}
             dateEnd={dateEnd} setDateEnd={setDateEnd}
-            notes={notes} setNotes={setNotes}
             rating={rating} setRating={setRating}
           />
 

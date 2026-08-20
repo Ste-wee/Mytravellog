@@ -174,3 +174,56 @@ describe("NuovoViaggio — feedback durante il salvataggio lento", () => {
   });
 });
 
+
+describe("NuovoViaggio — avviso doppione", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    localStorage.setItem("atlas.settings.v1", JSON.stringify({
+      homeCity: { label: "Milano, Italia", lat: 45.46, lon: 9.19 },
+    }));
+    // Un viaggio a Parigi già in archivio, stesse date del form (oggi).
+    const oggi = new Date().toISOString().slice(0, 10);
+    localStorage.setItem("atlas.trips.v1", JSON.stringify([{
+      id: "esistente", city: "Parigi", title: "Parigi", country: "Francia", country_code: "FR",
+      trip_date: oggi, date_end: null, latitude: 48.85, longitude: 2.35,
+      created_at: "2025-01-01T00:00:00.000Z", transport_mode: "plane",
+    }]));
+  });
+
+  async function compilaParigi() {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "+ Aggiungi tappa" }));
+    fireEvent.change(screen.getByPlaceholderText(/Cerca città/), { target: { value: "par" } });
+    await screen.findByText("Parigi");
+    fireEvent.click(screen.getByText("Parigi").closest("button")!);
+    fireEvent.click(screen.getByRole("button", { name: /Salva viaggio/ }));
+  }
+
+  it("stesso posto e date sovrapposte: compare l'avviso, niente salvataggio", async () => {
+    await compilaParigi();
+    expect(await screen.findByRole("alertdialog", { name: /viaggio simile/i })).toBeInTheDocument();
+    expect(loadTrips()).toHaveLength(1);          // solo quello esistente
+  });
+
+  it("'Salva lo stesso' procede col salvataggio", async () => {
+    await compilaParigi();
+    await screen.findByRole("alertdialog", { name: /viaggio simile/i });
+    fireEvent.click(screen.getByRole("button", { name: "Salva lo stesso" }));
+    // l'avviso sparisce e il salvataggio va fino in fondo (il gate geo è
+    // già stato aperto da un test precedente: le fetch completano subito)
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(loadTrips()).toHaveLength(2));
+  });
+
+  it("senza sovrapposizione di date nessun avviso", async () => {
+    // sposto il viaggio esistente a un anno fa
+    localStorage.setItem("atlas.trips.v1", JSON.stringify([{
+      id: "esistente", city: "Parigi", title: "Parigi", country: "Francia", country_code: "FR",
+      trip_date: "2024-01-10", date_end: "2024-01-12", latitude: 48.85, longitude: 2.35,
+      created_at: "2024-01-01T00:00:00.000Z", transport_mode: "plane",
+    }]));
+    await compilaParigi();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+});

@@ -6,7 +6,9 @@ import { fetchElevation, fetchTemperature, fetchRegion, fetchDrivingRoute, merge
 import { usePlaceSearch } from "@/lib/usePlaceSearch";
 import { hasCoords } from "@/lib/coords";
 import { followsRoad } from "@/lib/transport";
-import { addTrip, todayLocalISO } from "@/lib/storage";
+import { addTrip, loadTrips, formatTripDate, todayLocalISO, Trip } from "@/lib/storage";
+import { trovaDuplicato } from "@/lib/duplicati";
+import { createPortal } from "react-dom";
 import { useSettings } from "@/lib/settings";
 import { sequentialMap, moveItem } from "@/lib/utils";
 import { toast } from "sonner";
@@ -24,7 +26,9 @@ const NuovoViaggio = () => {
   const [title, setTitle] = useState("");
   const [dateStart, setDateStart] = useState(() => todayLocalISO());
   const [dateEnd, setDateEnd] = useState("");
-  const [notes, setNotes] = useState("");
+  // Note rimosse dal form (2026-08-20): il valore resta per il salvataggio
+  // (i viaggi vecchi lo conservano); in un viaggio nuovo è sempre vuoto.
+  const [notes] = useState("");
   const [rating, setRating] = useState(0);
   const [purpose, setPurpose] = useState<string | null>(null);
   const [companions, setCompanions] = useState<string[]>([]);
@@ -63,6 +67,8 @@ const NuovoViaggio = () => {
   const [editingHome, setEditingHome] = useState(false);
   const [homeQuery, setHomeQuery] = useState(homeCity?.label ?? "");
   const [saving, setSaving] = useState(false);
+  // Il viaggio già esistente che collide con quello in salvataggio (null = nessuno).
+  const [duplicato, setDuplicato] = useState<Trip | null>(null);
   const [destinationError, setDestinationError] = useState(false);
 
   // Id di bozza, stabile per tutta la vita di questo form: prima le foto si
@@ -120,7 +126,7 @@ const NuovoViaggio = () => {
     navigate("/in-programma");
   };
 
-  const handleSave = async () => {
+  const handleSave = async (ignoraDuplicato = false) => {
     if (waypoints.length === 0) {
       setDestinationError(true);
       toast.error("Aggiungi almeno una città all'itinerario");
@@ -130,6 +136,14 @@ const NuovoViaggio = () => {
       toast.error("Il ritorno non può essere prima della partenza");
       return;
     }
+    // Doppioni: stesso posto, date che si sovrappongono (è successo davvero:
+    // due Zurigo identici da due risultati di ricerca diversi, zero avvisi).
+    // Il controllo sta PRIMA delle fetch: l'avviso deve essere immediato.
+    if (!ignoraDuplicato) {
+      const doppione = trovaDuplicato(loadTrips(), waypoints[waypoints.length - 1].city, dateStart, dateEnd || null);
+      if (doppione) { setDuplicato(doppione); return; }
+    }
+    setDuplicato(null);
     // Senza partenza il viaggio non produce nessuna tratta e sparirebbe da
     // globo, poster dell'anno e mappa della vita. Normalmente c'è già (la
     // città è obbligatoria all'avvio), ma qui la si può anche togliere.
@@ -283,7 +297,6 @@ const NuovoViaggio = () => {
             title={title} setTitle={setTitle}
             dateStart={dateStart} setDateStart={setDateStart}
             dateEnd={dateEnd} setDateEnd={setDateEnd}
-            notes={notes} setNotes={setNotes}
             rating={rating} setRating={setRating}
           />
 
@@ -305,9 +318,45 @@ const NuovoViaggio = () => {
 
           <TripPurposeCompanions purpose={purpose} setPurpose={setPurpose} companions={companions} setCompanions={setCompanions}/>
 
-          <TripFormActions saving={saving} confirmDiscard={confirmDiscard} onSave={handleSave}/>
+          <TripFormActions saving={saving} confirmDiscard={confirmDiscard} onSave={() => handleSave()}/>
         </div>
       </div>
+
+      {/* Avviso doppione — in createPortal sul body: un position:fixed dentro
+          un antenato con transform si ancora all'antenato, non allo schermo
+          (lezione della card Home). */}
+      {duplicato && createPortal(
+        <div role="alertdialog" aria-label="Esiste già un viaggio simile"
+          style={{ position:"fixed", left:12, right:12, bottom:16, zIndex:130, background:"#0b1524",
+            border:"0.5px solid #b45309", borderRadius:16, padding:16, boxShadow:"0 12px 40px rgba(0,0,0,0.5)",
+            maxWidth:560, margin:"0 auto" }}>
+          <div style={{ display:"flex", gap:10, alignItems:"flex-start", marginBottom:12 }}>
+            <span aria-hidden style={{ fontSize:17 }}>⚠️</span>
+            <span>
+              <span style={{ display:"block", fontSize:14, fontWeight:700, color:"#f0f4ff", marginBottom:3 }}>
+                Esiste già un viaggio a {duplicato.city}
+              </span>
+              <span style={{ display:"block", fontSize:12, color:"rgba(255,255,255,0.55)", lineHeight:1.45 }}>
+                {formatTripDate(duplicato.trip_date)}{duplicato.date_end ? ` → ${formatTripDate(duplicato.date_end)}` : ""}.
+                Vuoi aprirlo invece di crearne un altro?
+              </span>
+            </span>
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <button type="button" onClick={() => { setDuplicato(null); handleSave(true); }}
+              style={{ flex:1, padding:11, borderRadius:10, background:"transparent",
+                border:"0.5px solid #1a2d4a", color:"rgba(255,255,255,0.65)", fontSize:13, fontWeight:600, cursor:"pointer" }}>
+              Salva lo stesso
+            </button>
+            <button type="button" onClick={() => navigate(`/modifica-viaggio/${duplicato.id}`)}
+              style={{ flex:1, padding:11, borderRadius:10, background:"#60a5fa", border:"none",
+                color:"#0a1628", fontSize:13, fontWeight:700, cursor:"pointer" }}>
+              Apri quello
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

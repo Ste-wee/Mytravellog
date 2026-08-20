@@ -1,7 +1,7 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Trip, formatTripDate, parseLocalDate, isValidDateISO } from "@/lib/storage";
+import { Trip, formatTripDate, parseLocalDate, isValidDateISO, updateTrip } from "@/lib/storage";
 import { fmtDistance, fmtTemp, useSettings } from "@/lib/settings";
 import { Plane, Pencil, Trash2, Video, X, MoreVertical } from "lucide-react";
 import { TRANSPORT, isTransportMode, transportBg } from "@/lib/transport";
@@ -67,6 +67,18 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
   const navigate = useNavigate();
   const [showFlyover, setShowFlyover] = useState(false);
   const [notesExpanded, setNotesExpanded] = useState(false);
+  // Correzione manuale della temperatura, dove la si legge (v. sotto).
+  // Stato locale per mostrare subito il valore nuovo senza ricaricare la lista.
+  const [editTemp, setEditTemp] = useState(false);
+  const [tempCorrente, setTempCorrente] = useState<number | null>(trip.temperature_c ?? null);
+  const salvaTemp = (raw: string) => {
+    setEditTemp(false);
+    const v = Number(String(raw).replace(",", "."));
+    if (!Number.isFinite(v) || v < -90 || v > 60) return;   // fuori dai record terrestri: refuso
+    if (v === tempCorrente) return;                          // niente timbro a vuoto su updated_at
+    setTempCorrente(v);
+    updateTrip(trip.id, { temperature_c: v });
+  };
   const [showDiary, setShowDiary] = useState(false);
   const [diary, setDiary] = useState<DiaryEntry[]>(trip.diary ?? []);
   // Miniatura del "rilievo 3D" salvato a fine flyover (snapshot in IndexedDB):
@@ -298,10 +310,33 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
                 <span style={{fontSize:11,color:"rgba(255,255,255,0.75)"}}>{fmtDistance(tripKm, distanceUnit)}</span>
               </>
             )}
-            {trip.temperature_c != null && (
+            {tempCorrente != null && (
               <>
                 {(trip.transport_mode || tripKm > 0) && <div style={{width:1,height:10,background:"#1a2d4a"}}/>}
-                <span style={{fontSize:11,color:"rgba(255,255,255,0.75)"}}>{fmtTemp(trip.temperature_c, temperatureUnit)}</span>
+                {/* La temperatura si corregge dove la si legge: il dato dei
+                    modelli è a griglia ~10-25 km e in una valle lappone il
+                    termometro vero può segnare 10 gradi in meno — l'utente
+                    sa cosa segnava, il satellite no. */}
+                {editTemp ? (
+                  <input autoFocus type="number" step="0.1" inputMode="decimal"
+                    aria-label="Temperatura in gradi"
+                    defaultValue={tempCorrente}
+                    onBlur={e => salvaTemp(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") salvaTemp((e.target as HTMLInputElement).value);
+                      if (e.key === "Escape") setEditTemp(false);
+                    }}
+                    style={{ width:58, fontSize:11, background:"#060e1e", color:"#f0f4ff",
+                      border:"0.5px solid #60a5fa", borderRadius:6, padding:"2px 6px", outline:"none" }}/>
+                ) : (
+                  <button type="button" onClick={() => setEditTemp(true)}
+                    aria-label={`Temperatura ${fmtTemp(tempCorrente, temperatureUnit)}: tocca per correggerla`}
+                    style={{ fontSize:11, color:"rgba(255,255,255,0.75)", background:"none", border:"none",
+                      cursor:"pointer", padding:0, fontFamily:"inherit",
+                      borderBottom:"1px dashed rgba(96,165,250,0.45)" }}>
+                    {fmtTemp(tempCorrente, temperatureUnit)}
+                  </button>
+                )}
               </>
             )}
           </span>

@@ -368,3 +368,56 @@ describe("TripCardTicket — blocco solidale delle metriche", () => {
     expect(screen.getByText("18,5°C")).toBeInTheDocument();
   });
 });
+
+describe("TripCardTicket — temperatura correggibile a mano", () => {
+  // Il dato dei modelli è a griglia ~10-25 km: in una valle lappone il
+  // termometro vero segnava -31 dove l'archivio dà -21. L'utente sa cosa
+  // segnava, il satellite no: si corregge dove si legge.
+  beforeEach(() => localStorage.clear());
+
+  const salvato = () => JSON.parse(localStorage.getItem("atlas.trips.v1") || "[]")[0];
+
+  it("il numero è un bottone; il tocco apre il campo e Invio salva", () => {
+    const trip = makeTrip({ id: "t1", temperature_c: -21.1 });
+    localStorage.setItem("atlas.trips.v1", JSON.stringify([trip]));
+    renderCard(trip);
+    fireEvent.click(screen.getByRole("button", { name: /tocca per correggerla/i }));
+    const campo = screen.getByLabelText("Temperatura in gradi");
+    fireEvent.change(campo, { target: { value: "-31" } });
+    fireEvent.keyDown(campo, { key: "Enter" });
+    expect(salvato().temperature_c).toBe(-31);
+    expect(screen.getByRole("button", { name: /tocca per correggerla/i }).textContent).toContain("-31");
+  });
+
+  it("Escape annulla senza salvare", () => {
+    const trip = makeTrip({ id: "t1", temperature_c: 7.3 });
+    localStorage.setItem("atlas.trips.v1", JSON.stringify([trip]));
+    renderCard(trip);
+    fireEvent.click(screen.getByRole("button", { name: /tocca per correggerla/i }));
+    const campo = screen.getByLabelText("Temperatura in gradi");
+    fireEvent.change(campo, { target: { value: "99" } });
+    fireEvent.keyDown(campo, { key: "Escape" });
+    expect(salvato().temperature_c).toBe(7.3);
+  });
+
+  it("un valore fuori dai record terrestri è un refuso: non si salva", () => {
+    const trip = makeTrip({ id: "t1", temperature_c: 7.3 });
+    localStorage.setItem("atlas.trips.v1", JSON.stringify([trip]));
+    renderCard(trip);
+    fireEvent.click(screen.getByRole("button", { name: /tocca per correggerla/i }));
+    const campo = screen.getByLabelText("Temperatura in gradi");
+    fireEvent.change(campo, { target: { value: "300" } });
+    fireEvent.keyDown(campo, { key: "Enter" });
+    expect(salvato().temperature_c).toBe(7.3);
+  });
+
+  it("stesso valore: nessuna riscrittura (updated_at non si timbra a vuoto)", () => {
+    const trip = makeTrip({ id: "t1", temperature_c: 7.3, updated_at: "2025-01-01T00:00:00.000Z" });
+    localStorage.setItem("atlas.trips.v1", JSON.stringify([trip]));
+    renderCard(trip);
+    fireEvent.click(screen.getByRole("button", { name: /tocca per correggerla/i }));
+    const campo = screen.getByLabelText("Temperatura in gradi");
+    fireEvent.keyDown(campo, { key: "Enter" });    // conferma senza cambiare
+    expect(salvato().updated_at).toBe("2025-01-01T00:00:00.000Z");
+  });
+});

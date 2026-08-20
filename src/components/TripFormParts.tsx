@@ -726,15 +726,14 @@ export function ItineraryPanel(props: RouteHeroProps) {
   );
 }
 
-/** Nome, Periodo (con durata ed errore date invertite), Note e Valutazione: la parte alta della colonna destra. */
+/** Nome, Periodo (con durata ed errore date invertite) e Valutazione: la parte alta della colonna destra. */
 export function TripFormFields({
   title, setTitle, dateStart, setDateStart, dateEnd, setDateEnd,
-  notes, setNotes, rating, setRating,
+  rating, setRating,
 }: {
   title: string; setTitle: (v: string) => void;
   dateStart: string; setDateStart: (v: string) => void;
   dateEnd: string; setDateEnd: (v: string) => void;
-  notes: string; setNotes: (v: string) => void;
   rating: number; setRating: (v: number) => void;
 }) {
   const [hoverRating, setHoverRating] = useState(0);
@@ -845,23 +844,10 @@ export function TripFormFields({
         )}
       </div>
 
-      {/* Note */}
-      <div style={{ background:"#0a1628", border:"0.5px solid #1a2d4a", borderRadius:8, padding:"14px 16px" }}>
-        <label style={{ fontSize:9, color:"rgba(255,255,255,0.6)", letterSpacing:"1.5px",
-          textTransform:"uppercase", display:"block", marginBottom:6 }}>
-          Note <span style={{ opacity:0.4, fontSize:9, textTransform:"none" }}>(opzionale)</span>
-        </label>
-        {/* Il testo digitato usa il colore pieno #f0f4ff come il campo Nome:
-            prima era rgba(0.4) (~3.8:1, sotto AA) — cioè il contenuto scritto
-            dall'utente risultava poco leggibile. Il placeholder resta tenue. */}
-        <textarea style={{ background:"#060e1e", border:"0.5px solid #1a2d4a", borderRadius:8,
-          padding:"9px 12px", fontSize:13, color:"#f0f4ff", width:"100%",
-          outline:"none", resize:"none", boxSizing:"border-box", height:80, fontFamily:"inherit" }}
-          value={notes} onChange={e => setNotes(e.target.value)}
-          placeholder="Aggiungi una nota…"
-          onFocus={e => (e.target.style.borderColor="#60a5fa")}
-          onBlur={e => (e.target.style.borderColor="#1a2d4a")}/>
-      </div>
+      {/* NB storico: qui viveva il campo Note, rimosso il 2026-08-20 dopo
+          aver guardato l'uso reale (zero note su dieci viaggi) — e il Diario
+          copre già chi vuole scrivere. Le note dei viaggi vecchi restano nel
+          dato e il biglietto continua a mostrarle se presenti. */}
 
       {/* Valutazione */}
       <div style={{ background:"#0a1628", border:"0.5px solid #1a2d4a", borderRadius:8, padding:"14px 16px" }}>
