@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
-import { GeoResult } from "@/lib/geo";
+import { GeoResult, placeSubtitle } from "@/lib/geo";
 import { usePlaceSearch } from "@/lib/usePlaceSearch";
 import { Trip, loadPlans, addPlan } from "@/lib/storage";
 import { TripPlanner } from "@/components/TripPlanner";
@@ -144,7 +144,7 @@ const InProgramma = () => {
                     {results.map((r, i) => (
                       <button key={i} type="button" onMouseDown={() => { setDest(r); clearResults(); if (!title) setTitle(r.name); }}
                         style={{ display: "block", width: "100%", textAlign: "left", background: "transparent", border: "none", borderTop: i ? "0.5px solid #16233d" : "none", padding: "9px 11px", fontSize: 13, color: "#f0f4ff", cursor: "pointer" }}>
-                        {r.name} <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 12 }}>· {[r.admin1 !== r.name ? r.admin1 : null, r.country].filter(Boolean).join(", ")}</span>{r.kind && <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginLeft: 6 }}>({r.kind})</span>}
+                        {r.name}{placeSubtitle(r) && <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 12 }}> · {placeSubtitle(r)}</span>}{r.kind && <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginLeft: 6 }}>({r.kind})</span>}
                       </button>
                     ))}
                   </div>

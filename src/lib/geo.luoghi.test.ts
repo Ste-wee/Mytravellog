@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { placeKindOf, searchLandmarks, searchAnyPlace, __resetLandmarkCache, GeoResult } from "./geo";
+import { placeKindOf, searchLandmarks, searchAnyPlace, __resetLandmarkCache, GeoResult , placeSubtitle } from "./geo";
 
 /**
  * La seconda fonte della ricerca: laghi, monumenti e montagne, che il
@@ -151,6 +151,72 @@ describe("searchPlaces — anche il geocoder delle città etichetta i non-abitat
     const r = await searchPlaces("Everest");
     expect(r[0].kind).toBe("montagna");
     expect(r[1].kind).toBeUndefined();
+  });
+});
+
+describe("placeSubtitle — il sottotitolo non ripete il nome", () => {
+  it("normale: regione e paese", () => {
+    expect(placeSubtitle({ name: "Garda", admin1: "Veneto", country: "Italia" })).toBe("Veneto, Italia");
+  });
+  it("Città del Vaticano: nome = paese, senza admin1 → nessun sottotitolo", () => {
+    expect(placeSubtitle({ name: "Città del Vaticano", country: "Città del Vaticano" })).toBeNull();
+  });
+  it("regione uguale al nome: resta solo il paese", () => {
+    expect(placeSubtitle({ name: "Veneto", admin1: "Veneto", country: "Italia" })).toBe("Italia");
+  });
+});
+
+describe("searchAnyPlace — dedupe e ricambio senza prefisso", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("GeoNames manda città E Stato del Vaticano con lo stesso nome: ne resta UNO", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (/geocoding-api/.test(url)) return { ok: true, json: async () => ({ results: [
+        { id: 1, name: "Città del Vaticano", country: "Città del Vaticano", country_code: "VA", latitude: 41.9, longitude: 12.45, feature_code: "PPLC" },
+        { id: 2, name: "Città del Vaticano", country: "Città del Vaticano", country_code: "VA", latitude: 41.9, longitude: 12.45, feature_code: "PCLI" },
+      ] }) };
+      return risposta([]);
+    }));
+    const { searchAnyPlace, __resetLandmarkCache } = await import("./geo");
+    __resetLandmarkCache();
+    const r = await searchAnyPlace("Città del Vaticano");
+    expect(r.filter(p => p.name === "Città del Vaticano")).toHaveLength(1);
+  });
+
+  it("'lago di loch ness': i luoghi tornano vuoti, il ricambio senza prefisso trova il lago", async () => {
+    const chiamateNominatim: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (/geocoding-api/.test(url)) return { ok: true, json: async () => ({ results: [] }) };
+      chiamateNominatim.push(decodeURIComponent(url));
+      // il primo tentativo ("lago di loch ness") è vuoto, il secondo trova
+      if (/lago di/.test(decodeURIComponent(url))) return risposta([]);
+      return risposta([
+        { class: "water", type: "lake", name: "Loch Ness", lat: "57.3", lon: "-4.4", osm_id: 9,
+          address: { country: "Regno Unito", country_code: "gb", state: "Scozia" } },
+      ]);
+    }));
+    const { searchAnyPlace, __resetLandmarkCache } = await import("./geo");
+    __resetLandmarkCache();
+    const r = await searchAnyPlace("lago di loch ness");
+    expect(chiamateNominatim.some(u => /q=loch ness/.test(u))).toBe(true);
+    expect(r[0]?.name).toBe("Loch Ness");
+    expect(r[0]?.kind).toBe("lago");
+  });
+
+  it("il ricambio NON scatta se il primo tentativo trova già qualcosa", async () => {
+    const chiamateNominatim: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (/geocoding-api/.test(url)) return { ok: true, json: async () => ({ results: [] }) };
+      chiamateNominatim.push(decodeURIComponent(url));
+      return risposta([
+        { class: "water", type: "lake", name: "Lago di Garda", lat: "45.66", lon: "10.68", osm_id: 10,
+          address: { country: "Italia", country_code: "it", state: "Lombardia" } },
+      ]);
+    }));
+    const { searchAnyPlace, __resetLandmarkCache } = await import("./geo");
+    __resetLandmarkCache();
+    await searchAnyPlace("Lago di Garda");
+    expect(chiamateNominatim).toHaveLength(1);
   });
 });
 

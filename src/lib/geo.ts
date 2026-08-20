@@ -162,6 +162,14 @@ export async function searchLandmarks(query: string, count = 4): Promise<GeoResu
  * La ricerca che vede il form: città + luoghi, in una lista sola.
  * Le due fonti sono indipendenti — se una cade, l'altra risponde comunque.
  */
+/**
+ * Prefissi generici che Nominatim non digerisce sui nomi ESTERI: "lago di
+ * loch ness" → vuoto, ma "loch ness" → il lago. Il ricambio scatta SOLO se
+ * il primo tentativo non trova nulla, quindi "Lago di Garda" (che su OSM si
+ * chiama proprio così) continua a passare al primo colpo.
+ */
+const PREFISSO_GENERICO = /^(lago|monte|monti|isola|isole|parco|spiaggia|cascata|cascate|lake|mount)\s+(di|del|della|dello|delle|dei|degli|d['’])?\s*/i;
+
 export async function searchAnyPlace(query: string, count = 6): Promise<GeoResult[]> {
   const q = query.trim();
   if (!q) return [];
@@ -169,15 +177,45 @@ export async function searchAnyPlace(query: string, count = 6): Promise<GeoResul
     searchPlaces(q, count).catch(() => [] as GeoResult[]),
     searchLandmarks(q, 4).catch(() => [] as GeoResult[]),
   ]);
+  let luoghiTrovati = luoghi;
+  if (luoghiTrovati.length === 0 && PREFISSO_GENERICO.test(q)) {
+    const senzaPrefisso = q.replace(PREFISSO_GENERICO, "").trim();
+    if (senzaPrefisso.length >= 2) {
+      luoghiTrovati = await searchLandmarks(senzaPrefisso, 4).catch(() => [] as GeoResult[]);
+    }
+  }
   const esatto = (p: GeoResult) => p.name.toLowerCase() === q.toLowerCase();
   // Chi si chiama esattamente come la ricerca va in cima, da qualunque fonte
   // arrivi: cercando "Lago di Garda" il lago deve battere il paese "Garda".
-  return [
+  const ordinati = [
     ...citta.filter(esatto),
-    ...luoghi.filter(esatto),
+    ...luoghiTrovati.filter(esatto),
     ...citta.filter(p => !esatto(p)),
-    ...luoghi.filter(p => !esatto(p)),
-  ].slice(0, count);
+    ...luoghiTrovati.filter(p => !esatto(p)),
+  ];
+  // Dedupe per nome+paese: GeoNames manda DUE "Città del Vaticano" (la città
+  // PPLC e lo Stato PCLI), e un luogo può arrivare da entrambe le fonti.
+  // Vince il primo, che l'ordinamento qui sopra ha già messo davanti.
+  const visti = new Set<string>();
+  return ordinati.filter(p => {
+    const chiave = `${p.name.toLowerCase()}|${(p.country_code || p.country || "").toLowerCase()}`;
+    if (visti.has(chiave)) return false;
+    visti.add(chiave);
+    return true;
+  }).slice(0, count);
+}
+
+/**
+ * Sottotitolo grigio di un risultato ("Veneto, Italia"): regione e paese,
+ * ognuno taciuto se ripeterebbe il nome — "Città del Vaticano · Città del
+ * Vaticano" diceva due volte la stessa cosa. Null = niente sottotitolo.
+ */
+export function placeSubtitle(p: Pick<GeoResult, "name" | "admin1" | "country">): string | null {
+  const parti = [
+    p.admin1 && p.admin1 !== p.name ? p.admin1 : null,
+    p.country && p.country !== p.name ? p.country : null,
+  ].filter(Boolean);
+  return parti.length ? parti.join(", ") : null;
 }
 
 /** Solo per i test: svuota la cache dei luoghi e azzera il turno di attesa. */
