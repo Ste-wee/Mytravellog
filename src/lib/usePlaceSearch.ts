@@ -43,7 +43,14 @@ export function usePlaceSearch(query: string, { luoghi = false, ignora = null, l
     let cancelled = false;
     setLoading(true);
     const t = setTimeout(async () => {
-      const r = await (luoghi ? searchAnyPlace(q) : searchPlaces(q));
+      // Col callback dei parziali le città compaiono in ~300ms mentre i
+      // luoghi pagano la coda di Nominatim: la lista si completa da sola.
+      const r = await (luoghi
+        ? searchAnyPlace(q, 6, parziali => {
+            if (cancelled) return;
+            setResults(limite != null ? parziali.slice(0, limite) : parziali);
+          })
+        : searchPlaces(q));
       if (cancelled) return;
       setResults(limite != null ? r.slice(0, limite) : r);
       setLoading(false);

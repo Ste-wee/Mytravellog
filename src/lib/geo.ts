@@ -103,14 +103,24 @@ const cacheLuoghi = new Map<string, GeoResult[]>();
  * Il geocoder delle città (open-meteo) non li conosce affatto — "Lago di
  * Garda" e "Colosseo" lì danno zero risultati.
  */
-export async function searchLandmarks(query: string, count = 4): Promise<GeoResult[]> {
+// Contatore di generazione: se mentre una ricerca aspetta il suo turno di
+// coda ne parte una PIÙ NUOVA, la vecchia è già superata (il chiamante la
+// scarterà comunque) — inutile che consumi anche la rete. Il risultato
+// vuoto della superata NON va in cache.
+let generazioneLuoghi = 0;
+
+// `superabile = false` per il ricambio senza prefisso: non è una digitazione
+// nuova, non deve né scavalcare la query corrente né farsi scartare.
+export async function searchLandmarks(query: string, count = 4, superabile = true): Promise<GeoResult[]> {
   const q = query.trim();
   if (q.length < 3) return [];
   const chiave = q.toLowerCase();
   const inCache = cacheLuoghi.get(chiave);
   if (inCache) return inCache.slice(0, count);
+  const mia = superabile ? ++generazioneLuoghi : 0;
   try {
     await attendiTurno();
+    if (superabile && mia !== generazioneLuoghi) return [];   // superata mentre aspettava
     // `extratags`/`namedetails` non servono: bastano class/type e l'indirizzo.
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}` +
       `&format=json&limit=12&addressdetails=1&accept-language=it`;
@@ -170,32 +180,17 @@ export async function searchLandmarks(query: string, count = 4): Promise<GeoResu
  */
 const PREFISSO_GENERICO = /^(lago|monte|monti|isola|isole|parco|spiaggia|cascata|cascate|lake|mount)\s+(di|del|della|dello|delle|dei|degli|d['’])?\s*/i;
 
-export async function searchAnyPlace(query: string, count = 6): Promise<GeoResult[]> {
-  const q = query.trim();
-  if (!q) return [];
-  const [citta, luoghi] = await Promise.all([
-    searchPlaces(q, count).catch(() => [] as GeoResult[]),
-    searchLandmarks(q, 4).catch(() => [] as GeoResult[]),
-  ]);
-  let luoghiTrovati = luoghi;
-  if (luoghiTrovati.length === 0 && PREFISSO_GENERICO.test(q)) {
-    const senzaPrefisso = q.replace(PREFISSO_GENERICO, "").trim();
-    if (senzaPrefisso.length >= 2) {
-      luoghiTrovati = await searchLandmarks(senzaPrefisso, 4).catch(() => [] as GeoResult[]);
-    }
-  }
+/** Ordinamento (nome esatto in cima, da qualunque fonte) + dedupe per
+ *  nome+paese: GeoNames manda DUE "Città del Vaticano" (città PPLC e Stato
+ *  PCLI), e un luogo può arrivare da entrambe le fonti. Vince il primo. */
+function ordinaEDeduplica(q: string, citta: GeoResult[], luoghi: GeoResult[], count: number): GeoResult[] {
   const esatto = (p: GeoResult) => p.name.toLowerCase() === q.toLowerCase();
-  // Chi si chiama esattamente come la ricerca va in cima, da qualunque fonte
-  // arrivi: cercando "Lago di Garda" il lago deve battere il paese "Garda".
   const ordinati = [
     ...citta.filter(esatto),
-    ...luoghiTrovati.filter(esatto),
+    ...luoghi.filter(esatto),
     ...citta.filter(p => !esatto(p)),
-    ...luoghiTrovati.filter(p => !esatto(p)),
+    ...luoghi.filter(p => !esatto(p)),
   ];
-  // Dedupe per nome+paese: GeoNames manda DUE "Città del Vaticano" (la città
-  // PPLC e lo Stato PCLI), e un luogo può arrivare da entrambe le fonti.
-  // Vince il primo, che l'ordinamento qui sopra ha già messo davanti.
   const visti = new Set<string>();
   return ordinati.filter(p => {
     const chiave = `${p.name.toLowerCase()}|${(p.country_code || p.country || "").toLowerCase()}`;
@@ -203,6 +198,37 @@ export async function searchAnyPlace(query: string, count = 6): Promise<GeoResul
     visti.add(chiave);
     return true;
   }).slice(0, count);
+}
+
+/**
+ * `onParziale`: le città arrivano in ~300ms, i luoghi pagano la coda di
+ * Nominatim (1 richiesta/secondo di policy) — tenerle in ostaggio del
+ * Promise.all significava non mostrare NULLA per oltre un secondo. Chi passa
+ * il callback riceve subito le città; il valore di ritorno resta la lista
+ * completa e ordinata, identica a prima.
+ */
+export async function searchAnyPlace(query: string, count = 6, onParziale?: (r: GeoResult[]) => void): Promise<GeoResult[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const cittaP = searchPlaces(q, count).catch(() => [] as GeoResult[]);
+  const luoghiP = searchLandmarks(q, 4).catch(() => [] as GeoResult[]);
+  if (onParziale) {
+    let luoghiArrivati = false;
+    luoghiP.finally(() => { luoghiArrivati = true; });
+    cittaP.then(c => {
+      // se i luoghi hanno già risposto, il parziale non serve: esce il totale
+      if (!luoghiArrivati && c.length) onParziale(ordinaEDeduplica(q, c, [], count));
+    });
+  }
+  const [citta, luoghi] = await Promise.all([cittaP, luoghiP]);
+  let luoghiTrovati = luoghi;
+  if (luoghiTrovati.length === 0 && PREFISSO_GENERICO.test(q)) {
+    const senzaPrefisso = q.replace(PREFISSO_GENERICO, "").trim();
+    if (senzaPrefisso.length >= 2) {
+      luoghiTrovati = await searchLandmarks(senzaPrefisso, 4, false).catch(() => [] as GeoResult[]);
+    }
+  }
+  return ordinaEDeduplica(q, citta, luoghiTrovati, count);
 }
 
 /**

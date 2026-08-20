@@ -220,6 +220,55 @@ describe("searchAnyPlace — dedupe e ricambio senza prefisso", () => {
   });
 });
 
+describe("searchAnyPlace — la velocità percepita", () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+  it("onParziale consegna le CITTÀ subito, mentre i luoghi pagano ancora la coda", async () => {
+    let liberaNominatim: (v: unknown) => void = () => {};
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (/geocoding-api/.test(url)) return { ok: true, json: async () => ({ results: [
+        { id: 1, name: "Trevi", country: "Italia", country_code: "IT", latitude: 42.9, longitude: 12.7 },
+      ] }) };
+      await new Promise(r => { liberaNominatim = r; });      // Nominatim resta in volo
+      return risposta([
+        { class: "amenity", type: "fountain", name: "Fontana di Trevi", lat: "41.9", lon: "12.48", osm_id: 11,
+          address: { country: "Italia", country_code: "it", city: "Roma" } },
+      ]);
+    }));
+    const { searchAnyPlace, __resetLandmarkCache } = await import("./geo");
+    __resetLandmarkCache();
+    const parziali: string[][] = [];
+    const totaleP = searchAnyPlace("Trevi", 6, r => parziali.push(r.map(p => p.name)));
+    // le città sono arrivate PRIMA che Nominatim risponda
+    await new Promise(r => setTimeout(r, 20));
+    expect(parziali).toEqual([["Trevi"]]);
+    liberaNominatim(null);
+    const totale = await totaleP;
+    expect(totale.map(p => p.name)).toContain("Fontana di Trevi");
+  });
+
+  it("una ricerca superata in coda NON va in rete (e non inquina la cache)", async () => {
+    vi.useFakeTimers();
+    const urlNominatim: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (/geocoding-api/.test(url)) return { ok: true, json: async () => ({ results: [] }) };
+      urlNominatim.push(decodeURIComponent(url));
+      return risposta([]);
+    }));
+    const { searchLandmarks, __resetLandmarkCache } = await import("./geo");
+    __resetLandmarkCache();
+    const p1 = searchLandmarks("colosseo");     // parte subito (coda libera)
+    const p2 = searchLandmarks("colosseo r");   // in coda, verrà SUPERATA
+    const p3 = searchLandmarks("colosseo roma");// la più nuova
+    await vi.advanceTimersByTimeAsync(4000);
+    await Promise.all([p1, p2, p3]);
+    // in una raffica va in rete SOLO la più nuova: le altre due sono state
+    // superate mentre aspettavano il loro turno di coda
+    expect(urlNominatim).toHaveLength(1);
+    expect(urlNominatim[0]).toMatch(/q=colosseo roma/);
+  });
+});
+
 describe("searchAnyPlace — le due fonti in una lista sola", () => {
   beforeEach(() => __resetLandmarkCache());
   afterEach(() => vi.unstubAllGlobals());
