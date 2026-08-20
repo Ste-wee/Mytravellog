@@ -109,10 +109,28 @@ export function loadTrips(): Trip[] {
     // Sort difensivo: un solo record con trip_date mancante faceva lanciare
     // localeCompare -> il catch restituiva [] NASCONDENDO TUTTI i viaggi, e la
     // successiva addTrip salvava sopra un array vuoto (perdita totale).
-    return arr.sort((a, b) => (b.trip_date || "").localeCompare(a.trip_date || ""));
+    return escludiCancellati(arr, "trips")
+      .sort((a, b) => (b.trip_date || "").localeCompare(a.trip_date || ""));
   } catch {
     return [];
   }
+}
+
+/**
+ * Un viaggio con la lapide non deve MAI comparire nella lista, nemmeno se
+ * qualcuno l'ha rimesso nell'array (un merge andato storto, un backup
+ * ripristinato a mano, una scheda aperta da prima della cancellazione).
+ *
+ * Perché è difesa necessaria e non paranoia: è successo davvero (Zurigo,
+ * 2026-08-20). Il viaggio era tornato nell'array locale pur avendo la sua
+ * lapide, e un ricalcolo in sottofondo l'ha riscritto: da quel momento la
+ * sua data di modifica batteva la cancellazione e il merge lo teneva in vita
+ * per sempre. Filtrando qui, chi legge non lo vede e chi riscrive non può
+ * resuscitarlo — la lapide vale finché non scade il suo TTL.
+ */
+function escludiCancellati<T extends { id: string }>(arr: T[], bucket: TombstoneBucket): T[] {
+  const morti = new Set(loadTombstones(bucket).map(d => d.id));
+  return morti.size ? arr.filter(x => !morti.has(x.id)) : arr;
 }
 
 /**
@@ -260,7 +278,10 @@ export function loadPlans(): Trip[] {
     const raw = localStorage.getItem(KEY_PLANS);
     if (!raw) return [];
     const arr = JSON.parse(raw) as Trip[];
-    return arr.sort((a, b) => (a.trip_date || "").localeCompare(b.trip_date || "")); // i più imminenti prima
+    // Stessa difesa dei viaggi: i programmi cancellati hanno il loro bucket
+    // di lapidi e non devono tornare a galla.
+    return escludiCancellati(arr, "plans")
+      .sort((a, b) => (a.trip_date || "").localeCompare(b.trip_date || "")); // i più imminenti prima
   } catch {
     return [];
   }
