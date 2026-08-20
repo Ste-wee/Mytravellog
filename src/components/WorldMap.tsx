@@ -27,6 +27,12 @@ interface Props {
   onSelectTrip?: (t: Trip) => void;
   onSelectCity?: (city: CityInfo) => void;
   autoRotateSetting?: AutoRotate;
+  /** Dimensione dei pallini scelta in Impostazioni: il raggio interpola fra
+   *  min (da lontano) e max (da vicino). Prima l'impostazione esisteva, si
+   *  salvava e si rileggeva… ma il globo non la guardava proprio: i tre
+   *  preset disegnavano tutti pallini identici (raggio 7 fisso). */
+  minMarkerScale?: number;
+  maxMarkerScale?: number;
   /** La mini-card del viaggio è aperta sopra il globo: zoom e legenda CASA si
    *  nascondono per non accavallarsi (a 390px le coprivano i bottoni). */
   selectionOpen?: boolean;
@@ -160,8 +166,17 @@ export function buildRouteCoords(t: Trip): [number, number][] {
 }
 
 export function WorldMap({
-  trips, selectedId, onSelectTrip, onSelectCity, autoRotateSetting = "on", selectionOpen = false
+  trips, selectedId, onSelectTrip, onSelectCity, autoRotateSetting = "on", selectionOpen = false,
+  minMarkerScale = 0.3, maxMarkerScale = 0.7,
 }: Props) {
+  // Raggio dei pallini: il 7 storico moltiplicato per la scala scelta, che
+  // cresce con lo zoom (min da lontano, max da vicino). Con "Piccoli"
+  // (0,3-0,7) si passa da ~2 a ~5 pixel: il globo pieno resta leggibile.
+  const raggioPallino = useMemo(() => ([
+    "interpolate", ["linear"], ["zoom"],
+    1, 7 * minMarkerScale,
+    6, 7 * maxMarkerScale,
+  ] as unknown as StyleExpr), [minMarkerScale, maxMarkerScale]);
   const containerRef  = useRef<HTMLDivElement>(null);
   const mapRef        = useRef<MapLibreMap | null>(null);
   const markersRef    = useRef<Marker[]>([]);
@@ -323,8 +338,8 @@ export function WorldMap({
         // "Aggiungi come viaggio" di Trieste — un pannello a tutto schermo
         // sopra la card, che poi si mangiava ogni tocco successivo. Assurdo
         // anche nel merito: quella città l'hai già visitata, è nel viaggio.
-        const handledLayers = ["trips-single", "trips-single-icons", "trips-multi", "trips-multi-icons",
-          "trips-waypoints", "trips-waypoints-icons", "cities-t1", "cities-t2", "cities-t3"]
+        const handledLayers = ["trips-single", "trips-multi",
+          "trips-waypoints", "cities-t1", "cities-t2", "cities-t3"]
           .filter(id => map.getLayer(id));
         if (handledLayers.length > 0 && map.queryRenderedFeatures(e.point, { layers: handledLayers }).length > 0) return;
         const { lng, lat } = e.lngLat;
@@ -421,7 +436,7 @@ export function WorldMap({
     // Prima TUTTI i layer, poi le source: rimuovere la source "trips-single"
     // mentre il layer "trips-single-icons" (più avanti nella lista) la usa
     // ancora farebbe scattare un errore MapLibre a ogni ridisegno.
-    const tripIds = ["route-line","route-points","trips-single","trips-single-icons","trips-multi","trips-multi-icons","trips-waypoints","trips-waypoints-icons","trips-labels"];
+    const tripIds = ["route-line","route-points","trips-single","trips-multi","trips-waypoints","trips-labels"];
     tripIds.forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
     tripIds.forEach(id => { if (map.getSource(id)) map.removeSource(id); });
 
@@ -517,7 +532,7 @@ export function WorldMap({
       map.addLayer({
         id, type: "circle", source: id,
         paint: {
-          "circle-radius": 7,
+          "circle-radius": raggioPallino,
           "circle-color": color,
           "circle-stroke-width": 1.5,
           "circle-stroke-color": "#ffffff",
@@ -525,12 +540,9 @@ export function WorldMap({
           "circle-stroke-opacity": 0.9,
         }
       });
-      const iconId = id + "-icons";
-      if (map.getLayer(iconId)) map.removeLayer(iconId);
-      map.addLayer({
-        id: iconId, type: "symbol", source: id,
-        layout: { "icon-image": ICON_MATCH_EXPR, "icon-size": 1, "icon-allow-overlap": true, "icon-ignore-placement": true },
-      });
+      // NB: qui c'era anche un layer "symbol" con l'emoji del mezzo dentro il
+      // pallino. Rimosso su richiesta: con l'archivio pieno le iconcine si
+      // impastavano e il colore del pallino dice già il mezzo.
       registraApertura(id);
     };
 
@@ -607,24 +619,18 @@ export function WorldMap({
       map.addLayer({
         id: "trips-waypoints", type: "circle", source: "trips-waypoints",
         paint: {
-          "circle-radius": 7,
+          "circle-radius": raggioPallino,
           "circle-color": TRANSPORT_MATCH_EXPR,
           "circle-stroke-width": 1.5,
           "circle-stroke-color": "#ffffff",
           "circle-opacity": 0.9,
         }
       });
-      if (map.getLayer("trips-waypoints-icons")) map.removeLayer("trips-waypoints-icons");
-      map.addLayer({
-        id: "trips-waypoints-icons", type: "symbol", source: "trips-waypoints",
-        layout: { "icon-image": ICON_MATCH_EXPR, "icon-size": 1, "icon-allow-overlap": true, "icon-ignore-placement": true },
-      });
       // Anche le TAPPE aprono la mini-card del loro viaggio: prima il tocco su
       // Trieste non faceva nulla (l'apertura era registrata solo sui pallini di
-      // destinazione). Su entrambi i layer, perché l'emoji del mezzo sta sopra
-      // il cerchio e il dito può capitare sull'una o sull'altro.
+      // destinazione). Ora c'è un solo layer da registrare: l'emoji del mezzo
+      // sopra il cerchio non esiste più.
       registraApertura("trips-waypoints");
-      registraApertura("trips-waypoints-icons");
     }
 
     // Layer nuovi di zecca: la selezione va riapplicata da zero.

@@ -219,12 +219,38 @@ describe("WorldMap — anche le tappe aprono il viaggio", () => {
     expect(onSelectTrip).toHaveBeenCalledWith(expect.objectContaining({ id: "multi" }));
   });
 
-  it("il click sull'icona del mezzo sulla tappa funziona uguale", async () => {
-    const onSelectTrip = vi.fn();
-    render(<WorldMap trips={TRIPS} selectedId={null} onSelectTrip={onSelectTrip} />);
+  // Il difetto piu' subdolo del giro: l'impostazione "dimensione pallini"
+  // esisteva, si salvava, si rileggeva… e il globo non la guardava. I tre
+  // preset disegnavano tutti raggio 7. Questo test lega il raggio alla scala.
+  it("la scala scelta in Impostazioni arriva davvero al raggio dei pallini", async () => {
+    const raggi = (m: FakeMap) => ["trips-single", "trips-multi", "trips-waypoints"]
+      .map(id => JSON.stringify(m.getLayer(id)?.paint?.["circle-radius"]));
+
+    const a = render(<WorldMap trips={TRIPS} selectedId={null} minMarkerScale={0.3} maxMarkerScale={0.7} />);
     await settle();
-    lastMap!.fire("click:trips-waypoints-icons", { features: [{ properties: { id: "multi" } }] });
-    expect(onSelectTrip).toHaveBeenCalledWith(expect.objectContaining({ id: "multi" }));
+    const piccoli = raggi(lastMap!);
+    a.unmount();
+
+    lastMap = null;
+    render(<WorldMap trips={TRIPS} selectedId={null} minMarkerScale={0.8} maxMarkerScale={1.5} />);
+    await settle();
+    const grandi = raggi(lastMap!);
+
+    expect(piccoli.every(Boolean)).toBe(true);
+    expect(grandi).not.toEqual(piccoli);            // la scala MORDE
+    expect(piccoli.join()).toContain(String(7 * 0.3));
+    expect(grandi.join()).toContain(String(7 * 1.5));
+  });
+
+  it("i pallini non hanno piu' l'icona del mezzo sopra: un solo layer da toccare", async () => {
+    // Le emoji dei mezzi dentro i pallini sono state rimosse (globo affollato:
+    // con 44 punti in Europa centrale si impastavano). Restano i cerchi
+    // colorati per mezzo, e il tocco vive su un layer solo.
+    render(<WorldMap trips={TRIPS} selectedId={null} onSelectTrip={vi.fn()} />);
+    await settle();
+    const idLayer = Array.from(lastMap!.layers.keys());
+    expect(idLayer).toContain("trips-waypoints");            // il pallino c'e'
+    expect(idLayer.filter(id => /-icons$/.test(id))).toEqual([]);   // l'emoji no
   });
 
   // La trappola scoperta dal vivo: rese cliccabili le tappe, il tocco apriva
@@ -239,7 +265,6 @@ describe("WorldMap — anche le tappe aprono il viaggio", () => {
     map.queryRenderedFeatures = (_p?: any, opts?: any) => { if (opts?.layers) interrogati.push(opts.layers); return []; };
     map.fire("click", { point: { x: 1, y: 1 }, lngLat: { lng: 0, lat: 0 } });
     expect(interrogati.some(l => l.includes("trips-waypoints"))).toBe(true);
-    expect(interrogati.some(l => l.includes("trips-waypoints-icons"))).toBe(true);
   });
 });
 

@@ -101,7 +101,7 @@ class ErrorBoundary extends Component<{children:ReactNode},{error:string|null}> 
 
 function HomeInner() {
   const navigate = useNavigate();
-  const { distanceUnit, autoRotate, homeCity } = useSettings();
+  const { distanceUnit, autoRotate, homeCity, minMarkerScale, maxMarkerScale } = useSettings();
   // Inizializzato in modo sincrono (localStorage) invece che [] + effect:
   // così l'invito di benvenuto per chi non ha viaggi non lampeggia mai
   // per un frame agli utenti che invece ne hanno.
@@ -218,6 +218,8 @@ function HomeInner() {
               onSelectTrip={(t) => setSelectedId(t.id)}
               onSelectCity={(city) => setSelectedCity(city)}
               autoRotateSetting={autoRotate}
+              minMarkerScale={minMarkerScale}
+              maxMarkerScale={maxMarkerScale}
               selectionOpen={!!selectedTrip}
             />
 
