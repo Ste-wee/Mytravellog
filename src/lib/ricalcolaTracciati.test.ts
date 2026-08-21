@@ -78,7 +78,7 @@ describe("ricalcolaTracciati — i viaggi su strada rimasti senza percorso", () 
     expect(localStorage.getItem(CHIAVE_TRACCIATI)).toBeTruthy();
   });
 
-  it("gira una volta sola", async () => {
+  it("non ritenta un viaggio già tentato", async () => {
     saveTrips([viaggio()]);
     vi.mocked(fetchDrivingRoute).mockResolvedValue(PERCORSO);
     await ricalcolaTracciati();
@@ -93,5 +93,62 @@ describe("ricalcolaTracciati — i viaggi su strada rimasti senza percorso", () 
     let giri = 0;
     await ricalcolaTracciati(() => ++giri > 1);
     expect(localStorage.getItem(CHIAVE_TRACCIATI)).toBeNull();
+  });
+});
+
+/**
+ * Il caso che ha fatto nascere la riscrittura (segnalato da Stefano il
+ * 2026-08-21): aveva cancellato e ricreato un Milano→Zurigo in auto, il
+ * salvataggio non aveva ottenuto il percorso, e la vecchia rete di sicurezza
+ * — un flag "già girato" per dispositivo — non scattava più. Il viaggio
+ * sarebbe rimasto senza tracciato per sempre.
+ */
+describe("ricalcolaTracciati — la rete di sicurezza non si disarma", () => {
+  beforeEach(() => { localStorage.clear(); vi.clearAllMocks(); });
+
+  it("un viaggio creato DOPO il primo giro viene comunque riparato", async () => {
+    saveTrips([viaggio({ id: "vecchio" })]);
+    vi.mocked(fetchDrivingRoute).mockResolvedValue(PERCORSO);
+    await ricalcolaTracciati();                       // primo giro: ripara il vecchio
+
+    saveTrips([...loadTrips(), viaggio({ id: "zurigo" })]);   // ne arriva uno nuovo
+    vi.mocked(fetchDrivingRoute).mockClear();
+    expect(await ricalcolaTracciati()).toBe(1);
+    expect(loadTrips().find(t => t.id === "zurigo")?.route_geometry).toEqual(PERCORSO);
+    expect(fetchDrivingRoute).toHaveBeenCalledTimes(1);   // e il vecchio NON si ritenta
+  });
+
+  it("un viaggio irreparabile si ritenta, ma solo dopo una settimana", async () => {
+    saveTrips([viaggio({ id: "senza-strade" })]);
+    vi.mocked(fetchDrivingRoute).mockResolvedValue(null);
+    await ricalcolaTracciati();
+    vi.mocked(fetchDrivingRoute).mockClear();
+
+    await ricalcolaTracciati();                       // subito dopo: non si insiste
+    expect(fetchDrivingRoute).not.toHaveBeenCalled();
+
+    const otto = new Date(Date.now() - 8 * 86400000).toISOString();
+    localStorage.setItem(CHIAVE_TRACCIATI, JSON.stringify({ "senza-strade": otto }));
+    vi.mocked(fetchDrivingRoute).mockResolvedValue(PERCORSO);
+    expect(await ricalcolaTracciati()).toBe(1);       // dopo 8 giorni sì
+  });
+
+  it("il vecchio flag (una stringa) non blocca il recupero", async () => {
+    // chi aggiorna l'app ha in memoria il formato vecchio: va ignorato, non
+    // interpretato come "tutto già fatto"
+    localStorage.setItem(CHIAVE_TRACCIATI, "2026-08-20T18:00:00.000Z");
+    saveTrips([viaggio({ id: "zurigo" })]);
+    vi.mocked(fetchDrivingRoute).mockResolvedValue(PERCORSO);
+    expect(await ricalcolaTracciati()).toBe(1);
+  });
+
+  it("i viaggi cancellati escono dall'elenco dei tentativi", async () => {
+    saveTrips([viaggio({ id: "a" }), viaggio({ id: "b" })]);
+    vi.mocked(fetchDrivingRoute).mockResolvedValue(PERCORSO);
+    await ricalcolaTracciati();
+    saveTrips(loadTrips().filter(t => t.id === "a"));   // "b" cancellato
+    await ricalcolaTracciati();
+    const memoria = JSON.parse(localStorage.getItem(CHIAVE_TRACCIATI) ?? "{}");
+    expect(Object.keys(memoria)).toEqual(["a"]);
   });
 });
