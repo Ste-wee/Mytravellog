@@ -195,3 +195,70 @@ describe("paesiVisitati — il nome da mostrare è in ITALIANO", () => {
     expect(v.get("it")?.nome).toBe("Italy");
   });
 });
+
+/**
+ * Il caso Vaticano (2026-08-21, "è un bug! deve disegnarli tutti"): nel
+ * world-atlas il poligono del Vaticano è nel posto sbagliato — 12,43° invece
+ * di 12,45° — e nemmeno il suo centro ufficiale ci cade dentro. Il viaggio
+ * finiva quindi attribuito all'Italia e il paese spariva dal globo.
+ */
+describe("paesiVisitati — i micro-stati hanno comunque la loro bandiera", () => {
+  // Il caso VERO di Stefano: tre viaggi in Italia più uno in Vaticano. Il
+  // punto vaticano cade dentro il poligono italiano (il poligono del Vaticano
+  // nel world-atlas è nel posto sbagliato), e prima si portava via nome e
+  // bandiera dell'Italia — o spariva del tutto.
+  it("Vaticano e Italia convivono: l'Italia resta italiana, il Vaticano ha la sua bandiera", () => {
+    const trips = [
+      viaggio({ id: "a", city: "Trieste", country: "Italia", country_code: "IT", latitude: 45.65, longitude: 13.78 }),
+      viaggio({ id: "b", city: "Ascoli", country: "Italia", country_code: "IT", latitude: 42.85, longitude: 13.57 }),
+      viaggio({ id: "c", city: "Città del Vaticano", country: "Città del Vaticano", country_code: "VA",
+        latitude: 41.90, longitude: 12.45 }),
+    ];
+    const v = [...paesiVisitati(trips, [ITALIA]).values()];
+    const italia = v.find(x => x.paese);
+    const vaticano = v.find(x => x.code === "VA");
+
+    expect(italia!.code).toBe("IT");                  // la maggioranza vince
+    expect(italia!.nome).toBe("Italia");
+    expect(vaticano).toBeDefined();
+    expect(vaticano!.paese).toBeNull();               // nessun poligono: giusto così
+    expect(vaticano!.nome).toBe("Città del Vaticano");
+    expect(vaticano!.posizione).toEqual([12.45, 41.90]);   // bandiera sul punto
+    expect(v.length).toBe(2);
+  });
+
+  it("l'ordine dei viaggi non cambia chi dà nome e bandiera al paese", () => {
+    const vat = viaggio({ id: "c", country: "Città del Vaticano", country_code: "VA", latitude: 41.90, longitude: 12.45 });
+    const it1 = viaggio({ id: "a", country: "Italia", country_code: "IT", latitude: 45.65, longitude: 13.78 });
+    const it2 = viaggio({ id: "b", country: "Italia", country_code: "IT", latitude: 42.85, longitude: 13.57 });
+    for (const ordine of [[vat, it1, it2], [it1, vat, it2], [it1, it2, vat]]) {
+      const v = [...paesiVisitati(ordine, [ITALIA]).values()];
+      expect(v.find(x => x.paese)!.code).toBe("IT");
+    }
+  });
+
+  it("il paese già colorato non riceve una seconda bandiera", () => {
+    const roma = viaggio({ id: "a", country: "Italia", country_code: "IT", latitude: 41.9, longitude: 12.5 });
+    const v = [...paesiVisitati([roma], [ITALIA]).values()];
+    expect(v.length).toBe(1);
+  });
+
+  it("un punto in mezzo all'oceano non piazza bandiere (dato sporco)", () => {
+    const t = viaggio({ country: "Italia", country_code: "IT", latitude: 0, longitude: -30 });
+    expect(paesiVisitati([t], [ITALIA]).size).toBe(0);
+  });
+});
+
+describe("paesiVisitati — niente doppioni di bandiera dentro il Regno Unito", () => {
+  it("un viaggio in Scozia mostra la bandiera scozzese, NON anche l'union jack", () => {
+    // Il viaggio dichiara country_code "GB", ma il poligono è quello scozzese:
+    // senza guardia comparivano due bandiere per lo stesso viaggio.
+    const scozia = quadrato("GB-SCT", "Scozia", -8, 54.6, 0, 61);
+    const t = viaggio({
+      country: "Regno Unito", country_code: "GB", latitude: 56.7, longitude: -3.7,
+      region: "Scozia", region_details: [{ name: "Scozia", code: "GB-SCT" }],
+    } as Partial<Trip>);
+    const v = [...paesiVisitati([t], [scozia]).values()];
+    expect(v.map(x => x.code)).toEqual(["GB-SCT"]);
+  });
+});

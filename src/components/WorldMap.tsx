@@ -438,6 +438,10 @@ export function WorldMap({
         // "Aggiungi come viaggio" di Trieste — un pannello a tutto schermo
         // sopra la card, che poi si mangiava ogni tocco successivo. Assurdo
         // anche nel merito: quella città l'hai già visitata, è nel viaggio.
+        // In modalità paesi il globo si GUARDA, non si modifica: proporre
+        // "Aggiungi come viaggio" toccando un paese colorato è assurdo nel
+        // merito — quel paese è illuminato PERCHÉ ci sei già stato.
+        if (paesiAttiviRef.current) return;
         const handledLayers = ["trips-single", "trips-multi",
           "trips-waypoints", "cities-t1", "cities-t2", "cities-t3"]
           .filter(id => map.getLayer(id));
@@ -975,20 +979,26 @@ export function WorldMap({
 
       const poligoni: GeoJSON.Feature[] = [];
       const bandiere: GeoJSON.Feature[] = [];
-      let sommaLon = 0, sommaLat = 0;
-      for (const { paese, code, nome } of visitati) {
-        // `nome` e non paese.name: è quello in ITALIANO, preso dal viaggio
-        // (il world-atlas conosce solo "Sweden"/"Italy").
-        poligoni.push({ type: "Feature", properties: { nome }, geometry: paese.geometry });
-        const centro = centroPaese(paese);
-        if (!centro) continue;
-        sommaLon += centro[0];
-        sommaLat += centro[1];
+      let sommaLon = 0, sommaLat = 0, quanti = 0;
+      for (const { paese, code, nome, posizione } of visitati) {
+        // Il poligono solo per chi ce l'ha: i micro-stati (Vaticano, San
+        // Marino...) hanno geometrie sbagliate o assenti nel world-atlas, e
+        // arrivano qui senza. La BANDIERA invece spetta a tutti — è ciò che
+        // rende il conteggio della Home e il globo d'accordo.
+        if (paese) {
+          // `nome` e non paese.name: è quello in ITALIANO, preso dal viaggio
+          // (il world-atlas conosce solo "Sweden"/"Italy").
+          poligoni.push({ type: "Feature", properties: { nome }, geometry: paese.geometry });
+        }
+        if (!posizione) continue;
+        sommaLon += posizione[0];
+        sommaLat += posizione[1];
+        quanti++;
         if (code) {
           bandiere.push({
             type: "Feature",
             properties: { icona: IMG_BANDIERA + code.toLowerCase() },
-            geometry: { type: "Point", coordinates: centro },
+            geometry: { type: "Point", coordinates: posizione },
           });
         }
       }
@@ -997,7 +1007,7 @@ export function WorldMap({
       // Ora che i paesi ci sono, i pallini escono di scena: un solo istante di
       // cambio invece di secondi di globo spoglio.
       mostraLayerViaggi(map, false);
-      aggiungiSorgente(map, SRC_PAESI, poligoni);
+      aggiungiSorgente(map, SRC_PAESI, poligoni);   // può essere vuota: solo bandiere
       if (!map.getLayer(LAYER_PAESI_FILL)) {
         map.addLayer({
           id: LAYER_PAESI_FILL, type: "fill", source: SRC_PAESI,
@@ -1012,9 +1022,8 @@ export function WorldMap({
       // La telecamera va sui propri paesi tenendo il GLOBO INTERO in vista
       // (zoom basso apposta): avvicinandosi di più le bandiere sarebbero più
       // grandi ma la sfera uscirebbe dallo schermo e diventerebbe una mappa.
-      if (bandiere.length || poligoni.length) {
-        const n = visitati.length;
-        map.flyTo({ center: [sommaLon / n, sommaLat / n], zoom: zoomGloboRef.current, duration: 1100 });
+      if (quanti > 0) {
+        map.flyTo({ center: [sommaLon / quanti, sommaLat / quanti], zoom: zoomGloboRef.current, duration: 1100 });
       }
 
       // Le bandiere sono immagini di rete: si registrano PRIMA del layer che le

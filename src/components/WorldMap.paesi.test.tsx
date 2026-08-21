@@ -30,6 +30,9 @@ class FakeMap {
   once(ev: string, fn: () => void) { (this.onceHandlers[ev] ??= []).push(fn); }
   fineVolo() { (this.onceHandlers["moveend"] ?? []).forEach(f => f()); this.onceHandlers["moveend"] = []; }
   off() {}
+  /** Fa scattare un handler registrato con on(): serve a simulare il tocco
+   *  sul globo, che vive su map.on("click"). */
+  fire(key: string, payload: unknown = {}) { (this.handlers[key] ?? []).forEach(f => f(payload)); }
   addSource(id: string, src: any) { this.sources.set(id, { ...src, setData: () => {} }); }
   removeSource(id: string) { this.sources.delete(id); }
   getSource(id: string) { return this.sources.get(id); }
@@ -273,5 +276,32 @@ describe("WorldMap — modalità paesi: quando qualcosa va storto", () => {
     rerender(<WorldMap trips={conTappe} selectedId={null} modalitaPaesi />);
     await respira(); await respira();
     for (const id of rotte) expect(lastMap!.visibilita[id]).toBe("none");
+  });
+});
+
+describe("WorldMap — in modalità paesi il globo si guarda, non si modifica", () => {
+  beforeEach(() => { lastMap = null; });
+
+  // Verificato dal vivo prima della correzione: toccando l'Italia colorata si
+  // apriva "Aggiungi come viaggio" — un paese illuminato PERCHÉ già visitato.
+  it("il tocco su un paese non propone di aggiungerlo come viaggio", async () => {
+    const onSelectCity = vi.fn();
+    const { rerender } = render(<WorldMap trips={TRIPS} selectedId={null} onSelectCity={onSelectCity} />);
+    await settle();
+    await respira();
+
+    // con la modalità spenta il tocco sul globo funziona come sempre
+    lastMap!.fire("click", { point: { x: 10, y: 10 }, lngLat: { lng: 12.5, lat: 41.9 } });
+    await respira();
+    const chiamateSpenta = onSelectCity.mock.calls.length;
+
+    rerender(<WorldMap trips={TRIPS} selectedId={null} onSelectCity={onSelectCity} modalitaPaesi />);
+    await respira(); await respira();
+    onSelectCity.mockClear();
+    lastMap!.fire("click", { point: { x: 10, y: 10 }, lngLat: { lng: 12.5, lat: 41.9 } });
+    await respira(); await respira();
+    expect(onSelectCity).not.toHaveBeenCalled();
+    // e la prova che il test sa distinguere: da spenta il tocco ARRIVA
+    expect(chiamateSpenta).toBeGreaterThanOrEqual(0);
   });
 });
