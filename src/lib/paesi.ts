@@ -9,7 +9,7 @@
  */
 import type { Trip } from "@/lib/storage";
 import { loadWorldAtlasCountries, polygonsOf } from "@/lib/worldAtlas";
-import { ISO_NUMERICO_A2 } from "@/lib/isoPaesi";
+import { ISO_NUMERICO_A2, ISO_A2_NUMERICO } from "@/lib/isoPaesi";
 
 /**
  * Le quattro nazioni del Regno Unito contano come paesi a sé.
@@ -365,6 +365,56 @@ export function paesiVisitati(trips: Trip[], paesi: PaeseMondo[]) {
     }
   }
   return visitati;
+}
+
+/**
+ * L'id con cui il world-atlas conosce un paese, dal suo codice a due lettere.
+ *
+ * Serve a chi ha in mano le feature del world-atlas (la mappa del mondo nelle
+ * Statistiche) e vuole trovare il confine di un paese PER CODICE invece che
+ * per posizione — la stessa inversione fatta per il globo.
+ *
+ * Le quattro nazioni del Regno Unito non hanno un confine proprio lì dentro:
+ * la mappa del mondo le disegna dentro il Regno Unito, ed è giusto così — su
+ * un planisfero grande come un francobollo la Scozia da sola non si vedrebbe.
+ * Sul globo invece il confine ce l'hanno (arriva da public/confini/GB.json).
+ */
+export function idAtlante(code: string | null | undefined): string | null {
+  const c = (code ?? "").toUpperCase();
+  if (!c) return null;
+  if (NAZIONI_UK[c]) return ISO_A2_NUMERICO.GB ?? null;
+  return ISO_A2_NUMERICO[c] ?? null;
+}
+
+/**
+ * I paesi toccati da un viaggio (destinazione + tappe), come id del
+ * world-atlas, col nome e il codice da mostrare.
+ *
+ * È il gemello di paesiVisitati per chi lavora con le feature disegnabili:
+ * stessa regola — il paese lo dice il CODICE salvato nel viaggio — e stessa
+ * rete di sicurezza per i dati vecchi senza codice, dove si torna a chiedere
+ * alla geometria.
+ */
+export function paesiToccatiDaViaggio<T extends PaeseGeom>(
+  t: Trip,
+  countries: T[],
+): { id: string; name: string; code: string }[] {
+  const out: { id: string; name: string; code: string }[] = [];
+  const visti = new Set<string>();
+  const aggiungi = (code: string | null, nome: string, lat: number, lon: number) => {
+    const id = idAtlante(code) ?? paeseDelPunto(lon, lat, countries)?.id ?? null;
+    if (!id || visti.has(id)) return;
+    visti.add(id);
+    out.push({ id, name: nome, code: (code ?? "").toUpperCase() });
+  };
+  const p = paeseVisibileDiViaggio(t);
+  aggiungi(p.codice, p.nome, t.latitude, t.longitude);
+  for (const w of t.waypoints ?? []) {
+    if (w.lat == null || w.lon == null) continue;
+    const pw = paeseVisibileDiTappa(w, p);
+    aggiungi(pw.codice, pw.nome, w.lat, w.lon);
+  }
+  return out;
 }
 
 /** Centro visivo di un paese: baricentro dell'anello esterno del poligono PIÙ

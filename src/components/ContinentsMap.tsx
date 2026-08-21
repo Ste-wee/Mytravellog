@@ -6,7 +6,8 @@ import { loadWorldAtlasCountries, polygonsOf } from "@/lib/worldAtlas";
 // La geometria "in quale paese cade il punto" vive in lib/paesi.ts: la usa
 // anche il globo della Home, e la regola del poligono più piccolo (nata dal
 // caso Russia/Lapponia) deve avere UNA sola implementazione.
-import { areaPoligonoCheContiene, deriveCountryId, paeseDelPunto, bboxDiPoligoni, type PaeseGeom } from "@/lib/paesi";
+import { areaPoligonoCheContiene, deriveCountryId, paeseDelPunto, bboxDiPoligoni, paesiToccatiDaViaggio, paeseVisibileDiViaggio, paeseVisibileDiTappa, type PaeseGeom } from "@/lib/paesi";
+import { ISO_A2_CONTINENTE, ISO_NUMERICO_A2 } from "@/lib/isoPaesi";
 export { areaPoligonoCheContiene, deriveCountryId, paeseDelPunto } from "@/lib/paesi";
 import { CountryMapModal } from "@/components/CountryMapModal";
 
@@ -32,6 +33,15 @@ export function allVisitedPoints(trips: LocalTrip[]): { lat: number; lon: number
     }
   }
   return points;
+}
+
+/** Il continente di un paese dal suo codice: un dato, non una stima.
+ *  Esportata per i test: è la regola che ha sostituito i rettangoli. */
+export function continenteDiCodice(code: string | null | undefined): string | null {
+  const c = (code ?? "").toUpperCase();
+  // le nazioni UK (GB-SCT…) stanno in Europa come il Regno Unito
+  const base = c.startsWith("GB-") ? "GB" : c;
+  return ISO_A2_CONTINENTE[base] ?? null;
 }
 
 function classifyContinent(lat: number, lon: number): Continent | null {
@@ -101,6 +111,11 @@ export function ContinentsMap({ trips }: Props) {
     let cancelled = false;
     // Fetch, cache e conversione topojson vivono in worldAtlas.ts (condivisi
     // con posterSvg: prima lo stesso file veniva scaricato due volte a sessione).
+    // 110m e non 50m, misurato: il 50m conosce anche i micro-stati ma porta i
+    // path da 148 KB a 1,4 MB nel DOM e l'apertura della pagina da 620 a 1600
+    // ms. Su un planisfero largo 450 unità il Vaticano occuperebbe un
+    // millesimo di pixel: invisibile comunque. Il globo della Home usa il 50m
+    // perché lì ci si può avvicinare, e infatti lo colora.
     loadWorldAtlasCountries("110m")
       .then((geo) => {
         if (cancelled) return;
@@ -121,70 +136,64 @@ export function ContinentsMap({ trips }: Props) {
     return () => { cancelled = true; };
   }, []);
 
-  // Ogni tappa (waypoint) attraversata conta come "visitata", non solo la
-  // destinazione finale del viaggio.
-  const visitedPoints = useMemo(() => allVisitedPoints(trips), [trips]);
-
+  /**
+   * I continenti visitati, dal CODICE del paese e non dalle coordinate.
+   *
+   * Prima si indovinava con dei rettangoli di latitudine/longitudine, e
+   * sbagliava: Panama finiva in Sud America, le Canarie in Africa. Il
+   * continente di un paese è un dato pubblicato dalla ISO, non una stima
+   * geometrica — vedi ISO_A2_CONTINENTE. I rettangoli restano solo per i
+   * viaggi che un codice paese non ce l'hanno.
+   */
   const visitedContinents = useMemo(() => {
     const set = new Set<Continent>();
-    for (const p of visitedPoints) {
-      const c = classifyContinent(p.lat, p.lon);
-      if (c) set.add(c);
+    for (const t of trips) {
+      const p = paeseVisibileDiViaggio(t);
+      const punti: { code: string | null; lat: number; lon: number }[] = [
+        { code: p.codice, lat: t.latitude, lon: t.longitude },
+        ...(t.waypoints ?? []).filter(w => w.lat != null && w.lon != null)
+          .map(w => ({ code: paeseVisibileDiTappa(w, p).codice, lat: w.lat as number, lon: w.lon as number })),
+      ];
+      for (const punto of punti) {
+        const daCodice = continenteDiCodice(punto.code);
+        const c = (daCodice as Continent | null) ?? classifyContinent(punto.lat, punto.lon);
+        if (c) set.add(c);
+      }
     }
     return set;
-  }, [visitedPoints]);
+  }, [trips]);
 
-  const visitedCountryIds = useMemo(() => {
-    const set = new Set<string>();
-    if (!countries.length) return set;
-    for (const p of visitedPoints) {
-      const c = paeseDelPunto(p.lon, p.lat, countries);
-      if (c) set.add(c.id);
-    }
-    return set;
-  }, [visitedPoints, countries]);
-
-  // Quali viaggi hanno toccato ciascun paese (destinazione o una tappa): serve
-  // a rispondere al tap su un paese visitato con "questi viaggi ci sono stati",
-  // esattamente come i chip in "Elenco dei paesi" (StatsSection) — prima il
-  // tap non faceva assolutamente nulla. Il match è geometrico (stesso
-  // pointInCountry di visitedCountryIds), non per nome/codice paese: i confini
-  // del world-atlas non condividono un identificatore con trip.country_code.
-  // Nello stesso giro geometrico si registra anche NOME e CODICE del paese,
-  // presi dal punto che ci è caduto dentro (tappa o destinazione).
-  //
-  // Prima si usava il primo viaggio dell'elenco: per un paese attraversato solo
-  // di passaggio era il viaggio SBAGLIATO. Un Milano→Trieste→Vienna faceva
-  // aprire, toccando l'ITALIA, un pannello intestato "Austria" con bandiera
-  // austriaca e confini austriaci scaricati — cioè la mappa di un altro paese.
-  const { tripsByCountryId, infoByCountryId } = useMemo(() => {
+  /**
+   * Paesi visitati, viaggi per paese e nome/codice da mostrare: tutto deciso
+   * dal codice salvato nel viaggio, esattamente come sul globo della Home.
+   *
+   * Il match geometrico ("in che poligono cade il punto?") era la fonte di
+   * bug ricorrenti — la Russia visitata da un viaggio in Lapponia, il Vaticano
+   * scambiato per l'Italia — e sopravvive solo come rete di sicurezza dentro
+   * paesiToccatiDaViaggio, per i dati vecchi senza codice.
+   *
+   * Nota storica sul "quali viaggi": prima si teneva il primo viaggio
+   * dell'elenco, e per un paese solo attraversato era quello sbagliato — un
+   * Milano→Trieste→Vienna, toccando l'ITALIA, apriva un pannello intestato
+   * "Austria". Ora ogni paese porta i viaggi che l'hanno davvero toccato.
+   */
+  const { visitedCountryIds, tripsByCountryId, infoByCountryId } = useMemo(() => {
+    const ids = new Set<string>();
     const map = new Map<string, LocalTrip[]>();
     const info = new Map<string, { name: string; code: string }>();
-    if (!countries.length) return { tripsByCountryId: map, infoByCountryId: info };
+    if (!countries.length) return { visitedCountryIds: ids, tripsByCountryId: map, infoByCountryId: info };
     for (const t of trips) {
-      const points = [
-        { lat: t.latitude, lon: t.longitude, name: t.country, code: t.country_code },
-        ...(t.waypoints ?? []).filter(w => w.lat != null && w.lon != null)
-          .map(w => ({ lat: w.lat!, lon: w.lon!, name: w.country, code: w.country_code })),
-      ];
-      const touchedIds = new Set<string>();
-      for (const p of points) {
-        // Stessa regola di visitedCountryIds (poligono più piccolo): altrimenti
-        // il tap su un paese mostrerebbe i viaggi di un altro.
-        const c = paeseDelPunto(p.lon, p.lat, countries);
-        if (!c) continue;
-        touchedIds.add(c.id);
-        // Il primo punto che cade qui dà il nome: è nella lingua dell'utente
-        // e col codice alpha-2, che il topojson non ha (nomi inglesi, id M49).
-        if (!info.has(c.id) && p.name) info.set(c.id, { name: p.name, code: p.code ?? "" });
-      }
-      for (const id of touchedIds) {
-        const arr = map.get(id) ?? [];
+      for (const p of paesiToccatiDaViaggio(t, countries)) {
+        ids.add(p.id);
+        const arr = map.get(p.id) ?? [];
         arr.push(t);
-        map.set(id, arr);
+        map.set(p.id, arr);
+        // Il primo nome utile vince: è nella lingua dell'utente e col codice
+        // alpha-2, che il topojson non ha (nomi inglesi, id numerici).
+        if (!info.has(p.id) && p.name) info.set(p.id, { name: p.name, code: p.code });
       }
     }
-    return { tripsByCountryId: map, infoByCountryId: info };
+    return { visitedCountryIds: ids, tripsByCountryId: map, infoByCountryId: info };
   }, [trips, countries]);
 
   /** Nome del paese come lo chiama l'utente; ripiego sul topojson (inglese). */
@@ -231,7 +240,11 @@ export function ContinentsMap({ trips }: Props) {
           <g clipPath="url(#map-clip)">
             {countries.map((c) => {
               const isVisited = visitedCountryIds.has(c.id);
-              const countryContinent = classifyContinent(c.centroid[1], c.centroid[0]);
+              // Il continente di QUESTO paese: dal suo codice, non dal centroide.
+              // Coi rettangoli, Panama risultava sudamericano e la Spagna si
+              // spezzava fra Europa e Africa per via delle Canarie.
+              const countryContinent = (continenteDiCodice(ISO_NUMERICO_A2[c.id]) as Continent | null)
+                ?? classifyContinent(c.centroid[1], c.centroid[0]);
               const continentVisited = countryContinent ? visitedContinents.has(countryContinent) : false;
               // Il continente visitato è CONTESTO: la scala dei contrasti
               // dell'app dà 0.45 a questo ruolo (0.75 dati, 0.6 etichette), e

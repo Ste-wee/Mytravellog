@@ -1,18 +1,21 @@
 // [GENERATO] Non modificare a mano: rigenerare con `npm run iso`.
 //
-// Corrispondenza fra il codice ISO 3166-1 NUMERICO — quello che il world-atlas
-// usa come id delle sue feature — e il codice a due lettere che il geocoder
-// salva nei viaggi (`country_code`).
+// Due tabelle ISO 3166, entrambe usate per NON dedurre dalla geometria ciò che
+// il geocoder ci ha già detto quando hai salvato il viaggio.
 //
-// Serve a cercare il confine di un paese PER CODICE invece che per posizione.
-// Prima si faceva il contrario: si guardava dove cadeva il punto e si deduceva
-// il paese, e ogni imprecisione della geometria diventava un errore di dato —
-// la Russia "visitata" da un viaggio in Lapponia (antimeridiano), il Vaticano
-// scambiato per Italia (poligono spostato di due chilometri), Monaco sparito
-// (ritagliato dalla Francia e mai ridisegnato).
+// 1. numerico → alpha2: il world-atlas identifica i suoi confini col codice
+//    numerico, i nostri viaggi con quello a due lettere. Serve a cercare il
+//    confine di un paese PER CODICE invece che per posizione — prima si
+//    guardava dove cadeva il punto, e ogni imprecisione del disegno diventava
+//    un errore di dato (la Russia "visitata" dalla Lapponia, il Vaticano
+//    scambiato per Italia, Monaco sparito).
+//
+// 2. alpha2 → continente: prima il continente si indovinava da rettangoli di
+//    latitudine e longitudine, e sbagliava — Panama finiva in Sud America, le
+//    Canarie in Africa. Il continente di un paese è un dato, non una stima.
 //
 // Fonte: https://raw.githubusercontent.com/lukes/ISO-3166-Countries-with-Regional-Codes/master/all/all.json
-// 249 paesi, standard ISO stabile.
+// 249 paesi con codice numerico, 247 con continente.
 export const ISO_NUMERICO_A2: Record<string, string> = {
   "004": "AF", "008": "AL", "010": "AQ", "012": "DZ", "016": "AS", "020": "AD",
   "024": "AO", "028": "AG", "031": "AZ", "032": "AR", "036": "AU", "040": "AT",
@@ -61,3 +64,57 @@ export const ISO_NUMERICO_A2: Record<string, string> = {
 /** L'inverso: dal codice a due lettere all'id numerico del world-atlas. */
 export const ISO_A2_NUMERICO: Record<string, string> = Object.fromEntries(
   Object.entries(ISO_NUMERICO_A2).map(([num, a2]) => [a2, num]));
+
+/** In che continente sta un paese, secondo la ISO (regioni e sotto-regioni). */
+export const ISO_A2_CONTINENTE: Record<string, string> = {
+  "AD": "Europa", "AE": "Asia", "AF": "Asia", "AG": "Nord America", "AI": "Nord America",
+  "AL": "Europa", "AM": "Asia", "AO": "Africa", "AR": "Sud America", "AS": "Oceania",
+  "AT": "Europa", "AU": "Oceania", "AW": "Nord America", "AX": "Europa", "AZ": "Asia",
+  "BA": "Europa", "BB": "Nord America", "BD": "Asia", "BE": "Europa", "BF": "Africa",
+  "BG": "Europa", "BH": "Asia", "BI": "Africa", "BJ": "Africa", "BL": "Nord America",
+  "BM": "Nord America", "BN": "Asia", "BO": "Sud America", "BQ": "Nord America", "BR": "Sud America",
+  "BS": "Nord America", "BT": "Asia", "BV": "Sud America", "BW": "Africa", "BY": "Europa",
+  "BZ": "Nord America", "CA": "Nord America", "CC": "Oceania", "CD": "Africa", "CF": "Africa",
+  "CG": "Africa", "CH": "Europa", "CI": "Africa", "CK": "Oceania", "CL": "Sud America",
+  "CM": "Africa", "CN": "Asia", "CO": "Sud America", "CR": "Nord America", "CU": "Nord America",
+  "CV": "Africa", "CW": "Nord America", "CX": "Oceania", "CY": "Asia", "CZ": "Europa",
+  "DE": "Europa", "DJ": "Africa", "DK": "Europa", "DM": "Nord America", "DO": "Nord America",
+  "DZ": "Africa", "EC": "Sud America", "EE": "Europa", "EG": "Africa", "EH": "Africa",
+  "ER": "Africa", "ES": "Europa", "ET": "Africa", "FI": "Europa", "FJ": "Oceania",
+  "FK": "Sud America", "FM": "Oceania", "FO": "Europa", "FR": "Europa", "GA": "Africa",
+  "GB": "Europa", "GD": "Nord America", "GE": "Asia", "GF": "Sud America", "GG": "Europa",
+  "GH": "Africa", "GI": "Europa", "GL": "Nord America", "GM": "Africa", "GN": "Africa",
+  "GP": "Nord America", "GQ": "Africa", "GR": "Europa", "GS": "Sud America", "GT": "Nord America",
+  "GU": "Oceania", "GW": "Africa", "GY": "Sud America", "HK": "Asia", "HM": "Oceania",
+  "HN": "Nord America", "HR": "Europa", "HT": "Nord America", "HU": "Europa", "ID": "Asia",
+  "IE": "Europa", "IL": "Asia", "IM": "Europa", "IN": "Asia", "IO": "Africa",
+  "IQ": "Asia", "IR": "Asia", "IS": "Europa", "IT": "Europa", "JE": "Europa",
+  "JM": "Nord America", "JO": "Asia", "JP": "Asia", "KE": "Africa", "KG": "Asia",
+  "KH": "Asia", "KI": "Oceania", "KM": "Africa", "KN": "Nord America", "KP": "Asia",
+  "KR": "Asia", "KW": "Asia", "KY": "Nord America", "KZ": "Asia", "LA": "Asia",
+  "LB": "Asia", "LC": "Nord America", "LI": "Europa", "LK": "Asia", "LR": "Africa",
+  "LS": "Africa", "LT": "Europa", "LU": "Europa", "LV": "Europa", "LY": "Africa",
+  "MA": "Africa", "MC": "Europa", "MD": "Europa", "ME": "Europa", "MF": "Nord America",
+  "MG": "Africa", "MH": "Oceania", "MK": "Europa", "ML": "Africa", "MM": "Asia",
+  "MN": "Asia", "MO": "Asia", "MP": "Oceania", "MQ": "Nord America", "MR": "Africa",
+  "MS": "Nord America", "MT": "Europa", "MU": "Africa", "MV": "Asia", "MW": "Africa",
+  "MX": "Nord America", "MY": "Asia", "MZ": "Africa", "NA": "Africa", "NC": "Oceania",
+  "NE": "Africa", "NF": "Oceania", "NG": "Africa", "NI": "Nord America", "NL": "Europa",
+  "NO": "Europa", "NP": "Asia", "NR": "Oceania", "NU": "Oceania", "NZ": "Oceania",
+  "OM": "Asia", "PA": "Nord America", "PE": "Sud America", "PF": "Oceania", "PG": "Oceania",
+  "PH": "Asia", "PK": "Asia", "PL": "Europa", "PM": "Nord America", "PN": "Oceania",
+  "PR": "Nord America", "PS": "Asia", "PT": "Europa", "PW": "Oceania", "PY": "Sud America",
+  "QA": "Asia", "RE": "Africa", "RO": "Europa", "RS": "Europa", "RU": "Europa",
+  "RW": "Africa", "SA": "Asia", "SB": "Oceania", "SC": "Africa", "SD": "Africa",
+  "SE": "Europa", "SG": "Asia", "SH": "Africa", "SI": "Europa", "SJ": "Europa",
+  "SK": "Europa", "SL": "Africa", "SM": "Europa", "SN": "Africa", "SO": "Africa",
+  "SR": "Sud America", "SS": "Africa", "ST": "Africa", "SV": "Nord America", "SX": "Nord America",
+  "SY": "Asia", "SZ": "Africa", "TC": "Nord America", "TD": "Africa", "TF": "Africa",
+  "TG": "Africa", "TH": "Asia", "TJ": "Asia", "TK": "Oceania", "TL": "Asia",
+  "TM": "Asia", "TN": "Africa", "TO": "Oceania", "TR": "Asia", "TT": "Nord America",
+  "TV": "Oceania", "TZ": "Africa", "UA": "Europa", "UG": "Africa", "UM": "Oceania",
+  "US": "Nord America", "UY": "Sud America", "UZ": "Asia", "VA": "Europa", "VC": "Nord America",
+  "VE": "Sud America", "VG": "Nord America", "VI": "Nord America", "VN": "Asia", "VU": "Oceania",
+  "WF": "Oceania", "WS": "Oceania", "YE": "Asia", "YT": "Africa", "ZA": "Africa",
+  "ZM": "Africa", "ZW": "Africa",
+};

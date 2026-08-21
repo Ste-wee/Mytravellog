@@ -24,7 +24,10 @@ const ITALY_LIKE_POLYGON = [[[5, 35], [5, 47], [19, 47], [19, 35], [5, 35]]];
 vi.mock("topojson-client", () => ({
   feature: () => ({
     features: [
-      { id: "1", properties: { name: "Italy" }, geometry: { type: "Polygon", coordinates: ITALY_LIKE_POLYGON } },
+      // id "380": il codice ISO 3166-1 NUMERICO dell'Italia, che è come il
+      // world-atlas identifica i suoi confini. Con un id inventato la mappa
+      // non troverebbe il paese, perché ora lo cerca per codice.
+      { id: "380", properties: { name: "Italy" }, geometry: { type: "Polygon", coordinates: ITALY_LIKE_POLYGON } },
     ],
   }),
 }));

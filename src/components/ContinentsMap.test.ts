@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { splitRingAtAntimeridian, deriveCountryId, allVisitedPoints, ContinentsMap, __clearCountryFeatsCache } from "./ContinentsMap";
+import { splitRingAtAntimeridian, deriveCountryId, allVisitedPoints, ContinentsMap, __clearCountryFeatsCache, continenteDiCodice } from "./ContinentsMap";
 import { __clearWorldAtlasCache } from "@/lib/worldAtlas";
 import type { Trip } from "@/lib/storage";
 import { render, waitFor } from "@testing-library/react";
@@ -151,5 +151,39 @@ describe("ContinentsMap — cache dei confini tra i mount", () => {
     __clearWorldAtlasCache();
     renderMap();
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+  });
+});
+
+/**
+ * Il continente di un paese ora viene dal suo CODICE (tabella ISO), non da
+ * rettangoli di latitudine/longitudine. I rettangoli sbagliavano: Panama
+ * finiva in Sud America perché sta sotto il 12° parallelo.
+ */
+describe("continenteDiCodice — un dato, non una stima", () => {
+  it("Panama è Nord America (i rettangoli dicevano Sud America)", () => {
+    expect(continenteDiCodice("PA")).toBe("Nord America");
+  });
+
+  it("le Canarie seguono la Spagna, in Europa", () => {
+    // un punto alle Canarie (28°N, -16°) cadeva nel rettangolo dell'Africa
+    expect(continenteDiCodice("ES")).toBe("Europa");
+  });
+
+  it("le nazioni UK stanno in Europa come il Regno Unito", () => {
+    expect(continenteDiCodice("GB-SCT")).toBe("Europa");
+    expect(continenteDiCodice("GB")).toBe("Europa");
+  });
+
+  it("gli altri continenti tornano giusti", () => {
+    expect(continenteDiCodice("BR")).toBe("Sud America");
+    expect(continenteDiCodice("JP")).toBe("Asia");
+    expect(continenteDiCodice("EG")).toBe("Africa");
+    expect(continenteDiCodice("NZ")).toBe("Oceania");
+  });
+
+  it("un codice che non esiste non inventa un continente", () => {
+    expect(continenteDiCodice("XX")).toBeNull();
+    expect(continenteDiCodice("")).toBeNull();
+    expect(continenteDiCodice(null)).toBeNull();
   });
 });

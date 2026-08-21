@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { paesiVisitati, centroPaese, bboxDiPoligoni, paeseDelPunto, paeseVisibile, paeseVisibileDiViaggio, paeseVisibileDiTappa, type PaeseMondo } from "./paesi";
+import { paesiVisitati, centroPaese, bboxDiPoligoni, paeseDelPunto, paeseVisibile, paeseVisibileDiViaggio, paeseVisibileDiTappa, paesiToccatiDaViaggio, type PaeseMondo } from "./paesi";
 import type { Trip } from "./storage";
 
 /** Quadrato [minLon,minLat]-[maxLon,maxLat] come paese finto. */
@@ -323,5 +323,39 @@ describe("paesiVisitati — i due casi che la geometria non sa gestire", () => {
     expect(italia!.nome).toBe("Italia");
     expect(v.find(x => x.code === "VA")).toBeDefined();
     expect(v.length).toBe(2);
+  });
+});
+
+describe("paesiToccatiDaViaggio — la mappa del mondo cerca per codice", () => {
+  it("coordinate sbagliate, paese giusto: l'Italia viene trovata lo stesso", () => {
+    // Il punto è in mezzo all'Atlantico, ma il viaggio dichiara IT: la mappa
+    // del mondo deve colorare l'Italia. Col vecchio match geometrico non
+    // trovava niente.
+    const t = viaggio({ country: "Italia", country_code: "IT", latitude: 0, longitude: -30 });
+    expect(paesiToccatiDaViaggio(t, [ITALIA]).map(p => p.id)).toEqual(["380"]);
+  });
+
+  it("le nazioni UK finiscono nel Regno Unito: la mappa del mondo non le disegna a sé", () => {
+    const gb = quadrato("826", "United Kingdom", -8, 50, 2, 59);
+    const t = viaggio({
+      country: "Regno Unito", country_code: "GB", latitude: 56.7, longitude: -3.7,
+      region: "Scozia", region_details: [{ name: "Scozia", code: "GB-SCT" }],
+    } as Partial<Trip>);
+    const toccati = paesiToccatiDaViaggio(t, [gb]);
+    expect(toccati.map(p => p.id)).toEqual(["826"]);
+    expect(toccati[0].name).toBe("Scozia");   // ma il nome resta quello giusto
+  });
+
+  it("senza codice si torna alla geometria (dati vecchi)", () => {
+    const t = viaggio({ country: "", country_code: "", latitude: 41.9, longitude: 12.5 });
+    expect(paesiToccatiDaViaggio(t, [ITALIA]).map(p => p.id)).toEqual(["380"]);
+  });
+
+  it("un paese toccato solo da una TAPPA c'è comunque", () => {
+    const t = viaggio({
+      country: "Austria", country_code: "AT", latitude: 48.2, longitude: 16.37,
+      waypoints: [{ id: "w", city: "Roma", country: "Italia", country_code: "IT", lat: 41.9, lon: 12.5, transport_mode: "car" }],
+    } as Partial<Trip>);
+    expect(paesiToccatiDaViaggio(t, [ITALIA, AUSTRIA]).map(p => p.id).sort()).toEqual(["040", "380"]);
   });
 });
