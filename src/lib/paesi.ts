@@ -260,14 +260,14 @@ export function caricaPaesi(): Promise<PaeseMondo[]> {
  * l'arrivo, e chi attraversa l'Austria per andare a Vienna l'Austria l'ha vista.
  */
 export function paesiVisitati(trips: Trip[], paesi: PaeseMondo[]) {
-  const visitati = new Map<string, { paese: PaeseMondo; code: string | null }>();
+  const visitati = new Map<string, { paese: PaeseMondo; code: string | null; nome: string }>();
   if (!paesi.length) return visitati;
   for (const t of trips) {
     const punti = [
-      { lat: t.latitude, lon: t.longitude, code: t.country_code },
+      { lat: t.latitude, lon: t.longitude, code: t.country_code, nome: t.country },
       ...(t.waypoints ?? [])
         .filter(w => w.lat != null && w.lon != null)
-        .map(w => ({ lat: w.lat as number, lon: w.lon as number, code: w.country_code })),
+        .map(w => ({ lat: w.lat as number, lon: w.lon as number, code: w.country_code, nome: w.country })),
     ];
     for (const p of punti) {
       const c = paeseDelPunto(p.lon, p.lat, paesi);
@@ -277,9 +277,18 @@ export function paesiVisitati(trips: Trip[], paesi: PaeseMondo[]) {
       // non l'union jack: il poligono è quello della Scozia, e una bandiera
       // britannica sopra la Scozia sarebbe una contraddizione visibile.
       const code = NAZIONI_UK[c.id] ? c.id : p.code ?? null;
-      // il primo codice utile vince: i successivi non devono sovrascriverlo con null
-      if (!gia) visitati.set(c.id, { paese: c, code });
-      else if (!gia.code && code) gia.code = code;
+      // Il nome da MOSTRARE: per le nazioni UK il nostro ("Scozia"); per gli
+      // altri quello del viaggio, che il geocoder salva in ITALIANO ("Svezia")
+      // — il world-atlas conosce solo l'inglese ("Sweden"). Il punto caduto
+      // dentro il paese porta il suo: un viaggio in Austria non deve
+      // battezzare l'Austria col nome della destinazione italiana.
+      const nome = NAZIONI_UK[c.id] ?? ((p.nome ?? "").trim() || c.name);
+      // il primo valore utile vince: i successivi non devono sovrascriverlo
+      if (!gia) visitati.set(c.id, { paese: c, code, nome });
+      else {
+        if (!gia.code && code) gia.code = code;
+        if (gia.nome === c.name && nome !== c.name) gia.nome = nome;
+      }
     }
   }
   return visitati;

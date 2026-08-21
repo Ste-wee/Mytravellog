@@ -4,8 +4,12 @@ import { Trip as LocalTrip } from "@/lib/storage";
 import { paeseVisibileDiViaggio, paeseVisibileDiTappa } from "@/lib/paesi";
 import { CountryMapModal } from "@/components/CountryMapModal";
 
-// Total recognized sovereign countries (UN members + observers, commonly used as 195)
-const TOTAL_COUNTRIES = 195;
+// Su quanti "paesi" si calcola la percentuale del mondo visto: i 195
+// riconosciuti (membri ONU + osservatori) MENO il Regno Unito PIÙ le sue
+// quattro nazioni — che da noi contano separate (Scozia, Inghilterra, Galles,
+// Irlanda del Nord). Senza questo aggiustamento chi le visita tutte e quattro
+// supererebbe il numeratore rispetto a una base che le conta come una.
+const TOTAL_COUNTRIES = 195 - 1 + 4;
 
 interface Props {
   trips: LocalTrip[];

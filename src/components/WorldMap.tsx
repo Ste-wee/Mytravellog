@@ -132,6 +132,24 @@ const IMG_BANDIERA = "bandiera-";
  * Storia del valore, tutta a vista dell'utente: 1.5 → 0.8 → 0.5 → 0.8.
  */
 const ZOOM_GLOBO = 0.8;
+/**
+ * Lo zoom si ADATTA al contenitore: 0.8 è tarato sul telefono (contenitore
+ * 358px sul lato corto, sfera al 92%), ma su desktop lo stesso valore lascia
+ * la sfera al 56% dell'altezza — un globo piccolo perso nel cielo.
+ *
+ * Misurato sul dev server (1248×588): il diametro cresce di ~2× per ogni
+ * punto di zoom in più, quindi +log2(latoCorto/358) tiene la PROPORZIONE del
+ * telefono su qualunque schermo. Clamp: mai sotto 0.8 (il telefono resta
+ * esattamente com'è: il valore l'ha scelto Stefano a vista) e mai sopra 1.6
+ * (a 1.7 la sfera sfiora i bordi e il cielo sparisce).
+ */
+const BASE_LATO_CORTO = 358;
+function zoomGloboPer(el: HTMLElement | null): number {
+  const w = el?.clientWidth ?? 0, h = el?.clientHeight ?? 0;
+  const lato = Math.min(w, h);
+  if (lato <= BASE_LATO_CORTO) return ZOOM_GLOBO;   // telefoni e jsdom
+  return Math.min(1.6, ZOOM_GLOBO + Math.log2(lato / BASE_LATO_CORTO));
+}
 /** I layer dei viaggi, che in modalità paesi si fanno da parte. I pallini e
  *  le etichette hanno un id fisso; le ROTTE ne hanno uno per viaggio
  *  ("route-<id>"), quindi si cercano nello stile invece di elencarle. */
@@ -271,6 +289,10 @@ export function WorldMap({
    *  torna lì, così il gesto è reversibile davvero e non lascia la vista
    *  spostata a caso. */
   const vistaPrimaRef = useRef<{ center: [number, number]; zoom: number } | null>(null);
+  /** Lo zoom del globo per QUESTO schermo (vedi zoomGloboPer): calcolato al
+   *  mount e condiviso da init e modalità paesi, così le due viste hanno per
+   *  costruzione la stessa dimensione. */
+  const zoomGloboRef = useRef(ZOOM_GLOBO);
   /** I paesi sono DAVVERO disegnati sul globo — non basta che la modalità sia
    *  richiesta: se i confini non arrivano o nessun viaggio cade in un paese
    *  noto, i pallini devono restare al loro posto invece di lasciare il globo
@@ -334,11 +356,14 @@ export function WorldMap({
       style.glyphs = `https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_KEY}`;
 
       if (!containerRef.current || cancelled) return;
+      // Adesso il contenitore è nel DOM e ha la sua taglia vera: lo zoom si
+      // taglia su di lui (telefono 0.8, schermi larghi fino a 1.6).
+      zoomGloboRef.current = zoomGloboPer(containerRef.current);
       map = new maplibregl.Map({
         container: containerRef.current!,
         style,
         center: [10, 20],
-        zoom: ZOOM_GLOBO,
+        zoom: zoomGloboRef.current,
         attributionControl: false,
       });
       // Se la cleanup è scattata proprio durante l'ultimo await, distruggi
@@ -944,8 +969,10 @@ export function WorldMap({
       const poligoni: GeoJSON.Feature[] = [];
       const bandiere: GeoJSON.Feature[] = [];
       let sommaLon = 0, sommaLat = 0;
-      for (const { paese, code } of visitati) {
-        poligoni.push({ type: "Feature", properties: { nome: paese.name }, geometry: paese.geometry });
+      for (const { paese, code, nome } of visitati) {
+        // `nome` e non paese.name: è quello in ITALIANO, preso dal viaggio
+        // (il world-atlas conosce solo "Sweden"/"Italy").
+        poligoni.push({ type: "Feature", properties: { nome }, geometry: paese.geometry });
         const centro = centroPaese(paese);
         if (!centro) continue;
         sommaLon += centro[0];
@@ -980,7 +1007,7 @@ export function WorldMap({
       // grandi ma la sfera uscirebbe dallo schermo e diventerebbe una mappa.
       if (bandiere.length || poligoni.length) {
         const n = visitati.length;
-        map.flyTo({ center: [sommaLon / n, sommaLat / n], zoom: ZOOM_GLOBO, duration: 1100 });
+        map.flyTo({ center: [sommaLon / n, sommaLat / n], zoom: zoomGloboRef.current, duration: 1100 });
       }
 
       // Le bandiere sono immagini di rete: si registrano PRIMA del layer che le

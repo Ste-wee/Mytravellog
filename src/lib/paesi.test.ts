@@ -172,3 +172,26 @@ describe("centroPaese — l'antimeridiano non sposta la bandiera", () => {
     expect(c[1]).toBeCloseTo(40.6, 0);
   });
 });
+
+describe("paesiVisitati — il nome da mostrare è in ITALIANO", () => {
+  it("usa il nome del viaggio, non quello inglese del world-atlas", () => {
+    // il quadrato si chiama "Italy" (world-atlas), il viaggio dice "Italia"
+    const t = viaggio({ country: "Italia", country_code: "IT" });
+    const v = paesiVisitati([t], [ITALIA]);
+    expect(v.get("it")?.nome).toBe("Italia");
+  });
+
+  it("le nazioni UK tengono il NOSTRO nome anche se il viaggio dice Regno Unito", () => {
+    const scozia: PaeseMondo = { ...quadrato("GB-SCT", "Scozia", -8, 54.6, 0, 61) };
+    const t = viaggio({ country: "Regno Unito", country_code: "GB", latitude: 56.7, longitude: -3.7 });
+    const v = paesiVisitati([t], [scozia]);
+    expect(v.get("GB-SCT")?.nome).toBe("Scozia");
+    expect(v.get("GB-SCT")?.code).toBe("GB-SCT");
+  });
+
+  it("senza nome nel viaggio ricade su quello dell'atlante", () => {
+    const t = viaggio({ country: "", country_code: "IT" });
+    const v = paesiVisitati([t], [ITALIA]);
+    expect(v.get("it")?.nome).toBe("Italy");
+  });
+});
