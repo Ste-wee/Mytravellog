@@ -329,73 +329,56 @@ describe("searchAnyPlace — le due fonti in una lista sola", () => {
 });
 
 /**
- * Il caso Montepulciano (segnalato da Stefano su un suo viaggio vero,
- * 2026-08-21): il geocoder delle città dava un punto a 946 m dal centro
- * storico, perché per i comuni restituisce una posizione "amministrativa".
- * La risposta di Nominatim — che chiediamo già per i monumenti — contiene il
- * nodo del centro abitato: costa zero riusarla per spostare il punto.
+ * Il caso Montepulciano, chiuso il 2026-08-21 dopo averlo MISURATO.
+ *
+ * Segnalazione: "la geolocalizzazione di Montepulciano non è precisa". Vero:
+ * il punto salvato sta a 946 m da Piazza Grande. Ma la cura tentata — spostare
+ * le città sul punto che dà Nominatim — è stata misurata su cinque casi e
+ * PEGGIORAVA in tre: Ascoli Piceno da 78 m a 4390 m, perché per i comuni
+ * Nominatim restituisce il centroide del CONFINE, che per un territorio ampio
+ * cade in campagna. Montepulciano era il caso fortunato.
+ *
+ * E il reverse geocoding dice che non c'è nessun errore da correggere:
+ * il punto di open-meteo cade al civico 13 di Via Mario Mencatelli, DENTRO
+ * il paese. I 946 m sono la distanza tra la parte bassa e il centro storico
+ * in cima al colle — una preferenza, non un difetto del dato.
+ *
+ * Resta quindi una fonte sola per le città. Questi test difendono la scelta:
+ * i risultati "città" di Nominatim non devono rientrare dalla finestra.
  */
-describe("searchAnyPlace — coordinate delle città corrette con OSM", () => {
+describe("searchAnyPlace — le coordinate delle città vengono da UNA fonte sola", () => {
   beforeEach(() => __resetLandmarkCache());
   afterEach(() => vi.unstubAllGlobals());
 
-  const cittaOpenMeteo = (lat: number, lon: number) => ({
-    ok: true, json: async () => ({ results: [
-      { id: 1, name: "Montepulciano", country: "Italia", country_code: "IT", latitude: lat, longitude: lon, feature_code: "PPLA3" },
-    ] }),
-  });
-
-  it("il punto amministrativo viene sostituito da quello del centro abitato", async () => {
-    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
-      if (/geocoding-api/.test(url)) return cittaOpenMeteo(43.09998, 11.78704);  // il dato vero, impreciso
-      return risposta([
-        // Nominatim: il comune (centroide) e il paese (nodo). Nessuno dei due
-        // finisce nella lista — sono città, non monumenti — ma il secondo dice
-        // dove sta davvero Montepulciano.
-        { class: "boundary", type: "administrative", name: "Montepulciano", lat: "43.0945", lon: "11.7827", osm_id: 1,
-          address: { country: "Italia", country_code: "it" } },
-        { class: "place", type: "town", name: "Montepulciano", lat: "43.0927", lon: "11.7810", osm_id: 2,
-          address: { country: "Italia", country_code: "it" } },
-      ]);
-    }));
-    const { searchAnyPlace, __resetLandmarkCache: reset } = await import("./geo");
-    reset();
-    const r = await searchAnyPlace("Montepulciano");
-    const m = r.find(p => p.name === "Montepulciano")!;
-    expect(m.latitude).toBeCloseTo(43.0927, 4);   // il NODO del paese
-    expect(m.longitude).toBeCloseTo(11.7810, 4);
-    // e resta una riga sola: non abbiamo aggiunto risultati alla lista
-    expect(r.filter(p => p.name === "Montepulciano")).toHaveLength(1);
-  });
-
-  it("un omonimo LONTANO non sposta niente (i due Montepulciano distano 131 km)", async () => {
-    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
-      if (/geocoding-api/.test(url)) return cittaOpenMeteo(43.09998, 11.78704);
-      return risposta([
-        { class: "place", type: "hamlet", name: "Montepulciano", lat: "43.4205", lon: "13.3457", osm_id: 3,
-          address: { country: "Italia", country_code: "it" } },
-      ]);
-    }));
-    const { searchAnyPlace, __resetLandmarkCache: reset } = await import("./geo");
-    reset();
-    const r = await searchAnyPlace("Montepulciano");
-    const m = r.find(p => p.name === "Montepulciano")!;
-    expect(m.latitude).toBeCloseTo(43.09998, 4);  // invariato
-  });
-
-  it("un paese diverso non sposta niente, anche se il nome combacia", async () => {
+  it("il centroide del confine comunale NON sposta la città", async () => {
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       if (/geocoding-api/.test(url)) return { ok: true, json: async () => ({ results: [
-        { id: 1, name: "Firenze", country: "Italia", country_code: "IT", latitude: 43.77, longitude: 11.25, feature_code: "PPLA2" },
+        { id: 1, name: "Ascoli Piceno", country: "Italia", country_code: "IT", latitude: 42.8534, longitude: 13.575, feature_code: "PPLA3" },
       ] }) };
+      // il confine comunale di Ascoli ha il centroide a oltre 4 km dal centro
       return risposta([
-        { class: "place", type: "town", name: "Firenze", lat: "43.775", lon: "11.253", osm_id: 4,
-          address: { country: "Stati Uniti", country_code: "us" } },
+        { class: "boundary", type: "administrative", name: "Ascoli Piceno", lat: "42.8151", lon: "13.6006", osm_id: 1,
+          address: { country: "Italia", country_code: "it" } },
       ]);
     }));
     const { searchAnyPlace, __resetLandmarkCache: reset } = await import("./geo");
     reset();
-    const r = await searchAnyPlace("Firenze");
-    expect(r[0].latitude).toBeCloseTo(43.77, 4);
+    const r = await searchAnyPlace("Ascoli Piceno");
+    const a = r.find(p => p.name === "Ascoli Piceno")!;
+    expect(a.latitude).toBeCloseTo(42.8534, 4);   // invariato: niente 4 km di regalo
+    expect(a.longitude).toBeCloseTo(13.575, 4);
+  });
+
+  it("un confine amministrativo non diventa nemmeno una riga della lista", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (/geocoding-api/.test(url)) return { ok: true, json: async () => ({ results: [] }) };
+      return risposta([
+        { class: "boundary", type: "administrative", name: "Montepulciano", lat: "43.0945", lon: "11.7827", osm_id: 1,
+          address: { country: "Italia", country_code: "it" } },
+      ]);
+    }));
+    const { searchAnyPlace, __resetLandmarkCache: reset } = await import("./geo");
+    reset();
+    expect(await searchAnyPlace("Montepulciano")).toEqual([]);
   });
 });
