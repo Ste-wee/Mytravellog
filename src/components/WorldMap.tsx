@@ -196,13 +196,20 @@ async function registraBandiere(map: MapLibreMap, features: GeoJSON.Feature[]) {
     if (!cc) return;
     try {
       if (!map.hasImage(id)) {
-        const r = await fetch(`https://flagcdn.com/w40/${cc}.png`);
+        // w80 e non w40: la stessa bandiera con il doppio dei pixel si legge
+        // meglio sul globo satellitare, dove il fondo è scuro e mosso.
+        const r = await fetch(`https://flagcdn.com/w80/${cc}.png`);
         if (!r.ok) return;
         const bmp = await createImageBitmap(await r.blob());
         // Ricontrolla DOPO l'attesa: due bandiere dello stesso paese possono
         // arrivare insieme, e registrare due volte la stessa immagine è un
         // errore in MapLibre.
-        if (!map.hasImage(id)) map.addImage(id, bmp, { pixelRatio: 3 });
+        // La misura sullo schermo è (larghezza immagine / pixelRatio) ×
+        // icon-size. Prima: 40/3 × 1,05 = 14px. Ora: 80/4 × 1,0 = 20px, cioè
+        // un terzo più grande e con il DOPPIO dei pixel — "leggermente più
+        // leggibili" come chiesto, senza diventare adesivi da valigia
+        // (a pixelRatio 2 venivano 46px: provato, troppo).
+        if (!map.hasImage(id)) map.addImage(id, bmp, { pixelRatio: 4 });
       }
       ok.push(f);
     } catch {
@@ -1021,7 +1028,7 @@ export function WorldMap({
           id: LAYER_BANDIERE, type: "symbol", source: SRC_BANDIERE,
           layout: {
             "icon-image": ["get", "icona"] as unknown as StyleExpr,
-            "icon-size": 1.05, "icon-allow-overlap": true, "icon-ignore-placement": true,
+            "icon-size": 1, "icon-allow-overlap": true, "icon-ignore-placement": true,
           },
         });
       }

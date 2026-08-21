@@ -169,31 +169,6 @@ function HomeInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Il gesto sulla riga dei numeri: su accende la modalità paesi, giù la
-  // spegne. Soglia di 24px perché un tocco fermo non trema mai così tanto, e
-  // decide solo al RILASCIO: chi parte in verticale ma cambia idea non attiva
-  // niente. Il tocco semplice resta gestito da onClick, che è anche la via di
-  // chi naviga da tastiera o con lo screen reader.
-  const inizioGesto = useRef<{ y: number; x: number } | null>(null);
-  const gestoPaesi = {
-    onTouchStart: (e: React.TouchEvent) => {
-      const t = e.touches[0];
-      inizioGesto.current = { y: t.clientY, x: t.clientX };
-    },
-    onTouchEnd: (e: React.TouchEvent) => {
-      const inizio = inizioGesto.current;
-      inizioGesto.current = null;
-      if (!inizio) return;
-      const t = e.changedTouches[0];
-      const dy = inizio.y - t.clientY;
-      // uno scorrimento obliquo non conta: deve essere più verticale che
-      // orizzontale, altrimenti si accende passando il dito per andare altrove
-      if (Math.abs(dy) < 24 || Math.abs(dy) < Math.abs(inizio.x - t.clientX)) return;
-      e.preventDefault();          // niente click "fantasma" dopo lo scorrimento
-      setModalitaPaesi(dy > 0);
-    },
-  };
-
   // Ricalcola distanze per viaggi senza distance_from_home_km quando homeCity è impostata
   useEffect(() => {
     if (!homeCity) return;
@@ -411,26 +386,18 @@ function HomeInner() {
             `${stats.cities} città`,
             `${fmtDistance(stats.km, distanceUnit)} percorsi`,
           ].join(", ");
+          // La riga dei numeri È l'interruttore: un tocco accende i paesi con
+          // le bandiere, un altro torna ai viaggi. Niente maniglia né scritta
+          // d'aiuto sotto il globo (scelta di Stefano: erano 20px di testo per
+          // spiegare un tocco). Il senso lo porta l'aria-label, che cambia con
+          // lo stato e serve anche allo screen reader.
           return (
-          <>
-          {/* Maniglia + indizio: senza, il gesto non lo scoprirebbe nessuno.
-              L'etichetta dice sempre cosa succede ADESSO, non cosa hai fatto. */}
-          <div aria-hidden onClick={() => setModalitaPaesi(v => !v)}
-            style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:5,
-              cursor:"pointer", paddingBottom:2 }}>
-            <div style={{ width:36, height:4, borderRadius:99, background:"rgba(255,255,255,0.22)" }}/>
-            <span style={{ fontSize:10.5, color:"rgba(240,244,255,0.42)" }}>
-              {modalitaPaesi ? "↓ torna ai tuoi viaggi" : "↑ scorri: i paesi che hai visitato"}
-            </span>
-          </div>
           <button type="button" onClick={() => setModalitaPaesi(v => !v)}
-            {...gestoPaesi}
             aria-label={modalitaPaesi
               ? `Le tue statistiche: ${voce}. Torna ai pallini dei viaggi sul globo`
               : `Le tue statistiche: ${voce}. Mostra sul globo i paesi che hai visitato`}
             style={{ display:"flex", alignItems:"center", justifyContent:"center", flexWrap:"wrap",
-              gap:12, width:"100%", padding:"9px 12px", background:"none", border:"none", cursor:"pointer",
-              touchAction:"pan-y" }}>
+              gap:12, width:"100%", padding:"9px 12px", background:"none", border:"none", cursor:"pointer" }}>
             {[
               { Icona: Plane,  valore: fmtNumber(stats.trips),     chiave:"viaggi", colore:"#f0f4ff", iconaColore:"#60a5fa" },
               { Icona: Globe,  valore: fmtNumber(stats.countries), chiave:"paesi",  colore:"#f0f4ff", iconaColore:"#60a5fa" },
@@ -449,7 +416,6 @@ function HomeInner() {
               </span>
             ))}
           </button>
-          </>
           );
         })()}
       </div>

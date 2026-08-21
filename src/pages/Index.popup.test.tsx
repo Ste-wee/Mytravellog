@@ -242,3 +242,24 @@ describe("Home — riga-sommario sotto il globo", () => {
     expect(dopo.getAttribute("aria-label")).toMatch(/pallini dei viaggi/i);
   });
 });
+
+describe("Home — niente maniglia sotto il globo", () => {
+  beforeEach(() => { localStorage.clear(); mockNavigate.mockClear(); });
+
+  // Scelta di Stefano (2026-08-21): via la maniglia e la scritta "torna ai
+  // tuoi viaggi" — le bandiere si accendono SOLO toccando i quattro numeri.
+  it("non c'è nessuna scritta d'aiuto sotto il globo, in nessuno dei due stati", async () => {
+    addTrip(baseTrip());
+    renderHome();
+    const riga = await screen.findByRole("button", { name: /statistiche/i });
+    expect(screen.queryByText(/scorri/i)).toBeNull();
+    expect(screen.queryByText(/torna ai tuoi viaggi/i)).toBeNull();
+
+    fireEvent.click(riga);   // modalità paesi accesa
+    expect(screen.queryByText(/torna ai tuoi viaggi/i)).toBeNull();
+    expect(screen.queryByText(/scorri/i)).toBeNull();
+    // ma chi ascolta capisce comunque cosa succede col prossimo tocco
+    expect((await screen.findByRole("button", { name: /statistiche/i })).getAttribute("aria-label"))
+      .toMatch(/Torna ai pallini/i);
+  });
+});
