@@ -104,3 +104,41 @@ describe("ContinentsMap — errore nel caricamento dei confini", () => {
     expect(await screen.findByText(/non è stato possibile caricare la mappa/i)).toBeInTheDocument();
   });
 });
+
+/**
+ * La mappa del mondo dice UNA cosa sola: i continenti che hai toccato.
+ * Prima diceva due cose insieme — gli stati visitati in azzurro pieno sopra i
+ * continenti in blu tenue — e Stefano ha chiesto di tenere solo la seconda
+ * (i singoli paesi li mostrano il globo della Home e i chip qui sotto).
+ */
+describe("ContinentsMap — un solo livello: i continenti", () => {
+  beforeEach(() => { __clearCountryFeatsCache(); __clearWorldAtlasCache(); });
+  afterEach(() => vi.restoreAllMocks());
+
+  const fill = (c: HTMLElement) =>
+    [...c.querySelectorAll("path")].map(p => (p.getAttribute("fill") ?? "").toLowerCase());
+
+  it("lo stato visitato NON ha più un colore tutto suo", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ objects: { countries: {} } }) });
+    const { container } = render(<ContinentsMap trips={[makeTrip()]} />);
+    await screen.findByRole("button", { name: /Viaggi in Italia/ });
+    // #0ea5e9 era l'azzurro pieno del paese visitato: non deve più comparire
+    expect(fill(container).some(f => f.includes("0ea5e9"))).toBe(false);
+  });
+
+  it("il continente visitato è evidenziato, gli altri no", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ objects: { countries: {} } }) });
+    const { container } = render(<ContinentsMap trips={[makeTrip()]} />);
+    await screen.findByRole("button", { name: /Viaggi in Italia/ });
+    const colori = fill(container);
+    expect(colori.some(f => f.includes("96,165,250"))).toBe(true);   // Europa accesa
+    expect(colori.some(f => f.includes("16233d"))).toBe(false);      // (un solo paese finto: niente spenti)
+  });
+
+  it("il tocco sullo stato visitato continua a funzionare, anche senza colore", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ objects: { countries: {} } }) });
+    render(<ContinentsMap trips={[makeTrip()]} />);
+    const italia = await screen.findByRole("button", { name: /Viaggi in Italia/ });
+    expect(italia).toBeInTheDocument();
+  });
+});

@@ -246,16 +246,17 @@ export function ContinentsMap({ trips }: Props) {
               const countryContinent = (continenteDiCodice(ISO_NUMERICO_A2[c.id]) as Continent | null)
                 ?? classifyContinent(c.centroid[1], c.centroid[0]);
               const continentVisited = countryContinent ? visitedContinents.has(countryContinent) : false;
-              // Il continente visitato è CONTESTO: la scala dei contrasti
-              // dell'app dà 0.45 a questo ruolo (0.75 dati, 0.6 etichette), e
-              // 0.22 era metà della soglia — l'Europa si doveva cercare. A 0.42
-              // si legge a colpo d'occhio senza toccare la gerarchia: il blu
-              // pieno resta l'unico segno del paese davvero visitato.
-              const fill = isVisited
-                ? "#0ea5e9"
-                : continentVisited
-                  ? "rgba(96,165,250,0.42)"
-                  : "#16233d";
+              // UN SOLO LIVELLO: il continente visitato, e basta (scelta di
+              // Stefano, 2026-08-21). Prima erano due — lo stato visitato in
+              // azzurro pieno sopra il continente in blu tenue — e la mappa
+              // raccontava due cose insieme; i singoli paesi li mostrano già
+              // il globo della Home e i chip dell'elenco qui sotto.
+              //
+              // 0.55 e non più 0.42: quel valore era tarato per fare da SFONDO
+              // sotto gli stati pieni (ruolo "contesto" della scala dei
+              // contrasti). Ora che è l'unico segno della mappa può prendersi
+              // il peso di un dato, senza diventare sgargiante.
+              const fill = continentVisited ? "rgba(96,165,250,0.55)" : "#16233d";
               return (
                 <path
                   key={c.id}
@@ -264,6 +265,10 @@ export function ContinentsMap({ trips }: Props) {
                   stroke="#060e1e"
                   strokeWidth={0.5}
                   strokeLinejoin="round"
+                  // Il tocco resta sugli stati VISITATI (apre i loro viaggi e le
+                  // regioni), anche se ora non hanno più un colore proprio che
+                  // lo annunci: la funzione non si perde, e chi la cerca la
+                  // trova comunque dai chip "Elenco dei paesi".
                   onClick={isVisited ? () => handleCountryClick(c) : undefined}
                   onKeyDown={isVisited ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleCountryClick(c); } } : undefined}
                   tabIndex={isVisited ? 0 : undefined}
