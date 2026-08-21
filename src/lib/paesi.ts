@@ -9,6 +9,7 @@
  */
 import type { Trip } from "@/lib/storage";
 import { loadWorldAtlasCountries, polygonsOf } from "@/lib/worldAtlas";
+import { ISO_NUMERICO_A2 } from "@/lib/isoPaesi";
 
 /**
  * Le quattro nazioni del Regno Unito contano come paesi a sé.
@@ -84,6 +85,15 @@ export function paeseVisibileDiTappa(
     && !!paeseDelViaggio.codice && !!NAZIONI_UK[paeseDelViaggio.codice];
   return eredita ? paeseDelViaggio : { nome: (w.country ?? "").trim(), codice: w.country_code ?? null };
 }
+
+/**
+ * NB storico: qui viveva una lista di micro-stati "con geometria inaffidabile"
+ * (Vaticano e Monaco), da trattare a parte. Non serve più: da quando il paese
+ * lo decide il codice del viaggio e il confine si cerca per codice, quei due
+ * non sono più casi speciali — sono paesi come gli altri, e il fatto che il
+ * loro poligono sia impreciso non toglie nulla al conteggio né alla bandiera.
+ * Una pezza in meno è meglio di una pezza migliore.
+ */
 
 /** Il minimo che serve per rispondere "il punto è dentro?": niente disegno. */
 export type PaeseGeom = {
@@ -267,114 +277,93 @@ export function caricaPaesi(): Promise<PaeseMondo[]> {
  * l'arrivo, e chi attraversa l'Austria per andare a Vienna l'Austria l'ha vista.
  */
 export type PaeseVisitato = {
-  /** Il poligono da colorare, se il dataset ne ha uno affidabile. */
+  /** Il confine da colorare, se il dataset ne ha uno per questo paese. */
   paese: PaeseMondo | null;
   code: string | null;
   nome: string;
-  /** Dove mettere la bandiera: il centro del paese, o il punto del viaggio
-   *  per chi un poligono non ce l'ha. */
+  /** Dove va la bandiera: il centro del paese, o il punto del viaggio per chi
+   *  un confine non ce l'ha. */
   posizione: [number, number] | null;
 };
 
+/**
+ * I paesi visitati, decisi dal CODICE che il geocoder ha salvato nel viaggio.
+ *
+ * Questa funzione è stata riscritta da zero il 2026-08-21, e il motivo merita
+ * di essere ricordato. Prima il paese si DEDUCEVA dalla geometria: si guardava
+ * dove cadeva il punto e si prendeva il poligono che lo conteneva. Sembra
+ * naturale, ed è stata la fonte di ogni guaio avuto con questa mappa:
+ *
+ *  - la Russia risultava visitata per un viaggio in Lapponia, perché il suo
+ *    poligono scavalca l'antimeridiano e il ray casting sbagliava;
+ *  - il Vaticano finiva attribuito all'Italia: il suo confine, nel dataset, è
+ *    disegnato due chilometri più a ovest di dov'è davvero;
+ *  - Monaco spariva del tutto: il suo poligono è impreciso e la Francia ha il
+ *    buco al posto giusto, quindi il punto non cadeva da nessuna parte;
+ *  - e ogni rimedio era una pezza sopra la precedente (il poligono più
+ *    piccolo, la maggioranza dei punti, una lista di eccezioni scritta a mano).
+ *
+ * Il paese però lo sappiamo già: lo dice il geocoder quando salvi il viaggio,
+ * ed è nel dato (country_code). La geometria non serve a sapere DOVE sei
+ * stato, serve solo a disegnarne il confine — e quindi si cerca per codice,
+ * con la tabella ISO. Se un confine manca o è sbagliato, il paese resta
+ * comunque nell'elenco: prende la bandiera, piantata sul punto del viaggio.
+ * Niente più liste di eccezioni, e i casi qui sopra diventano impossibili per
+ * costruzione.
+ *
+ * Il vecchio metodo sopravvive come RETE DI SICUREZZA per i viaggi salvati
+ * senza codice paese (dati vecchi): lì la geometria è tutto ciò che abbiamo.
+ */
 export function paesiVisitati(trips: Trip[], paesi: PaeseMondo[]) {
   const visitati = new Map<string, PaeseVisitato>();
-  /** I punti caduti DENTRO un paese: solo loro possono chiedere una bandiera
-   *  senza poligono. Un punto in mezzo all'oceano (dato sporco) non inventa
-   *  nulla, com'era prima. */
-  const atterrati: { code: string | null; nome: string; lon: number; lat: number; idPaese: string }[] = [];
-  /** Per ogni poligono, quante volte ci è caduto ciascun codice paese. */
-  const conteggioCodici = new Map<string, Map<string, number>>();
   if (!paesi.length) return visitati;
-  for (const t of trips) {
-    const punti = [
-      { lat: t.latitude, lon: t.longitude, code: t.country_code, nome: t.country },
-      ...(t.waypoints ?? [])
-        .filter(w => w.lat != null && w.lon != null)
-        .map(w => ({ lat: w.lat as number, lon: w.lon as number, code: w.country_code, nome: w.country })),
-    ];
-    for (const p of punti) {
-      const c = paeseDelPunto(p.lon, p.lat, paesi);
-      if (!c) continue;
-      // Punto su terraferma: se il viaggio dichiara un paese diverso da quello
-      // del poligono, se ne riparla sotto (micro-stati).
-      atterrati.push({ code: p.code ?? null, nome: p.nome ?? "", lon: p.lon, lat: p.lat, idPaese: c.id });
-      // Quante volte ogni codice è caduto in questo poligono: serve subito
-      // sotto per battezzarlo con la MAGGIORANZA e non col primo arrivato —
-      // in Italia cadono tre viaggi italiani e uno in Vaticano, e non deve
-      // decidere l'ordine di lettura chi dà il nome (e la bandiera) al paese.
-      if (p.code) {
-        const per = conteggioCodici.get(c.id) ?? new Map<string, number>();
-        per.set(p.code.toUpperCase(), (per.get(p.code.toUpperCase()) ?? 0) + 1);
-        conteggioCodici.set(c.id, per);
-      }
-      const gia = visitati.get(c.id);
-      // Dentro il Regno Unito la bandiera è quella della nazione (gb-sct...),
-      // non l'union jack: il poligono è quello della Scozia, e una bandiera
-      // britannica sopra la Scozia sarebbe una contraddizione visibile.
-      const code = NAZIONI_UK[c.id] ? c.id : p.code ?? null;
-      // Il nome da MOSTRARE: per le nazioni UK il nostro ("Scozia"); per gli
-      // altri quello del viaggio, che il geocoder salva in ITALIANO ("Svezia")
-      // — il world-atlas conosce solo l'inglese ("Sweden"). Il punto caduto
-      // dentro il paese porta il suo: un viaggio in Austria non deve
-      // battezzare l'Austria col nome della destinazione italiana.
-      const nome = NAZIONI_UK[c.id] ?? ((p.nome ?? "").trim() || c.name);
-      // il primo valore utile vince: i successivi non devono sovrascriverlo
-      if (!gia) visitati.set(c.id, { paese: c, code, nome, posizione: centroPaese(c) });
-      else {
-        if (!gia.code && code) gia.code = code;
-        if (gia.nome === c.name && nome !== c.name) gia.nome = nome;
-      }
-    }
+
+  // Indice dei confini per codice a due lettere: le nazioni UK hanno già l'id
+  // giusto (GB-SCT), gli altri passano dalla tabella ISO numerico → alpha2.
+  const perCodice = new Map<string, PaeseMondo>();
+  for (const p of paesi) {
+    const code = NAZIONI_UK[p.id] ? p.id : ISO_NUMERICO_A2[p.id];
+    if (code && !perCodice.has(code)) perCodice.set(code, p);
   }
 
-  // Il codice (e quindi la bandiera) di ogni paese colorato è quello caduto
-  // più volte dentro il suo poligono: con tre viaggi in Italia e uno in
-  // Vaticano l'Italia resta italiana, e il Vaticano prende la sua bandiera
-  // qui sotto. Limite noto e accettato: chi visita SOLO il Vaticano e mai
-  // l'Italia vedrà comunque l'Italia colorata — per evitarlo servirebbe la
-  // tabella ISO numerico→alpha2, che oggi non abbiamo.
-  for (const [id, per] of conteggioCodici) {
-    const voce = visitati.get(id);
-    if (!voce || NAZIONI_UK[id]) continue;      // le nazioni UK hanno già il loro
-    let vincitore = voce.code, max = -1;
-    for (const [code, n] of per) if (n > max) { max = n; vincitore = code; }
-    if (vincitore && vincitore !== voce.code) {
-      voce.code = vincitore;
-      // il nome deve seguire la bandiera: preso da un punto con QUEL codice
-      const conNome = atterrati.find(a => (a.code ?? "").toUpperCase() === vincitore && a.nome);
-      if (conNome) voce.nome = conNome.nome;
+  const aggiungi = (code: string | null | undefined, nome: string, lon: number, lat: number) => {
+    const c = (code ?? "").toUpperCase();
+    if (!c) return;
+    const gia = visitati.get(c);
+    if (gia) {
+      if (!gia.nome && nome) gia.nome = nome;   // il primo nome utile resta
+      return;
     }
-  }
-
-  // ── I paesi che la geometria non sa disegnare ─────────────────────────────
-  // Non è un caso di scuola: **il poligono del Vaticano nel world-atlas è nel
-  // posto sbagliato** (sta a 12,43° di longitudine, il Vaticano vero a 12,45°:
-  // nemmeno il suo centro ufficiale ci cade dentro), e lo stesso vale per gli
-  // altri micro-stati, ridotti a sei vertici. Un viaggio a Città del Vaticano
-  // finiva quindi attribuito all'Italia: la Home contava 7 paesi e il globo ne
-  // colorava 6. Stefano: "è un bug! deve disegnarli tutti, è giusto che il
-  // Vaticano sia presente anche come bandiera".
-  //
-  // Rimedio: se un viaggio dichiara un paese che nessun poligono rappresenta,
-  // la sua BANDIERA compare lo stesso, piantata sul punto del viaggio. Il
-  // poligono resta assente — meglio nessun confine che un confine sbagliato.
-  const codiciCoperti = new Set(
-    [...visitati.values()].map(v => (v.code ?? "").toUpperCase()).filter(Boolean));
-  for (const q of atterrati) {
-    const code = (q.code ?? "").toUpperCase();
-    if (!code || codiciCoperti.has(code)) continue;
-    // Il punto è già rappresentato dal paese in cui è caduto: niente bandiera
-    // in più. Vale soprattutto dentro il Regno Unito, dove il viaggio dichiara
-    // "GB" ma il poligono è quello della Scozia (GB-SCT) — senza questa
-    // guardia comparivano DUE bandiere, l'union jack accanto a quella
-    // scozzese, per lo stesso viaggio.
-    if (NAZIONI_UK[q.idPaese] && code === "GB") continue;
-    codiciCoperti.add(code);
-    visitati.set("solo-bandiera-" + code, {
-      paese: null, code, nome: q.nome || code, posizione: [q.lon, q.lat],
+    const confine = perCodice.get(c) ?? null;
+    visitati.set(c, {
+      paese: confine,
+      code: c,
+      nome: nome || confine?.name || c,
+      // il centro del paese se il confine c'è, altrimenti il punto del viaggio
+      posizione: (confine && centroPaese(confine)) || [lon, lat],
     });
-  }
+  };
 
+  /** Rete di sicurezza per i punti senza codice: si torna a chiedere al
+   *  poligono, come si faceva prima. */
+  const daGeometria = (lon: number, lat: number, nome: string) => {
+    const c = paeseDelPunto(lon, lat, paesi);
+    if (!c) return;
+    aggiungi(NAZIONI_UK[c.id] ? c.id : ISO_NUMERICO_A2[c.id], nome || c.name, lon, lat);
+  };
+
+  for (const t of trips) {
+    const p = paeseVisibileDiViaggio(t);
+    if (p.codice) aggiungi(p.codice, p.nome, t.longitude, t.latitude);
+    else daGeometria(t.longitude, t.latitude, p.nome);
+
+    for (const w of t.waypoints ?? []) {
+      if (w.lat == null || w.lon == null) continue;
+      const pw = paeseVisibileDiTappa(w, p);
+      if (pw.codice) aggiungi(pw.codice, pw.nome, w.lon, w.lat);
+      else daGeometria(w.lon, w.lat, pw.nome);
+    }
+  }
   return visitati;
 }
 

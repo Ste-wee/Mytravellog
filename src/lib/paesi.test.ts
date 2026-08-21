@@ -9,9 +9,12 @@ const quadrato = (id: string, name: string, a: number, b: number, c: number, d: 
   return { id, name, polygons, bbox: bboxDiPoligoni(polygons), geometry: { type: "Polygon", coordinates: [anello] } };
 };
 
-const ITALIA = quadrato("it", "Italy", 6, 36, 19, 47);
-const AUSTRIA = quadrato("at", "Austria", 9, 46, 17, 49);
-const SVEZIA = quadrato("se", "Sweden", 11, 55, 24, 69);
+// Gli id sono quelli VERI del world-atlas: il codice ISO 3166-1 numerico.
+// Con id inventati ("it") l'indice per codice non troverebbe niente e i test
+// passerebbero senza provare nulla.
+const ITALIA = quadrato("380", "Italy", 6, 36, 19, 47);
+const AUSTRIA = quadrato("040", "Austria", 9, 46, 17, 49);
+const SVEZIA = quadrato("752", "Sweden", 11, 55, 24, 69);
 
 const viaggio = (over: Partial<Trip>): Trip => ({
   id: "t", created_at: "2026-01-01T00:00:00.000Z", title: "T", city: "C",
@@ -21,33 +24,45 @@ const viaggio = (over: Partial<Trip>): Trip => ({
   ...over,
 } as Trip);
 
-describe("paesiVisitati", () => {
+describe("paesiVisitati — il paese lo dice il VIAGGIO, la geometria lo disegna", () => {
   it("conta anche i paesi delle TAPPE, non solo la destinazione", () => {
-    // Milano → Vienna passando per l'Italia: l'Austria è l'arrivo, ma l'Italia
-    // è stata attraversata e va contata (il dato per-viaggio dice solo l'arrivo).
+    // Milano → Vienna passando per Trieste: l'Austria è l'arrivo, ma l'Italia
+    // è stata attraversata e va contata.
     const t = viaggio({
-      latitude: 48.2, longitude: 16.37, country_code: "AT",
+      latitude: 48.2, longitude: 16.37, country: "Austria", country_code: "AT",
       waypoints: [{ id: "w", city: "Trieste", country: "Italia", country_code: "IT", lat: 45.65, lon: 13.78, transport_mode: "car" }],
     } as Partial<Trip>);
     const visitati = paesiVisitati([t], [ITALIA, AUSTRIA, SVEZIA]);
-    expect([...visitati.keys()].sort()).toEqual(["at", "it"]);
+    expect([...visitati.keys()].sort()).toEqual(["AT", "IT"]);
   });
 
-  it("la bandiera è quella del punto caduto DENTRO quel paese", () => {
-    // la destinazione è austriaca, la tappa italiana: l'Italia non deve
-    // ereditare la bandiera austriaca della destinazione
+  it("ogni paese porta la propria bandiera, non quella della destinazione", () => {
     const t = viaggio({
-      latitude: 48.2, longitude: 16.37, country_code: "AT",
+      latitude: 48.2, longitude: 16.37, country: "Austria", country_code: "AT",
       waypoints: [{ id: "w", city: "Roma", country: "Italia", country_code: "IT", lat: 41.9, lon: 12.5, transport_mode: "car" }],
     } as Partial<Trip>);
     const visitati = paesiVisitati([t], [ITALIA, AUSTRIA]);
-    expect(visitati.get("it")?.code).toBe("IT");
-    expect(visitati.get("at")?.code).toBe("AT");
+    expect(visitati.get("IT")?.code).toBe("IT");
+    expect(visitati.get("AT")?.code).toBe("AT");
   });
 
-  it("un punto fuori da ogni paese non inventa nulla (oceano)", () => {
-    const t = viaggio({ latitude: 0, longitude: -30, waypoints: [] });
-    expect(paesiVisitati([t], [ITALIA, AUSTRIA]).size).toBe(0);
+  it("il confine si cerca per CODICE: niente più deduzioni dalla posizione", () => {
+    // Coordinate palesemente sbagliate (in mezzo all'Atlantico) ma paese
+    // dichiarato: il viaggio in Italia resta un viaggio in Italia, e il
+    // confine italiano viene colorato lo stesso. Prima spariva.
+    const t = viaggio({ country: "Italia", country_code: "IT", latitude: 0, longitude: -30 });
+    const v = paesiVisitati([t], [ITALIA]);
+    expect(v.get("IT")?.paese?.id).toBe("380");
+  });
+
+  it("senza codice paese si torna a chiedere alla geometria (dati vecchi)", () => {
+    const t = viaggio({ country: "", country_code: "", latitude: 41.9, longitude: 12.5 });
+    expect([...paesiVisitati([t], [ITALIA]).keys()]).toEqual(["IT"]);
+  });
+
+  it("senza codice E fuori da ogni confine non inventa nulla", () => {
+    const t = viaggio({ country: "", country_code: "", latitude: 0, longitude: -30 });
+    expect(paesiVisitati([t], [ITALIA]).size).toBe(0);
   });
 
   it("senza paesi caricati non esplode", () => {
@@ -55,8 +70,8 @@ describe("paesiVisitati", () => {
   });
 
   it("lo stesso paese visitato due volte compare una volta sola", () => {
-    const a = viaggio({ id: "a", latitude: 41.9, longitude: 12.5 });
-    const b = viaggio({ id: "b", latitude: 45.4, longitude: 9.2 });
+    const a = viaggio({ id: "a", country_code: "IT", latitude: 41.9, longitude: 12.5 });
+    const b = viaggio({ id: "b", country_code: "IT", latitude: 45.4, longitude: 9.2 });
     expect(paesiVisitati([a, b], [ITALIA]).size).toBe(1);
   });
 });
@@ -87,9 +102,9 @@ describe("paeseDelPunto — la regola del poligono più piccolo, condivisa", () 
   it("fra due paesi sovrapposti vince il più piccolo (caso Russia/Lapponia)", () => {
     // il "gigante" simula il poligono russo che avvolge il mondo
     const gigante = quadrato("ru", "Russia", -180, 30, 180, 80);
-    expect(paeseDelPunto(18.8, 68.3, [gigante, SVEZIA])?.id).toBe("se");
+    expect(paeseDelPunto(18.8, 68.3, [gigante, SVEZIA])?.id).toBe("752");
     // ...e l'ordine dell'elenco non deve contare
-    expect(paeseDelPunto(18.8, 68.3, [SVEZIA, gigante])?.id).toBe("se");
+    expect(paeseDelPunto(18.8, 68.3, [SVEZIA, gigante])?.id).toBe("752");
   });
 });
 
@@ -178,12 +193,16 @@ describe("paesiVisitati — il nome da mostrare è in ITALIANO", () => {
     // il quadrato si chiama "Italy" (world-atlas), il viaggio dice "Italia"
     const t = viaggio({ country: "Italia", country_code: "IT" });
     const v = paesiVisitati([t], [ITALIA]);
-    expect(v.get("it")?.nome).toBe("Italia");
+    expect(v.get("IT")?.nome).toBe("Italia");
   });
 
   it("le nazioni UK tengono il NOSTRO nome anche se il viaggio dice Regno Unito", () => {
     const scozia: PaeseMondo = { ...quadrato("GB-SCT", "Scozia", -8, 54.6, 0, 61) };
-    const t = viaggio({ country: "Regno Unito", country_code: "GB", latitude: 56.7, longitude: -3.7 });
+    // il viaggio dichiara GB, ma la REGIONE dice Scozia: vince la nazione
+    const t = viaggio({
+      country: "Regno Unito", country_code: "GB", latitude: 56.7, longitude: -3.7,
+      region: "Scozia", region_details: [{ name: "Scozia", code: "GB-SCT" }],
+    } as Partial<Trip>);
     const v = paesiVisitati([t], [scozia]);
     expect(v.get("GB-SCT")?.nome).toBe("Scozia");
     expect(v.get("GB-SCT")?.code).toBe("GB-SCT");
@@ -192,7 +211,7 @@ describe("paesiVisitati — il nome da mostrare è in ITALIANO", () => {
   it("senza nome nel viaggio ricade su quello dell'atlante", () => {
     const t = viaggio({ country: "", country_code: "IT" });
     const v = paesiVisitati([t], [ITALIA]);
-    expect(v.get("it")?.nome).toBe("Italy");
+    expect(v.get("IT")?.nome).toBe("Italy");
   });
 });
 
@@ -243,9 +262,13 @@ describe("paesiVisitati — i micro-stati hanno comunque la loro bandiera", () =
     expect(v.length).toBe(1);
   });
 
-  it("un punto in mezzo all'oceano non piazza bandiere (dato sporco)", () => {
+  it("coordinate sbagliate non cancellano il paese dichiarato", () => {
+    // Prima un punto fuori dai confini spariva dal globo. Ora il paese lo dice
+    // il viaggio: l'Italia resta, e il suo confine viene colorato.
     const t = viaggio({ country: "Italia", country_code: "IT", latitude: 0, longitude: -30 });
-    expect(paesiVisitati([t], [ITALIA]).size).toBe(0);
+    const v = paesiVisitati([t], [ITALIA]);
+    expect(v.size).toBe(1);
+    expect(v.get("IT")?.paese?.id).toBe("380");
   });
 });
 
@@ -260,5 +283,45 @@ describe("paesiVisitati — niente doppioni di bandiera dentro il Regno Unito", 
     } as Partial<Trip>);
     const v = [...paesiVisitati([t], [scozia]).values()];
     expect(v.map(x => x.code)).toEqual(["GB-SCT"]);
+  });
+});
+
+/**
+ * Verificato sul dataset vero, punto per punto: il Vaticano cade dentro
+ * l'ITALIA (il suo poligono è spostato) e Monaco non cade da NESSUNA parte
+ * (poligono impreciso, e la Francia ha il buco al posto giusto). Sono gli
+ * unici due così: San Marino, Liechtenstein, Andorra, Malta e Singapore col
+ * dataset 50m si trovano da soli.
+ */
+describe("paesiVisitati — i due casi che la geometria non sa gestire", () => {
+  it("Monaco compare anche se il suo punto non cade in nessun paese", () => {
+    const t = viaggio({ city: "Monaco", country: "Monaco", country_code: "MC", latitude: 43.7384, longitude: 7.4246 });
+    const v = [...paesiVisitati([t], [ITALIA, AUSTRIA]).values()];
+    const mc = v.find(x => x.code === "MC");
+    expect(mc).toBeDefined();
+    expect(mc!.paese).toBeNull();
+    expect(mc!.posizione).toEqual([7.4246, 43.7384]);
+  });
+
+  it("un viaggio SOLO in Vaticano non colora l'Italia", () => {
+    // prima lo faceva: il punto cade nel poligono italiano
+    const t = viaggio({ country: "Città del Vaticano", country_code: "VA", latitude: 41.9029, longitude: 12.4534 });
+    const v = [...paesiVisitati([t], [ITALIA]).values()];
+    expect(v.length).toBe(1);
+    expect(v[0].code).toBe("VA");
+    expect(v[0].paese).toBeNull();     // nessun poligono, solo la bandiera
+  });
+
+  it("Vaticano e Italia insieme: l'Italia resta italiana e colorata", () => {
+    const trips = [
+      viaggio({ id: "a", country: "Italia", country_code: "IT", latitude: 41.9028, longitude: 12.4964 }),
+      viaggio({ id: "b", country: "Città del Vaticano", country_code: "VA", latitude: 41.9029, longitude: 12.4534 }),
+    ];
+    const v = [...paesiVisitati(trips, [ITALIA]).values()];
+    const italia = v.find(x => x.paese);
+    expect(italia!.code).toBe("IT");
+    expect(italia!.nome).toBe("Italia");
+    expect(v.find(x => x.code === "VA")).toBeDefined();
+    expect(v.length).toBe(2);
   });
 });

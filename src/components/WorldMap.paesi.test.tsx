@@ -252,8 +252,9 @@ describe("WorldMap — modalità paesi: quando qualcosa va storto", () => {
   });
 
   it("se nessun viaggio cade in un paese noto, i pallini TORNANO", async () => {
-    // viaggio in mezzo all'oceano: nessun poligono lo contiene
-    const inMareAperto = [trip({ id: "oceano", latitude: 0, longitude: -30 })];
+    // Viaggio senza codice paese E fuori da ogni confine: è l'unico caso in
+    // cui non c'è niente da colorare, da quando il paese lo dice il viaggio.
+    const inMareAperto = [trip({ id: "oceano", country: "", country_code: "", latitude: 0, longitude: -30 })];
     const { rerender } = render(<WorldMap trips={inMareAperto} selectedId={null} />);
     await settle();
     await respira();
