@@ -229,7 +229,10 @@ export function ContinentsMap({ trips }: Props) {
           viewBox={`0 0 ${W} ${H}`}
           className="w-full h-auto block"
           role="img"
-          aria-label="Mappa dei paesi visitati"
+          // Dice quello che la mappa MOSTRA: da quando evidenzia i continenti e
+          // non più i singoli stati, "paesi visitati" era una promessa che chi
+          // ascolta non poteva verificare.
+          aria-label="Mappa dei continenti visitati"
         >
           <defs>
             <clipPath id="map-clip">
