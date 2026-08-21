@@ -152,3 +152,23 @@ describe("paeseVisibileDiTappa — le tappe non gonfiano il conteggio", () => {
       .toEqual({ nome: "Regno Unito", codice: "GB" });
   });
 });
+
+describe("centroPaese — l'antimeridiano non sposta la bandiera", () => {
+  it("un paese a cavallo di ±180° tiene il centro nel Pacifico, non in Africa", () => {
+    // Le Figi nel world-atlas hanno un anello che va da -180 a +180: la media
+    // aritmetica delle longitudini dava ~16° E, cioè l'Angola.
+    const anello = [[179.5, -16], [-179.5, -16], [-179.6, -17], [179.4, -17], [179.5, -16]];
+    const polygons = [[anello]];
+    const c = centroPaese({ id: "fj", name: "Fiji", polygons, bbox: bboxDiPoligoni(polygons) })!;
+    expect(Math.abs(c[0])).toBeGreaterThan(170);   // vicino al 180°, da una parte o dall'altra
+    expect(c[1]).toBeCloseTo(-16.4, 1);
+  });
+
+  it("i paesi normali non cambiano di una virgola", () => {
+    const anello = [[6, 36], [19, 36], [19, 47], [6, 47], [6, 36]];
+    const polygons = [[anello]];
+    const c = centroPaese({ id: "it", name: "Italy", polygons, bbox: bboxDiPoligoni(polygons) })!;
+    expect(c[0]).toBeCloseTo(11.2, 1);   // come la media aritmetica: sui paesi normali le due coincidono
+    expect(c[1]).toBeCloseTo(40.6, 0);
+  });
+});

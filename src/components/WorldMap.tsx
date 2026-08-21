@@ -132,8 +132,14 @@ const IMG_BANDIERA = "bandiera-";
  * Storia del valore, tutta a vista dell'utente: 1.5 → 0.8 → 0.5 → 0.8.
  */
 const ZOOM_GLOBO = 0.8;
-/** I layer dei viaggi, che in modalità paesi si fanno da parte. */
+/** I layer dei viaggi, che in modalità paesi si fanno da parte. I pallini e
+ *  le etichette hanno un id fisso; le ROTTE ne hanno uno per viaggio
+ *  ("route-<id>"), quindi si cercano nello stile invece di elencarle. */
 const LAYER_VIAGGI = ["trips-single", "trips-multi", "trips-waypoints", "trips-labels"];
+function layerDaNascondere(map: MapLibreMap): string[] {
+  const rotte = map.getStyle()?.layers?.map(l => l.id).filter(id => id.startsWith("route-")) ?? [];
+  return [...LAYER_VIAGGI, ...rotte];
+}
 
 function aggiungiSorgente(map: MapLibreMap, id: string, features: GeoJSON.Feature[]) {
   const data = { type: "FeatureCollection", features } as GeoJSON.FeatureCollection;
@@ -143,7 +149,7 @@ function aggiungiSorgente(map: MapLibreMap, id: string, features: GeoJSON.Featur
 }
 
 function mostraLayerViaggi(map: MapLibreMap, visibili: boolean) {
-  for (const id of LAYER_VIAGGI) {
+  for (const id of layerDaNascondere(map)) {
     if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visibili ? "visible" : "none");
   }
 }
@@ -265,12 +271,14 @@ export function WorldMap({
    *  torna lì, così il gesto è reversibile davvero e non lascia la vista
    *  spostata a caso. */
   const vistaPrimaRef = useRef<{ center: [number, number]; zoom: number } | null>(null);
-  /** Serve a chi RICOSTRUISCE i layer dei viaggi (un refresh dei trips, il
-   *  sync, un backfill): nascono visibili, e in modalità paesi ricomparirebbero
-   *  sopra i paesi colorati. Un ref e non la prop: addTripsToMap gira dentro
-   *  una promise e leggerebbe una chiusura vecchia. */
-  const modalitaPaesiRef = useRef(false);
-  useEffect(() => { modalitaPaesiRef.current = modalitaPaesi; }, [modalitaPaesi]);
+  /** I paesi sono DAVVERO disegnati sul globo — non basta che la modalità sia
+   *  richiesta: se i confini non arrivano o nessun viaggio cade in un paese
+   *  noto, i pallini devono restare al loro posto invece di lasciare il globo
+   *  vuoto. Lo legge anche chi RICOSTRUISCE i layer dei viaggi (refresh, sync,
+   *  backfill): nascono visibili e ricomparirebbero sopra i paesi colorati.
+   *  Un ref e non uno stato: addTripsToMap gira dentro una promise e leggerebbe
+   *  una chiusura vecchia. */
+  const paesiAttiviRef = useRef(false);
   // Selezione applicata in modo INCREMENTALE (setPaintProperty/setData), non
   // col rebuild di tutti i layer: selectedIdRef dà il valore corrente al
   // rebuild asincrono, appliedSelRef ricorda cosa c'è già sulla mappa.
@@ -691,7 +699,7 @@ export function WorldMap({
     // ...e se il globo è in modalità paesi devono nascere già nascosti: un
     // refresh dei viaggi (sync, backfill) li ricrea VISIBILI, e i pallini
     // ricomparirebbero sopra i paesi colorati.
-    if (modalitaPaesiRef.current) mostraLayerViaggi(map, false);
+    if (paesiAttiviRef.current) mostraLayerViaggi(map, false);
   }
 
   // ── Selezione incrementale ─────────────────────────────────────────────────
@@ -888,6 +896,7 @@ export function WorldMap({
     let annullato = false;
 
     if (!modalitaPaesi) {
+      paesiAttiviRef.current = false;
       pulisciModalitaPaesi(map);
       mostraLayerViaggi(map, true);
       // la vista di prima, se l'avevamo messa da parte entrando
@@ -908,19 +917,29 @@ export function WorldMap({
     // Con la telecamera ferma sui propri paesi, la rotazione automatica li
     // porterebbe fuori vista in pochi secondi: si mette in pausa.
     stopRotation();
-    mostraLayerViaggi(map, false);
+    // I pallini NON si nascondono qui: i confini possono metterci diversi
+    // secondi (misurati 9 su desktop, dove il globo è più grande) e il globo
+    // restava vuoto nel frattempo — niente viaggi, niente paesi. Si nascondono
+    // nell'istante in cui i paesi entrano, così il cambio è netto.
     if (!vistaPrimaRef.current) {
       const c = map.getCenter();
       vistaPrimaRef.current = { center: [c.lng, c.lat], zoom: map.getZoom() };
     }
 
+    // Se i confini non arrivano (offline) o non c'è niente da colorare, i
+    // pallini TORNANO: senza questa rete di sicurezza il globo restava vuoto
+    // — niente viaggi, niente paesi — e sembrava rotto.
+    const rinuncia = () => {
+      paesiAttiviRef.current = false;
+      if (!annullato && mapRef.current) mostraLayerViaggi(mapRef.current, true);
+    };
     caricaPaesi().then(async paesi => {
       if (annullato || !mapRef.current) return;
       // `ordered` del render, non orderedRef: il ref lo riempie l'effetto dei
       // viaggi, che passa da un import asincrono — entrando in modalità paesi
       // troppo presto sarebbe ancora vuoto e non si colorerebbe niente.
       const visitati = [...paesiVisitati(ordered, paesi).values()];
-      if (!visitati.length) return;
+      if (!visitati.length) { rinuncia(); return; }
 
       const poligoni: GeoJSON.Feature[] = [];
       const bandiere: GeoJSON.Feature[] = [];
@@ -940,6 +959,10 @@ export function WorldMap({
         }
       }
 
+      paesiAttiviRef.current = true;
+      // Ora che i paesi ci sono, i pallini escono di scena: un solo istante di
+      // cambio invece di secondi di globo spoglio.
+      mostraLayerViaggi(map, false);
       aggiungiSorgente(map, SRC_PAESI, poligoni);
       if (!map.getLayer(LAYER_PAESI_FILL)) {
         map.addLayer({
@@ -975,7 +998,7 @@ export function WorldMap({
           },
         });
       }
-    });
+    }).catch(rinuncia);   // world-atlas irraggiungibile: meglio i pallini che il vuoto
 
     return () => { annullato = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps

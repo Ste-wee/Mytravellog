@@ -37,7 +37,12 @@ class FakeMap {
   removeLayer(id: string) { this.layers.delete(id); }
   getLayer(id: string) { return this.layers.get(id); }
   setPaintProperty() {}
-  setLayoutProperty(id: string, prop: string, val: string) { if (prop === "visibility") this.visibilita[id] = val; }
+  storiaVisibilita: { id: string; val: string }[] = [];
+  setLayoutProperty(id: string, prop: string, val: string) {
+    if (prop !== "visibility") return;
+    this.visibilita[id] = val;
+    this.storiaVisibilita.push({ id, val });
+  }
   setFilter() {}
   setLayerZoomRange() {}
   getStyle() { return { layers: [...this.layers.values()] }; }
@@ -214,5 +219,59 @@ describe("WorldMap — modalità paesi", () => {
     rAF.mockClear();
     await respira();
     expect(rAF).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Le tre reti di sicurezza della modalità paesi, trovate rileggendo il codice
+ * il giorno dopo: senza, il globo poteva restare VUOTO (né viaggi né paesi) e
+ * sembrare rotto, e le rotte restavano disegnate sopra i paesi colorati.
+ */
+describe("WorldMap — modalità paesi: quando qualcosa va storto", () => {
+  beforeEach(() => { lastMap = null; });
+
+  // NB sul metodo: questi due test partono dalla modalità SPENTA e poi la
+  // accendono. Scritti col globo già in modalità paesi passavano anche senza
+  // la correzione — i layer nascevano dopo e nessuno li nascondeva mai: il
+  // mutation test li ha smascherati.
+  it("se i confini non arrivano, i pallini dei viaggi TORNANO", async () => {
+    const atlas = await import("@/lib/worldAtlas");
+    const { rerender } = render(<WorldMap trips={TRIPS} selectedId={null} />);
+    await settle();
+    await respira();
+    vi.mocked(atlas.loadWorldAtlasCountries).mockRejectedValueOnce(new Error("offline"));
+    rerender(<WorldMap trips={TRIPS} selectedId={null} modalitaPaesi />);
+    await respira(); await respira();
+    // i pallini non devono sparire NEMMENO per un istante: senza paesi da
+    // mostrare il globo resterebbe spoglio
+    expect(lastMap!.storiaVisibilita.filter(v => v.id === "trips-single" && v.val === "none")).toEqual([]);
+    expect(lastMap!.getLayer("paesi-visitati-fill")).toBeUndefined();
+  });
+
+  it("se nessun viaggio cade in un paese noto, i pallini TORNANO", async () => {
+    // viaggio in mezzo all'oceano: nessun poligono lo contiene
+    const inMareAperto = [trip({ id: "oceano", latitude: 0, longitude: -30 })];
+    const { rerender } = render(<WorldMap trips={inMareAperto} selectedId={null} />);
+    await settle();
+    await respira();
+    rerender(<WorldMap trips={inMareAperto} selectedId={null} modalitaPaesi />);
+    await respira(); await respira();
+    expect(lastMap!.storiaVisibilita.filter(v => v.id === "trips-single" && v.val === "none")).toEqual([]);
+  });
+
+  it("in modalità paesi spariscono anche le ROTTE, non solo i pallini", async () => {
+    const conTappe = [trip({
+      id: "multi",
+      waypoints: [{ id: "w", city: "Vienna", country: "Austria", country_code: "AT", lat: 48.2, lon: 16.37, transport_mode: "car" }],
+    } as Partial<Trip>)];
+    const { rerender } = render(<WorldMap trips={conTappe} selectedId={null} />);
+    await settle();
+    await respira();
+    const rotte = [...lastMap!.layers.keys()].filter(id => id.startsWith("route-"));
+    expect(rotte.length).toBeGreaterThan(0);      // c'è davvero una rotta da nascondere
+
+    rerender(<WorldMap trips={conTappe} selectedId={null} modalitaPaesi />);
+    await respira(); await respira();
+    for (const id of rotte) expect(lastMap!.visibilita[id]).toBe("none");
   });
 });

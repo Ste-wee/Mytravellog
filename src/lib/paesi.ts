@@ -296,7 +296,16 @@ export function centroPaese(p: PaeseGeom): [number, number] | null {
     if (poly[0].length > max) { max = poly[0].length; esterno = poly[0]; }
   }
   if (!esterno || !esterno.length) return null;
-  let lon = 0, lat = 0;
-  for (const [x, y] of esterno) { lon += x; lat += y; }
-  return [lon / esterno.length, lat / esterno.length];
+  // La longitudine si media come ANGOLO, non come numero: le Figi vanno da
+  // -180 a +180 e la media aritmetica dava 15,9° — la loro bandiera finiva in
+  // Angola. Sommando i versori e riprendendo l'angolo con atan2, il giro
+  // dell'antimeridiano si chiude come deve. (Stesso nemico del caso Russia in
+  // paeseDelPunto: con i dati geografici il segno del meridiano 180 morde.)
+  let sx = 0, sy = 0, lat = 0;
+  for (const [x, y] of esterno) {
+    const r = (x * Math.PI) / 180;
+    sx += Math.cos(r); sy += Math.sin(r); lat += y;
+  }
+  const lon = (Math.atan2(sy, sx) * 180) / Math.PI;
+  return [lon, lat / esterno.length];
 }
