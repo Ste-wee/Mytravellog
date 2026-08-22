@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { mergeTrips, requestAccessToken } from "./googleDrive";
+import { describe, it, expect, beforeEach } from "vitest";
+import { mergeTrips } from "./backup";
 import { addPlan, promotePlanToTrip, loadTrips, loadTombstones, type Trip } from "./storage";
 
 const t = (id: string, title: string, updated_at?: string): Trip =>
@@ -124,28 +124,6 @@ describe("promozione di un piano: tombstone per BUCKET", () => {
     expect(loadTombstones("trips").map(d => d.id)).not.toContain(plan.id);
     const merged = mergeTrips(loadTrips(), Date.now(), [], 0, loadTombstones("trips"));
     expect(merged.map(x => x.id)).toContain(done.id);
-  });
-});
-
-describe("loadGis — il fallimento non resta in cache", () => {
-  afterEach(() => vi.restoreAllMocks());
-
-  // Bug reale: dopo un avvio senza rete la Promise rigettata di loadGis
-  // restava in cache per sempre e "Connetti" falliva all'istante anche a
-  // connessione tornata, fino a un reload. Il secondo tentativo deve
-  // riprovare a caricare lo script (= un secondo <script> appeso).
-  it("dopo un errore di rete, il tentativo successivo riappende lo script", async () => {
-    const scripts: HTMLScriptElement[] = [];
-    vi.spyOn(document.head, "appendChild").mockImplementation(((n: Node) => {
-      const s = n as HTMLScriptElement;
-      scripts.push(s);
-      setTimeout(() => s.onerror?.(new Event("error")));
-      return n;
-    }) as typeof document.head.appendChild);
-
-    await expect(requestAccessToken(true)).rejects.toThrow(/Google/);
-    await expect(requestAccessToken(true)).rejects.toThrow(/Google/);
-    expect(scripts.length).toBe(2); // prima del fix: 1 (fallimento cacheato)
   });
 });
 

@@ -5,7 +5,7 @@ import { useSettings, DistanceUnit, TemperatureUnit, AutoRotate, HomeCity } from
 import { GeoResult } from "@/lib/geo";
 import { usePlaceSearch } from "@/lib/usePlaceSearch";
 import { useState, useEffect } from "react";
-import { GoogleDriveSection } from "@/components/GoogleDriveSection";
+import { CloudSection } from "@/components/CloudSection";
 
 // Preset "da utente" per la dimensione dei marker sul globo: sotto il cofano
 // impostano la coppia min/max che prima andava digitata a mano (con tanto di
@@ -224,10 +224,10 @@ export default function Settings() {
 
         <Group
           icon={<UserCircle width="18" height="18"/>}
-          title="Backup su Google Drive"
-          desc="Accedi con Google per salvare i viaggi nel tuo Drive, in automatico (facoltativo: l'app funziona anche come ospite)"
+          title="Backup nel cloud"
+          desc="Accedi con Google per salvare i viaggi nel cloud, in automatico, e ritrovarli su ogni dispositivo (facoltativo: l'app funziona anche come ospite)"
         >
-          <GoogleDriveSection/>
+          <CloudSection/>
         </Group>
 
       </div>

@@ -1,21 +1,26 @@
 import { useEffect, useState } from "react";
 import { loadTrips } from "@/lib/storage";
-import { useGoogleDrive } from "@/lib/googleDriveContext";
+import { useCloud } from "@/lib/cloudContext";
 import { GoogleG } from "@/components/GoogleG";
 import { Loader2, AlertTriangle } from "lucide-react";
 
 const DISMISS_KEY = "navta.welcome.dismissed";
-const CONNECTED_KEY = "navta.drive.connected";
+/** Scritto dopo la PRIMA sincronizzazione riuscita: dice che questo
+ *  dispositivo il cloud l'ha già visto. Prima si guardava un flag posato al
+ *  collegamento; con la sessione di Firebase quel flag non esiste più, e
+ *  questo dice la stessa cosa in modo più onesto (non "ha premuto il bottone"
+ *  ma "i dati sono davvero passati di qui"). */
+const SYNCED_KEY = "navta.cloud.localTs";
 
 /**
- * La welcome compare SOLO su un dispositivo "vergine": mai connesso a Drive,
+ * La welcome compare SOLO su un dispositivo "vergine": mai sincronizzato,
  * zero viaggi, mai saltata. Un tap su una delle due strade la archivia per
  * sempre (da ospite ci si può sempre collegare dalle Impostazioni).
  */
 export function shouldShowWelcome(): boolean {
   try {
     if (localStorage.getItem(DISMISS_KEY) === "1") return false;
-    if (localStorage.getItem(CONNECTED_KEY) === "1") return false;
+    if (localStorage.getItem(SYNCED_KEY)) return false;
     return loadTrips().length === 0;
   } catch {
     return false; // storage inaccessibile: mai bloccare l'ingresso
@@ -54,7 +59,7 @@ export function WelcomeGate() {
   const [visible, setVisible] = useState(shouldShowWelcome);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { connect } = useGoogleDrive();
+  const { connect } = useCloud();
 
   // BLOCCA lo scroll della pagina sotto finché la welcome è aperta: senza,
   // su mobile il dito scorreva il contenuto dietro al velo (si vedevano le
@@ -98,9 +103,10 @@ export function WelcomeGate() {
   const handleGoogle = async () => {
     setBusy(true);
     setError(null);
-    await connect();
-    // connect() marca il flag solo se il login è andato a buon fine.
-    if (localStorage.getItem(CONNECTED_KEY) === "1") dismiss();
+    // connect() dice se l'accesso è andato a buon fine: la sincronizzazione
+    // vera parte dopo, in sottofondo, e non c'è motivo di trattenere qui chi
+    // è appena entrato.
+    if (await connect()) dismiss();
     else { setBusy(false); setError("Accesso non riuscito. Riprova, o entra come ospite."); }
   };
 

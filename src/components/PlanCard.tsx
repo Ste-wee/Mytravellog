@@ -29,7 +29,7 @@ export function PlanCard({ plan: p, onOpen }: { plan: Trip; onOpen: () => void }
   // devono passare nulla (e "I miei viaggi" resta intoccato).
   const [booked, setBooked] = useState(!!p.booked);
   // …ma deve anche ASCOLTARE: se la spunta cambia su un altro dispositivo, il
-  // sync di Drive riscrive i piani senza rimontare la card. Senza questo la
+  // sync del cloud riscrive i piani senza rimontare la card. Senza questo la
   // card mostrerebbe il valore vecchio e il tocco successivo calcolerebbe il
   // contrario di un valore stantio (sembra che la spunta non risponda).
   useEffect(() => { setBooked(!!p.booked); }, [p.booked]);

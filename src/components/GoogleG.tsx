@@ -1,5 +1,5 @@
 /** "G" di Google UFFICIALE (quadricromia), condivisa dai pulsanti di accesso
- *  (WelcomeGate e GoogleDriveSection). Prima era un path unico tutto rosso. */
+ *  (WelcomeGate e CloudSection). Prima era un path unico tutto rosso. */
 export function GoogleG({ size = 16 }: { size?: number }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" style={{ flexShrink: 0 }}>

@@ -5,7 +5,7 @@ import { Toaster, toast } from "sonner";
 import { setStorageErrorHandler, dropBudgetData } from "./lib/storage";
 import { Loader2 } from "lucide-react";
 import { SettingsProvider } from "./lib/settings";
-import { GoogleDriveProvider } from "./lib/googleDriveContext";
+import { CloudProvider } from "./lib/cloudContext";
 import { BrandBadgeSlot } from "./components/BrandBadge";
 import { WelcomeGate } from "./components/WelcomeGate";
 import { HomeCityGate } from "./components/HomeCityGate";
@@ -90,7 +90,7 @@ rootEl.style.minHeight = "100vh";
 ReactDOM.createRoot(rootEl).render(
   <React.StrictMode>
     <SettingsProvider>
-      <GoogleDriveProvider>
+      <CloudProvider>
         <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Suspense fallback={<RouteFallback />}>
             <Routes>
@@ -122,7 +122,7 @@ ReactDOM.createRoot(rootEl).render(
               (Index/MieiViaggi/Stats sono FROZEN). */}
           <AppTour />
         </HashRouter>
-      </GoogleDriveProvider>
+      </CloudProvider>
     </SettingsProvider>
   </React.StrictMode>
 );

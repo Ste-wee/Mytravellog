@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { mergeTrips } from "./googleDrive";
+import { mergeTrips } from "./backup";
 import { Trip, Tombstone, loadTrips, saveTombstones, saveTrips, deleteTrip, pulisciSepolti } from "./storage";
 
 /** Viaggio minimo per i test di questo file. */

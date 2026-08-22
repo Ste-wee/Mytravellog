@@ -1,4 +1,4 @@
-import { useGoogleDrive } from "@/lib/googleDriveContext";
+import { useCloud } from "@/lib/cloudContext";
 import { GoogleG } from "@/components/GoogleG";
 import { Loader2, Check, AlertTriangle, LogOut } from "lucide-react";
 
@@ -11,8 +11,17 @@ function relativeTime(ms: number): string {
   return new Date(ms).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-export function GoogleDriveSection() {
-  const { status, email, lastSyncAt, errorMsg, connect, disconnect } = useGoogleDrive();
+export function CloudSection() {
+  const { status, email, lastSyncAt, errorMsg, configurato, connect, disconnect } = useCloud();
+
+  if (!configurato) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Il salvataggio nel cloud non è ancora configurato in questa versione dell'app.
+        I viaggi restano su questo dispositivo.
+      </p>
+    );
+  }
 
   const connected = status === "connected" || status === "syncing";
 
@@ -43,7 +52,8 @@ export function GoogleDriveSection() {
             </p>
           )}
           <p className="mt-2 text-xs text-muted-foreground">
-            I viaggi si salvano nel tuo Google Drive a ogni modifica. Le foto restano sul dispositivo.
+            I viaggi si salvano nel cloud a ogni modifica, e tornano su ogni dispositivo
+            dove entri con lo stesso account. Le foto restano sul dispositivo.
           </p>
         </div>
       </div>
@@ -54,14 +64,20 @@ export function GoogleDriveSection() {
     return <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />;
   }
 
-  // guest | expired | error
+  // Il backup c'è ma non si capisce: non si scrive più niente da qui, o si
+  // coprirebbe qualcosa che forse si può ancora recuperare a mano.
+  if (status === "corrotto") {
+    return (
+      <p role="alert" className="text-xs text-destructive flex items-start gap-1.5">
+        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-none" />
+        <span>{errorMsg}</span>
+      </p>
+    );
+  }
+
+  // guest | error
   return (
     <div className="space-y-3">
-      {status === "expired" && (
-        <p className="text-xs flex items-center gap-1.5" style={{ color: "#fbbf24" }}>
-          <AlertTriangle className="w-3.5 h-3.5" /> Sessione scaduta: ricollega per riprendere il backup.
-        </p>
-      )}
       {status === "error" && errorMsg && (
         <p role="alert" className="text-xs text-destructive flex items-center gap-1.5">
           <AlertTriangle className="w-3.5 h-3.5" /> {errorMsg}
@@ -72,12 +88,15 @@ export function GoogleDriveSection() {
         onClick={() => connect()}
         className="w-full flex items-center justify-center gap-2.5 py-2.5 rounded-xl text-sm font-semibold bg-white text-[#1f1f1f] hover:bg-white/90 transition-colors"
       >
-        <GoogleG size={16} />
-        {status === "expired" ? "Riconnetti Google Drive" : "Accedi con Google"}
+        <GoogleG size={16} /> Accedi con Google
       </button>
 
+      {/* Prima qui c'era scritto "i dati restano nel tuo account Google": era
+          vero quando il file viveva nella Drive dell'utente. Ora vivono nel
+          database dell'app, e la frase dev'essere quella giusta. */}
       <p className="text-xs text-muted-foreground">
-        🔒 I dati restano nel tuo account Google. Nessun altro può vederli.
+        🔒 Solo tu puoi leggerli: nel database ogni archivio è legato al suo account,
+        e nessun altro account può aprirlo.
       </p>
     </div>
   );

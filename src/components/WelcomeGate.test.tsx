@@ -16,8 +16,8 @@ describe("shouldShowWelcome — regola del primo avvio", () => {
     expect(shouldShowWelcome()).toBe(false);
   });
 
-  it("già connesso a Drive: mai", () => {
-    localStorage.setItem("navta.drive.connected", "1");
+  it("già sincronizzato col cloud: mai", () => {
+    localStorage.setItem("navta.cloud.localTs", String(Date.now()));
     expect(shouldShowWelcome()).toBe(false);
   });
 
