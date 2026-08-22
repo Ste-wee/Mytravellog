@@ -87,12 +87,22 @@ export function onAuth(quando: (u: UtenteCloud | null) => void): () => void {
   if (!cloudConfigurato()) { quando(null); return () => { /* niente da fermare */ }; }
   let vivo = true;
   let spegni: (() => void) | null = null;
-  caricaSdk().then(({ auth, mod }) => {
+  const aggancia = () => caricaSdk().then(({ auth, mod }) => {
     if (!vivo) return;
+    window.removeEventListener("online", aggancia);
     spegni = mod.auth.onAuthStateChanged(auth, u =>
       quando(u ? { uid: u.uid, email: u.email } : null));
-  }).catch(() => { if (vivo) quando(null); });
-  return () => { vivo = false; spegni?.(); };
+  }).catch(() => {
+    if (!vivo) return;
+    quando(null);
+    // L'SDK non si è caricato (primo avvio offline, senza service worker):
+    // NON ci si arrende per sempre — senza questo, al ritorno della rete un
+    // login riusciva ma nessuno lo ascoltava più, e la rotella girava fino al
+    // reload. Al prossimo segnale di rete si riprova ad agganciarsi.
+    window.addEventListener("online", aggancia, { once: true });
+  });
+  aggancia();
+  return () => { vivo = false; window.removeEventListener("online", aggancia); spegni?.(); };
 }
 
 /** Apre il popup di Google. Rilancia l'errore se l'utente annulla o va storto. */

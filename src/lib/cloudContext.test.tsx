@@ -97,6 +97,29 @@ describe("CloudProvider — macchina a stati", () => {
     expect(loadTrips().map(t => t.id)).toEqual(["locale"]);
   });
 
+  it("corrotto: il watcher NON riprova ogni 4 secondi (niente sfarfallio)", async () => {
+    // Il difetto: lo stato "corrotto" prometteva niente ritentativi, ma il
+    // watcher partiva comunque e ogni 4s rifaceva la stessa lettura, facendo
+    // lampeggiare la UI fra "syncing" e l'avviso — per sempre.
+    vi.useFakeTimers();
+    try {
+      saveTrips([viaggio("locale")]);
+      vi.mocked(sync.leggiArchivio).mockRejectedValue(new Error("archivio_corrotto"));
+      monta();
+      act(() => ascoltatore()({ uid: "u1", email: null }));
+      await act(async () => { await vi.advanceTimersByTimeAsync(50); });
+      expect(screen.getByTestId("status").textContent).toBe("corrotto");
+      const letture = vi.mocked(sync.leggiArchivio).mock.calls.length;
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(13_000); });   // tre giri di watcher
+      expect(vi.mocked(sync.leggiArchivio).mock.calls.length).toBe(letture);
+      expect(screen.getByTestId("status").textContent).toBe("corrotto");
+      expect(sync.scriviArchivio).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("pull fallito per rete: errore, e si RIPROVA quando l'app torna visibile", async () => {
     vi.mocked(sync.leggiArchivio).mockRejectedValueOnce(new Error("rete"));
     monta();

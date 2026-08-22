@@ -78,6 +78,12 @@ export function CloudProvider({ children }: { children: ReactNode }) {
   /** La prima sincronizzazione è fallita: si riprova quando si tornerà
    *  sull'app, invece di restare in errore fino al prossimo riavvio. */
   const daRiprovareRef = useRef(false);
+  /** Il backup nel cloud è illeggibile: DA QUI NON SI RIPROVA più niente in
+   *  automatico, né watcher né flush — ogni giro rifarebbe la stessa lettura,
+   *  farebbe sfarfallare la UI fra "syncing" e l'avviso, e non caverebbe un
+   *  ragno dal buco. Si riparte solo riaprendo l'app, dopo aver sistemato il
+   *  documento a mano. */
+  const corrottoRef = useRef(false);
 
   const getLocalTs = () => Number(localStorage.getItem(LS_TS) || 0);
   const setLocalTs = (v: number) => { try { localStorage.setItem(LS_TS, String(v)); } catch { /* quota */ } };
@@ -127,6 +133,7 @@ export function CloudProvider({ children }: { children: ReactNode }) {
     syncedHashRef.current = snapshotOf(merged, mergedPlans);
     if (mountedRef.current) { setLastSyncAt(now); setStatus("connected"); setErrorMsg(null); }
     daRiprovareRef.current = false;
+    corrottoRef.current = false;   // il documento è tornato leggibile (o è nuovo)
   };
 
   /** Traduce un guasto in uno stato leggibile. */
@@ -134,6 +141,7 @@ export function CloudProvider({ children }: { children: ReactNode }) {
     const causa = e instanceof Error ? e.message : String(e);
     if (!mountedRef.current) return;
     if (causa === "archivio_corrotto") {
+      corrottoRef.current = true;   // spegne watcher e flush: vedi la nota sul ref
       setStatus("corrotto");
       setErrorMsg("Il backup nel cloud è illeggibile. Non lo tocchiamo: i tuoi dati su questo dispositivo restano al sicuro.");
       return;   // niente ritentativi: si scriverebbe sopra un backup recuperabile
@@ -157,7 +165,7 @@ export function CloudProvider({ children }: { children: ReactNode }) {
   const startWatcher = () => {
     stopWatcher();
     intervalRef.current = window.setInterval(() => {
-      if (document.hidden || busyRef.current || !utenteRef.current) return;
+      if (document.hidden || busyRef.current || !utenteRef.current || corrottoRef.current) return;
       if (localSnapshot() === syncedHashRef.current) return; // niente di nuovo
       busyRef.current = true;
       if (mountedRef.current) setStatus("syncing");
@@ -230,7 +238,7 @@ export function CloudProvider({ children }: { children: ReactNode }) {
     });
 
     const onVisibility = () => {
-      if (!utenteRef.current || busyRef.current) return;
+      if (!utenteRef.current || busyRef.current || corrottoRef.current) return;
       // Tornati sull'app dopo un guasto: si riprova, invece di restare in
       // errore fino al prossimo riavvio.
       if (!document.hidden) {

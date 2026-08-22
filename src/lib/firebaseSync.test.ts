@@ -34,7 +34,7 @@ vi.mock("./firebaseConfig", async (orig) => ({
   cloudConfigurato: () => true,
 }));
 
-import { leggiArchivio, scriviArchivio, accedi, __resetSdk } from "./firebaseSync";
+import { leggiArchivio, scriviArchivio, accedi, onAuth, __resetSdk } from "./firebaseSync";
 import { BACKUP_VERSION, ArchivioCloud } from "./backup";
 
 const documento = (dati: unknown) => ({ exists: () => true, data: () => dati });
@@ -87,5 +87,31 @@ describe("firebaseSync — le guardie del trasporto", () => {
 
   it("l'accesso restituisce uid ed email", async () => {
     expect(await accedi()).toEqual({ uid: "u1", email: "s@x.it" });
+  });
+
+  it("SDK non caricato all'avvio: onAuth si riaggancia quando torna la rete", async () => {
+    // Il difetto: al primo avvio offline l'ascoltatore diceva "ospite" e
+    // smetteva di ascoltare PER SEMPRE — il login successivo riusciva ma
+    // nessuno lo sentiva, rotella infinita fino al reload.
+    vi.useFakeTimers();
+    try {
+      const { getAuth } = await import("firebase/auth");
+      // tutti e tre i tentativi del primo giro falliscono
+      vi.mocked(getAuth).mockImplementationOnce(() => { throw new Error("offline"); })
+        .mockImplementationOnce(() => { throw new Error("offline"); })
+        .mockImplementationOnce(() => { throw new Error("offline"); });
+      const eventi = [];
+      const stop = onAuth(u => eventi.push(u));
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(eventi).toEqual([null]);           // ospite, per ora
+      expect(onAuthMock).not.toHaveBeenCalled();
+
+      window.dispatchEvent(new Event("online")); // torna la rete
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(onAuthMock).toHaveBeenCalled();     // ora ascolta davvero
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
