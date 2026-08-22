@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildFlightPath, computeLegCamera, buildFlightLegs, pointAlongPath, easeInOutCubic, tripTotalKm, buildPerTripRouteCoords, FlightStop } from "./flyover";
+import { buildFlightPath, computeLegCamera, buildFlightLegs, pointAlongPath, easeInOutCubic, tripTotalKm, buildPerTripRouteCoords, tracciatoFitto, FlightStop } from "./flyover";
 import { distanceKm } from "./geo";
 import type { Trip } from "./storage";
 
@@ -43,7 +43,7 @@ function makeTrip(overrides: Partial<Trip> = {}): Trip {
 function makeStop(overrides: Partial<FlightStop> = {}): FlightStop {
   return {
     lat: 0, lon: 0, label: "Tappa", tripId: "1",
-    transportMode: null, routeGeometry: null,
+    transportMode: null, routeGeometry: null, routeKm: null,
     ...overrides,
   };
 }
@@ -255,6 +255,24 @@ describe("pointAlongPath", () => {
   });
 });
 
+describe("tracciatoFitto", () => {
+  it("riconosce una traccia GPX (punti ravvicinati) come già esatta", () => {
+    const gpx: [number, number][] = Array.from({ length: 100 }, (_, i) => [9.19 + i * 0.001, 45.46]);
+    expect(tracciatoFitto(gpx)).toBe(true);
+  });
+
+  it("non si fa ingannare da un percorso stradale semplificato", () => {
+    // Tre punti per centinaia di km: segmenti lunghissimi, curve tagliate.
+    expect(tracciatoFitto([[9.19, 45.46], [8.9, 46.2], [8.55, 47.37]])).toBe(false);
+  });
+
+  it("un disegno assente o di un solo punto non è nè fitto nè affidabile", () => {
+    expect(tracciatoFitto(null)).toBe(false);
+    expect(tracciatoFitto([])).toBe(false);
+    expect(tracciatoFitto([[9.19, 45.46]])).toBe(false);
+  });
+});
+
 describe("tripTotalKm", () => {
   it("senza route_geometry usa la linea d'aria casa → destinazione", () => {
     const trip = makeTrip(); // Milano (45.5, 9.2) → Roma (41.9, 12.5)
@@ -275,6 +293,48 @@ describe("tripTotalKm", () => {
   it("ritorna 0 se manca la casa (nessuna tratta da percorrere)", () => {
     const trip = makeTrip({ home_latitude: null, home_longitude: null });
     expect(tripTotalKm(trip)).toBe(0);
+  });
+
+  it("crede alla lunghezza dichiarata invece che al disegno semplificato", () => {
+    // Il tracciato che salviamo ha 20-35 punti: le curve sono tagliate e
+    // sommarne i segmenti sottostima il percorso del 2-7% (Milano→Zurigo: 268
+    // km invece di 282). Quando il servizio ci ha detto la distanza vera,
+    // quella vince sul disegno.
+    const trip = makeTrip({
+      transport_mode: "car",
+      route_geometry: [[9.2, 45.5], [11, 44], [12.5, 41.9]],
+      route_km: 999,
+    });
+    expect(tripTotalKm(trip)).toBe(999);
+  });
+
+  it("ignora una lunghezza rimasta orfana, senza il disegno a cui si riferiva", () => {
+    // Se il tracciato sparisce (rotta rifatta e fallita), il numero vecchio
+    // descrive un percorso che non c'è più: meglio la linea d'aria.
+    const trip = makeTrip({ transport_mode: "car", route_geometry: null, route_km: 999 });
+    expect(tripTotalKm(trip)).toBeCloseTo(distanceKm(45.5, 9.2, 41.9, 12.5), 0);
+  });
+
+  it("senza lunghezza dichiarata somma i segmenti, come prima", () => {
+    const trip = makeTrip({
+      transport_mode: "car",
+      route_geometry: [[9.2, 45.5], [20, 45.5], [12.5, 41.9]],
+    });
+    const somma = distanceKm(45.5, 9.2, 45.5, 20) + distanceKm(45.5, 20, 41.9, 12.5);
+    expect(tripTotalKm(trip)).toBeCloseTo(somma, 0);
+  });
+
+  it("mescola tappe con e senza lunghezza dichiarata", () => {
+    // Un viaggio riparato a metà: la prima tratta ha il numero, la seconda no.
+    const trip = makeTrip({
+      transport_mode: "car",
+      waypoints: [{
+        city: "Torino", country: "Italia", transport_mode: "car", lat: 45.07, lon: 7.68,
+        route_geometry: [[9.2, 45.5], [8.5, 45.3], [7.68, 45.07]], route_km: 140,
+      }],
+      route_geometry: null, latitude: 41.9, longitude: 12.5,
+    });
+    expect(tripTotalKm(trip)).toBeCloseTo(140 + distanceKm(45.07, 7.68, 41.9, 12.5), 0);
   });
 
   it("somma le tratte di un viaggio multi-tappa", () => {

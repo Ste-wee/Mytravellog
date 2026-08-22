@@ -5,7 +5,7 @@ import { Mountain, Globe2, Sun, Snowflake, Moon, ChevronLeft, ChevronRight } fro
 import { TRANSPORT, TRANSPORT_MODES, TransportMode, transportBg } from "@/lib/transport";
 import { Trip as LocalTrip } from "@/lib/storage";
 import { useSettings, formatDistanceKm, formatAltitudeM, formatTemperatureC } from "@/lib/settings";
-import { tripTotalKm, buildFlightPath, buildFlightLegs, pathLengthKm } from "@/lib/flyover";
+import { tripTotalKm, buildFlightPath, buildFlightLegs } from "@/lib/flyover";
 
 interface Props {
   trips: LocalTrip[];
@@ -41,7 +41,7 @@ export function computeKmByTransportMode(trips: LocalTrip[]): KmByMode {
   for (const t of trips) {
     const legs = buildFlightLegs(buildFlightPath([t]));
     for (const leg of legs) {
-      const km = pathLengthKm(leg.pathCoords);
+      const km = leg.km;   // gia' corretto: strada dichiarata dove c'e', somma dei segmenti altrimenti
       const mode = (leg.to.transportMode as TransportMode | null) ?? guessMode(km);
       acc[mode] += km;
     }

@@ -16,6 +16,10 @@ export interface FlightStop {
   transportMode: TransportMode | null;
   /** Percorso stradale reale per arrivare qui, se disponibile (solo mezzo "car"). */
   routeGeometry: [number, number][] | null;
+  /** Lunghezza vera di quel percorso in km, dichiarata dal servizio di
+   *  instradamento (vedi `Trip.route_km`). Null quando non la conosciamo: si
+   *  ricade sulla somma dei segmenti del disegno. */
+  routeKm: number | null;
 }
 
 export interface LegCamera {
@@ -37,6 +41,13 @@ export interface FlightLeg {
    * (vedi computeLegCamera), non segue le curve.
    */
   pathCoords: [number, number][];
+  /**
+   * Lunghezza della tratta in km. NON è sempre la somma di `pathCoords`: sui
+   * tracciati stradali il disegno è semplificato e taglia le curve, quindi si
+   * preferisce la distanza dichiarata dal servizio quando c'è. Chi mostra dei
+   * km deve leggere QUESTO, non ricalcolarlo dal disegno.
+   */
+  km: number;
 }
 
 const COORD_EPSILON = 1e-6;
@@ -60,10 +71,11 @@ export function buildFlightPath(trips: Trip[]): FlightStop[] {
   const push = (
     lat: number, lon: number, label: string, tripId: string,
     transportMode: TransportMode | null, routeGeometry: [number, number][] | null,
+    routeKm: number | null = null,
   ) => {
     const last = stops[stops.length - 1];
     if (last && sameCoords(last, lat, lon)) return;
-    stops.push({ lat, lon, label, tripId, transportMode, routeGeometry });
+    stops.push({ lat, lon, label, tripId, transportMode, routeGeometry, routeKm });
   };
 
   for (const t of sorted) {
@@ -72,10 +84,10 @@ export function buildFlightPath(trips: Trip[]): FlightStop[] {
     }
     for (const w of t.waypoints ?? []) {
       if (w.lat != null && w.lon != null) {
-        push(w.lat, w.lon, w.city, t.id, w.transport_mode, w.route_geometry ?? null);
+        push(w.lat, w.lon, w.city, t.id, w.transport_mode, w.route_geometry ?? null, w.route_km ?? null);
       }
     }
-    push(t.latitude, t.longitude, t.city, t.id, t.transport_mode, t.route_geometry ?? null);
+    push(t.latitude, t.longitude, t.city, t.id, t.transport_mode, t.route_geometry ?? null, t.route_km ?? null);
   }
 
   return stops;
@@ -140,13 +152,30 @@ function legPathCoords(from: FlightStop, to: FlightStop): [number, number][] {
   return [[from.lon, from.lat], [to.lon, to.lat]];
 }
 
+/**
+ * Quanto è lunga davvero questa tratta.
+ *
+ * Sul tracciato stradale si crede alla distanza dichiarata dal servizio di
+ * instradamento invece che al disegno: il disegno è la versione semplificata
+ * (20-35 punti), le curve sono tagliate e sommarne i segmenti sottostima il
+ * percorso del 2-7%. Fuori da quel caso — linea d'aria, tracce GPX fitte,
+ * viaggi salvati prima del 2026-08-22 — la somma dei segmenti è l'unica cosa
+ * che abbiamo, ed è precisa.
+ */
+function legKm(to: FlightStop, pathCoords: [number, number][]): number {
+  const usaTracciato = !!(to.routeGeometry && to.routeGeometry.length > 1);
+  if (usaTracciato && to.routeKm != null && to.routeKm > 0) return to.routeKm;
+  return pathLengthKm(pathCoords);
+}
+
 /** Spezza la sequenza di tappe in tratte, ciascuna con la propria camera e il proprio percorso. */
 export function buildFlightLegs(stops: FlightStop[]): FlightLeg[] {
   const legs: FlightLeg[] = [];
   for (let i = 0; i < stops.length - 1; i++) {
     const from = stops[i];
     const to = stops[i + 1];
-    legs.push({ from, to, camera: computeLegCamera(from, to), pathCoords: legPathCoords(from, to) });
+    const pathCoords = legPathCoords(from, to);
+    legs.push({ from, to, camera: computeLegCamera(from, to), pathCoords, km: legKm(to, pathCoords) });
   }
   return legs;
 }
@@ -160,7 +189,23 @@ export function buildFlightLegs(stops: FlightStop[]): FlightLeg[] {
  */
 export function tripTotalKm(trip: Trip): number {
   const legs = buildFlightLegs(buildFlightPath([trip]));
-  return legs.reduce((sum, leg) => sum + pathLengthKm(leg.pathCoords), 0);
+  return legs.reduce((sum, leg) => sum + leg.km, 0);
+}
+
+/**
+ * Un tracciato è "fitto" quando i suoi punti sono così ravvicinati che
+ * sommarne i segmenti dà già la lunghezza vera: è il caso delle tracce GPX
+ * registrate sul campo (punti ogni pochi metri). I percorsi che chiediamo al
+ * servizio di instradamento sono invece semplificati — segmenti da chilometri
+ * — e la loro somma va corretta con la distanza dichiarata.
+ *
+ * Serve a non andare a ripescare la distanza di una traccia GPS reale: quella
+ * è già esatta, e il percorso su strada che ci verrebbe restituito
+ * descriverebbe un altro viaggio.
+ */
+export function tracciatoFitto(coords: [number, number][] | null | undefined): boolean {
+  if (!coords || coords.length < 2) return false;
+  return pathLengthKm(coords) / (coords.length - 1) < 1;   // meno di 1 km per segmento
 }
 
 /**

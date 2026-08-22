@@ -1,10 +1,18 @@
 import { fetchDrivingRoute } from "./geo";
 import { hasCoords } from "./coords";
 import { followsRoad } from "./transport";
+import { tracciatoFitto } from "./flyover";
 import { loadTrips, updateTrip, Trip } from "./storage";
 
-/** Quali viaggi abbiamo già provato a riparare, e quando. */
-export const CHIAVE_TRACCIATI = "navta.tracciati.tentati.v1";
+/** Quali viaggi abbiamo già provato a riparare, e quando.
+ *
+ *  v2 (2026-08-22): il recupero non cerca più solo i tracciati mancanti ma
+ *  anche le LUNGHEZZE mancanti. Ripartire da una chiave nuova è il modo più
+ *  semplice per far ricontrollare subito i viaggi già timbrati con la v1 —
+ *  altrimenti si sarebbero sistemati solo a scadenza, fino a una settimana dopo. */
+export const CHIAVE_TRACCIATI = "navta.tracciati.tentati.v2";
+/** La chiave della versione precedente, da buttare: non serve più a nessuno. */
+const CHIAVE_VECCHIA = "navta.tracciati.tentati.v1";
 /** Un viaggio irreparabile (tratta senza strade, servizio giù per giorni) non
  *  va ritentato a ogni avvio, ma nemmeno abbandonato per sempre: una volta a
  *  settimana è abbastanza raro da non pesare e abbastanza spesso da guarire. */
@@ -22,6 +30,22 @@ function leggiTentativi(): Tentativi {
   }
 }
 
+/**
+ * Cosa manca a una tratta su strada: il disegno, la sua lunghezza vera, o
+ * niente.
+ *
+ * La lunghezza si va a ripescare anche quando il disegno c'è già, perché il
+ * disegno è semplificato e sommarne i segmenti sottostima il percorso del
+ * 2-7%. Ma NON per le tracce fitte (GPX registrati sul campo): lì la somma è
+ * esatta, e il percorso su strada che il servizio restituirebbe sarebbe
+ * un'altra strada, non quella davvero fatta.
+ */
+function daRipescare(geom: [number, number][] | null | undefined, km: number | null | undefined): boolean {
+  if (!geom || geom.length < 2) return true;
+  if (km != null && km > 0) return false;
+  return !tracciatoFitto(geom);
+}
+
 function daRiprovare(tentativi: Tentativi, id: string): boolean {
   const quando = tentativi[id];
   if (!quando) return true;
@@ -30,7 +54,13 @@ function daRiprovare(tentativi: Tentativi, id: string): boolean {
 }
 
 /**
- * Riprova a scaricare i tracciati stradali MANCANTI dei viaggi già salvati.
+ * Riprova a scaricare quello che manca alle tratte su strada dei viaggi già
+ * salvati: il tracciato, oppure la sua lunghezza vera.
+ *
+ * La lunghezza (2026-08-22) è arrivata dopo il disegno: i primi viaggi hanno
+ * il tracciato ma non il numero, e i loro km risultavano sottostimati del 2-7%
+ * perché calcolati sommando i segmenti di un disegno semplificato. Questo giro
+ * li ripesca uno per uno, senza toccare le tracce GPX (vedi `daRipescare`).
  *
  * Perché serve: il percorso su strada si chiede una volta sola, al
  * salvataggio. Se in quel momento la rete non c'era o il servizio di
@@ -52,6 +82,7 @@ function daRiprovare(tentativi: Tentativi, id: string): boolean {
  */
 export async function ricalcolaTracciati(annullato: () => boolean = () => false): Promise<number> {
   const tentativi = leggiTentativi();
+  try { localStorage.removeItem(CHIAVE_VECCHIA); } catch { /* niente localStorage: pazienza */ }
   const oggi = new Date().toISOString();
   let aggiunti = 0;
   let toccato = false;
@@ -61,14 +92,14 @@ export async function ricalcolaTracciati(annullato: () => boolean = () => false)
     if (!daRiprovare(tentativi, t.id)) continue;
     // Le fermate in ordine: casa → tappe → destinazione. Il mezzo di una
     // tratta sta sulla fermata di ARRIVO (descrive come ci si arriva).
-    const tappe = (t.waypoints ?? []).filter(w => hasCoords(w.lat, w.lon));
+    const tappe = t.waypoints ?? [];
     const partenza = hasCoords(t.home_latitude, t.home_longitude)
       ? { lat: t.home_latitude as number, lon: t.home_longitude as number } : null;
     if (!partenza || !hasCoords(t.latitude, t.longitude)) continue;
 
     // Niente da riparare: si registra comunque, così non si ricontrolla ogni volta.
-    const serveQualcosa = (t.waypoints ?? []).some(w => !w.route_geometry && followsRoad(w.transport_mode) && hasCoords(w.lat, w.lon))
-      || (!t.route_geometry && followsRoad(t.transport_mode));
+    const serveQualcosa = (t.waypoints ?? []).some(w => followsRoad(w.transport_mode) && hasCoords(w.lat, w.lon) && daRipescare(w.route_geometry, w.route_km))
+      || (followsRoad(t.transport_mode) && daRipescare(t.route_geometry, t.route_km));
     if (!serveQualcosa) { tentativi[t.id] = oggi; toccato = true; continue; }
 
     const patch: Partial<Trip> = {};
@@ -76,19 +107,26 @@ export async function ricalcolaTracciati(annullato: () => boolean = () => false)
     const nuoveTappe = [...tappe];
     for (let i = 0; i < nuoveTappe.length; i++) {
       const w = nuoveTappe[i];
-      if (!w.route_geometry && followsRoad(w.transport_mode)) {
+      // Una tappa senza coordinate non si può instradare — ma va comunque
+      // ricopiata nell'elenco nuovo: prima veniva filtrata via all'inizio, e
+      // il salvataggio qui sotto la CANCELLAVA dal viaggio.
+      if (!hasCoords(w.lat, w.lon)) continue;
+      if (followsRoad(w.transport_mode) && daRipescare(w.route_geometry, w.route_km)) {
         if (annullato()) break;
         const r = await fetchDrivingRoute(prima.lat, prima.lon, w.lat as number, w.lon as number);
-        if (r) { nuoveTappe[i] = { ...w, route_geometry: r }; aggiunti++; }
+        // Disegno e lunghezza si scrivono SEMPRE in coppia: sono la stessa
+        // risposta, e una lunghezza che non descrive il disegno accanto
+        // sarebbe peggio di nessuna lunghezza.
+        if (r) { nuoveTappe[i] = { ...w, route_geometry: r.coords, route_km: r.km }; aggiunti++; }
       }
       prima = { lat: w.lat as number, lon: w.lon as number };
     }
     if (nuoveTappe.some((w, i) => w !== tappe[i])) patch.waypoints = nuoveTappe;
 
-    if (!t.route_geometry && followsRoad(t.transport_mode)) {
+    if (followsRoad(t.transport_mode) && daRipescare(t.route_geometry, t.route_km)) {
       if (annullato()) break;
       const r = await fetchDrivingRoute(prima.lat, prima.lon, t.latitude, t.longitude);
-      if (r) { patch.route_geometry = r; aggiunti++; }
+      if (r) { patch.route_geometry = r.coords; patch.route_km = r.km; aggiunti++; }
     }
     // Come per le temperature: si scrive SOLO se c'è davvero qualcosa di
     // nuovo — updateTrip timbra `updated_at`, e un timbro gratuito farebbe

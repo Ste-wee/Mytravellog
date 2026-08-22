@@ -380,6 +380,22 @@ export function mergeRegions(entries: RegionInfo[]): { name: string; code: strin
   return out;
 }
 
+/** Un percorso su strada: il disegno e la sua lunghezza vera. */
+export type RottaStradale = {
+  /** Punti [lon,lat] in versione SEMPLIFICATA (poche decine): è il disegno che
+   *  finisce in memoria e nel backup, e va tenuto leggero. */
+  coords: [number, number][];
+  /** Distanza reale dichiarata dal servizio, in km (null se non l'ha detta).
+   *
+   *  Perché si salva invece di ricavarla dal disegno: la versione semplificata
+   *  taglia le curve, e sommarne i segmenti SOTTOSTIMA il percorso del 2-7%
+   *  (misurato il 2026-08-22 su cinque tratte: Roma→Napoli -1,6%,
+   *  Milano→Friburgo -6,6%, in media -3,8%). La versione completa sarebbe
+   *  esatta ma pesa 50-160 KB per tratta contro 0,5: fuori discussione per un
+   *  archivio che sta tutto in localStorage. Questo numero costa 8 byte. */
+  km: number | null;
+};
+
 /**
  * Percorso stradale reale (stile Google Maps) tra due punti, per le tratte
  * in auto. Usa il server demo pubblico di OSRM (gratuito, nessuna chiave,
@@ -388,7 +404,7 @@ export function mergeRegions(entries: RegionInfo[]): { name: string; code: strin
  */
 export async function fetchDrivingRoute(
   lat1: number, lon1: number, lat2: number, lon2: number
-): Promise<[number, number][] | null> {
+): Promise<RottaStradale | null> {
   try {
     const url = `https://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=simplified&geometries=geojson`;
     const r = await fetch(url);
@@ -396,7 +412,9 @@ export async function fetchDrivingRoute(
     const d = await r.json();
     const coords = d?.routes?.[0]?.geometry?.coordinates;
     if (!Array.isArray(coords) || coords.length < 2) return null;
-    return coords as [number, number][];
+    const metri = d?.routes?.[0]?.distance;
+    const km = typeof metri === "number" && Number.isFinite(metri) && metri > 0 ? metri / 1000 : null;
+    return { coords: coords as [number, number][], km };
   } catch {
     return null;
   }

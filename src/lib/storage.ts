@@ -20,13 +20,20 @@ export type Trip = {
   checklist?: { text: string; done: boolean }[];               // "da organizzare" prima di partire
   booked?: boolean;                                            // viaggio in programma: prenotato o ancora da prenotare
   transport_mode: TransportMode | null;
-  waypoints: { id?: string; city: string; country: string; country_code?: string; transport_mode: TransportMode; lat?: number; lon?: number; route_geometry?: [number, number][] | null }[];
+  waypoints: { id?: string; city: string; country: string; country_code?: string; transport_mode: TransportMode; lat?: number; lon?: number; route_geometry?: [number, number][] | null; route_km?: number | null }[];
   latitude: number;
   longitude: number;
   home_latitude: number | null;
   home_longitude: number | null;
   home_label: string | null;
   route_geometry: [number, number][] | null; // percorso stradale reale per la tratta finale (solo se transport_mode="car")
+  /** Lunghezza vera della tratta finale in km, come l'ha dichiarata il servizio
+   *  di instradamento. Il disegno qui sopra è semplificato, quindi sommarne i
+   *  segmenti sottostima il percorso del 2-7%: quando questo numero c'è, i km
+   *  percorsi lo usano (vedi `tripTotalKm`). Assente sui viaggi salvati prima
+   *  del 2026-08-22 e su quelli importati da GPX, dove la traccia è già fitta
+   *  e la somma dei segmenti è precisa da sola. */
+  route_km?: number | null;
   temperature_c: number | null;
   altitude_m: number | null;
   max_altitude_m: number | null; // altitudine massima tra tutte le tappe (non solo la destinazione)

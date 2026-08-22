@@ -239,7 +239,8 @@ const ModificaViaggio = () => {
       ...allStopsWithCoords.map(s => hasCoords(s.lat, s.lon) ? fetchTemperature(s.lat, s.lon, dateStart, dateEnd || null) : Promise.resolve(null)),
       ...allStopsWithCoords.map(s => hasCoords(s.lat, s.lon) ? fetchElevation(s.lat, s.lon) : Promise.resolve(null)),
     ]);
-    const routeGeometries = await routeGeometriesPromise;
+    // Disegno + lunghezza vera insieme (vedi RottaStradale in geo.ts).
+    const rotte = await routeGeometriesPromise;
     const n = allStopsWithCoords.length;
     const stopTemps = rest.slice(0, n);
     const stopAlts = rest.slice(n, 2 * n);
@@ -262,12 +263,13 @@ const ModificaViaggio = () => {
       trip_date: dateStart, date_end: dateEnd || null,
       notes: notes.trim() || null,
       transport_mode: dest.transport_mode,
-      waypoints: waypoints.slice(0, -1).map((w, i) => ({ id: w.id, city: w.city, country: w.country, country_code: w.country_code, transport_mode: w.transport_mode, lat: w.lat, lon: w.lon, route_geometry: routeGeometries[i] ?? null })),
+      waypoints: waypoints.slice(0, -1).map((w, i) => ({ id: w.id, city: w.city, country: w.country, country_code: w.country_code, transport_mode: w.transport_mode, lat: w.lat, lon: w.lon, route_geometry: rotte[i]?.coords ?? null, route_km: rotte[i]?.km ?? null })),
       // Niente fallback ||: una destinazione a lat/lon 0 veniva sostituita
       // dalla vecchia coordinata del viaggio. Allineato a NuovoViaggio.
       latitude: dest.lat,
       longitude: dest.lon,
-      route_geometry: routeGeometries[routeGeometries.length - 1] ?? null,
+      route_geometry: rotte[rotte.length - 1]?.coords ?? null,
+      route_km: rotte[rotte.length - 1]?.km ?? null,
       home_latitude: home?.lat ?? null, home_longitude: home?.lon ?? null, home_label: home?.label ?? null,
       distance_from_home_km: dist, max_distance_from_home_km: maxDist, max_distance_city: maxDistCity, altitude_m: alt, max_altitude_m: highestStop?.alt ?? null, max_altitude_city: highestStop?.city ?? null, temperature_c: temp, hottest_temp_c: hottestStop?.temp ?? null, hottest_city: hottestStop?.city ?? null, coldest_temp_c: coldestStop?.temp ?? null, coldest_city: coldestStop?.city ?? null, region: region ?? null, region_details: regionDetails,
       country_code: dest.country_code || trip?.country_code || "",

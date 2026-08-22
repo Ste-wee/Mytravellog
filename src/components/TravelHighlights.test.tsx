@@ -242,4 +242,18 @@ describe("TravelHighlights — byMode breakdown", () => {
     // il totale stradale è nettamente più lungo della retta Milano→Roma (~477)
     expect(total).toBeGreaterThan(900);
   });
+
+  it("il breakdown usa la lunghezza dichiarata, non la somma del disegno", () => {
+    // Stessa regola del totale: se il servizio ci ha detto quanti km sono, il
+    // conteggio per mezzo deve dire lo stesso numero, altrimenti il dettaglio
+    // e il totale non tornerebbero (è già successo una volta).
+    const trip = makeTrip({
+      transport_mode: "car",
+      route_geometry: [[9.2, 45.5], [20, 45.5], [12.5, 41.9]],
+      route_km: 999,
+    });
+    const byMode = computeKmByTransportMode([trip]);
+    expect(byMode.car).toBe(999);
+    expect(Object.values(byMode).reduce((a, b) => a + b, 0)).toBeCloseTo(tripTotalKm(trip), 5);
+  });
 });

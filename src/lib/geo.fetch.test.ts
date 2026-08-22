@@ -165,13 +165,28 @@ describe("fetchDrivingRoute", () => {
   beforeEach(() => { vi.stubGlobal("fetch", vi.fn()); });
   afterEach(() => { vi.unstubAllGlobals(); });
 
-  it("ritorna le coordinate del percorso da OSRM", async () => {
+  it("ritorna il disegno del percorso E la sua lunghezza vera", async () => {
     (fetch as any).mockReturnValue(okJson({
       code: "Ok",
-      routes: [{ geometry: { type: "LineString", coordinates: [[12.5, 41.9], [12.6, 42.0], [12.7, 42.1]] } }],
+      routes: [{ distance: 282345.6, geometry: { type: "LineString", coordinates: [[12.5, 41.9], [12.6, 42.0], [12.7, 42.1]] } }],
     }));
     const route = await fetchDrivingRoute(41.9, 12.5, 42.1, 12.7);
-    expect(route).toEqual([[12.5, 41.9], [12.6, 42.0], [12.7, 42.1]]);
+    expect(route?.coords).toEqual([[12.5, 41.9], [12.6, 42.0], [12.7, 42.1]]);
+    // I metri dichiarati diventano km: e' questo numero, non la somma dei
+    // segmenti del disegno, a dire quanta strada si e' fatta davvero.
+    expect(route?.km).toBeCloseTo(282.3456, 4);
+  });
+
+  it("la lunghezza resta nulla se il servizio non la dichiara (o e' assurda)", async () => {
+    const senzaDistanza = { code: "Ok", routes: [{ geometry: { coordinates: [[1, 2], [3, 4]] } }] };
+    (fetch as any).mockReturnValue(okJson(senzaDistanza));
+    expect((await fetchDrivingRoute(2, 1, 4, 3))?.km).toBeNull();
+    // zero e valori non numerici valgono come "non lo so": meglio ricadere
+    // sulla somma dei segmenti che scrivere uno zero nell'archivio.
+    for (const distance of [0, -5, "molta", null, NaN]) {
+      (fetch as any).mockReturnValue(okJson({ code: "Ok", routes: [{ distance, geometry: { coordinates: [[1, 2], [3, 4]] } }] }));
+      expect((await fetchDrivingRoute(2, 1, 4, 3))?.km).toBeNull();
+    }
   });
 
   it("ritorna null se OSRM non trova un percorso (routes vuoto)", async () => {
