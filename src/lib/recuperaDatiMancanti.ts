@@ -1,5 +1,4 @@
 import { fetchTemperature, fetchElevation, fetchRegion, mergeRegions } from "./geo";
-import { sequentialMap } from "./utils";
 import { hasCoords } from "./coords";
 import { loadTrips, updateTrip, Trip } from "./storage";
 
@@ -12,8 +11,23 @@ export const CHIAVE_DATI = "navta.dati.tentati.v1";
 /** Un dato che non arriva (rete giù, servizio storto) non si ritenta a ogni
  *  avvio: una volta a settimana basta a guarire senza pesare. */
 const GIORNI_PRIMA_DI_RIPROVARE = 7;
-/** Nominatim chiede di non superare una richiesta al secondo. */
+/**
+ * Nominatim chiede di non superare una richiesta al secondo.
+ *
+ * Il ritmo va tenuto su TUTTO il giro, non dentro il singolo viaggio: con
+ * `sequentialMap` la pausa cadeva solo fra una tappa e l'altra, così nove
+ * viaggi a tappa singola sparavano nove richieste in due secondi e mezzo
+ * (misurato: 274 ms di distanza minima). Il cronometro qui sotto è di modulo:
+ * conta i secondi dall'ultima richiesta, chiunque l'abbia fatta.
+ */
 const PAUSA_NOMINATIM_MS = 1100;
+let ultimaNominatim = 0;
+
+async function turnoNominatim(pausaMs: number): Promise<void> {
+  const restano = pausaMs - (Date.now() - ultimaNominatim);
+  if (restano > 0) await new Promise(r => setTimeout(r, restano));
+  ultimaNominatim = Date.now();
+}
 
 type Tentativi = Record<string, string>;   // id viaggio → data ISO del tentativo
 
@@ -60,7 +74,10 @@ function fermate(t: Trip): { city: string; lat: number; lon: number }[] {
  * Regola generale, per la terza volta: una rete di sicurezza che si disarma da
  * sola dopo il primo giro protegge solo i dati che esistevano quel giorno.
  */
-export async function recuperaDatiMancanti(annullato: () => boolean = () => false): Promise<number> {
+export async function recuperaDatiMancanti(
+  annullato: () => boolean = () => false,
+  pausaNominatimMs: number = PAUSA_NOMINATIM_MS,
+): Promise<number> {
   const tentativi = leggiTentativi();
   let riempiti = 0;
   let toccato = false;
@@ -118,10 +135,14 @@ export async function recuperaDatiMancanti(annullato: () => boolean = () => fals
     }
 
     if (mancaRegione) {
-      if (annullato()) return riempiti;
       // Una richiesta al secondo: è la regola di Nominatim, e qui giriamo in
       // sottofondo — non c'è nessuno che aspetta.
-      const regioni = await sequentialMap(stops, s => fetchRegion(s.lat, s.lon), PAUSA_NOMINATIM_MS);
+      const regioni = [];
+      for (const s of stops) {
+        if (annullato()) return riempiti;
+        await turnoNominatim(pausaNominatimMs);
+        regioni.push(await fetchRegion(s.lat, s.lon));
+      }
       const dettagli = mergeRegions(regioni);
       if (dettagli.length) {
         patch.region = dettagli.map(r => r.name).join(", ");

@@ -36,7 +36,7 @@ describe("recuperaDatiMancanti — i viaggi salvati senza rete", () => {
 
   it("riempie temperatura, altitudine e regione mancanti", async () => {
     saveTrips([senzaNulla()]);
-    expect(await recuperaDatiMancanti()).toBe(1);
+    expect(await recuperaDatiMancanti(undefined, 0)).toBe(1);
     const t = loadTrips()[0];
     expect(t.temperature_c).toBe(21);
     expect(t.altitude_m).toBe(500);
@@ -46,7 +46,7 @@ describe("recuperaDatiMancanti — i viaggi salvati senza rete", () => {
 
   it("non chiede niente a chi ha già tutto", async () => {
     saveTrips([viaggio()]);
-    expect(await recuperaDatiMancanti()).toBe(0);
+    expect(await recuperaDatiMancanti(undefined, 0)).toBe(0);
     expect(fetchTemperature).not.toHaveBeenCalled();
     expect(fetchElevation).not.toHaveBeenCalled();
     expect(fetchRegion).not.toHaveBeenCalled();
@@ -54,7 +54,7 @@ describe("recuperaDatiMancanti — i viaggi salvati senza rete", () => {
 
   it("chiede solo quello che manca davvero", async () => {
     saveTrips([viaggio({ altitude_m: null })]);
-    await recuperaDatiMancanti();
+    await recuperaDatiMancanti(undefined, 0);
     expect(fetchElevation).toHaveBeenCalled();
     expect(fetchTemperature).not.toHaveBeenCalled();
     expect(fetchRegion).not.toHaveBeenCalled();
@@ -66,7 +66,7 @@ describe("recuperaDatiMancanti — i viaggi salvati senza rete", () => {
     saveTrips([senzaNulla({
       waypoints: [{ city: "Gottardo", country: "Svizzera", transport_mode: "car", lat: 46.55, lon: 8.56 }],
     })]);
-    await recuperaDatiMancanti();
+    await recuperaDatiMancanti(undefined, 0);
     const t = loadTrips()[0];
     expect(t.temperature_c).toBe(25);                  // la destinazione
     expect(t.coldest_city).toBe("Gottardo");
@@ -78,11 +78,11 @@ describe("recuperaDatiMancanti — i viaggi salvati senza rete", () => {
   // Il cuore della faccenda: la rete NON deve disarmarsi dopo il primo giro.
   it("prova un viaggio nuovo anche se gli altri sono già stati timbrati", async () => {
     saveTrips([senzaNulla()]);
-    await recuperaDatiMancanti();
+    await recuperaDatiMancanti(undefined, 0);
     vi.mocked(fetchTemperature).mockClear();
 
     saveTrips([...loadTrips(), senzaNulla({ id: "os", city: "Oslo", trip_date: "2025-07-01" })]);
-    expect(await recuperaDatiMancanti()).toBe(1);
+    expect(await recuperaDatiMancanti(undefined, 0)).toBe(1);
     expect(fetchTemperature).toHaveBeenCalled();
     expect(loadTrips().find(t => t.id === "os")?.temperature_c).toBe(21);
   });
@@ -92,15 +92,15 @@ describe("recuperaDatiMancanti — i viaggi salvati senza rete", () => {
     vi.mocked(fetchTemperature).mockResolvedValue(null);   // il servizio non risponde
     vi.mocked(fetchElevation).mockResolvedValue(null);
     vi.mocked(fetchRegion).mockResolvedValue({ name: null, code: null });
-    await recuperaDatiMancanti();
+    await recuperaDatiMancanti(undefined, 0);
     vi.mocked(fetchTemperature).mockClear();
 
-    await recuperaDatiMancanti();
+    await recuperaDatiMancanti(undefined, 0);
     expect(fetchTemperature).not.toHaveBeenCalled();
 
     const vecchio = new Date(Date.now() - 8 * 86_400_000).toISOString();
     localStorage.setItem(CHIAVE_DATI, JSON.stringify({ zh: vecchio }));
-    await recuperaDatiMancanti();
+    await recuperaDatiMancanti(undefined, 0);
     expect(fetchTemperature).toHaveBeenCalled();
   });
 
@@ -110,17 +110,17 @@ describe("recuperaDatiMancanti — i viaggi salvati senza rete", () => {
     vi.mocked(fetchTemperature).mockResolvedValue(null);
     vi.mocked(fetchElevation).mockResolvedValue(null);
     vi.mocked(fetchRegion).mockResolvedValue({ name: null, code: null });
-    expect(await recuperaDatiMancanti()).toBe(0);
+    expect(await recuperaDatiMancanti(undefined, 0)).toBe(0);
     expect(loadTrips()[0].updated_at).toBe(prima);
   });
 
   it("dimentica i viaggi cancellati invece di gonfiare l'elenco", async () => {
     saveTrips([senzaNulla(), senzaNulla({ id: "os", city: "Oslo" })]);
-    await recuperaDatiMancanti();
+    await recuperaDatiMancanti(undefined, 0);
     expect(Object.keys(JSON.parse(localStorage.getItem(CHIAVE_DATI) || "{}")).sort()).toEqual(["os", "zh"]);
 
     saveTrips([loadTrips()[0]]);
-    await recuperaDatiMancanti();
+    await recuperaDatiMancanti(undefined, 0);
     expect(Object.keys(JSON.parse(localStorage.getItem(CHIAVE_DATI) || "{}"))).toHaveLength(1);
   });
 
@@ -128,13 +128,31 @@ describe("recuperaDatiMancanti — i viaggi salvati senza rete", () => {
     saveTrips([senzaNulla(), senzaNulla({ id: "os", city: "Oslo" })]);
     let chiamate = 0;
     vi.mocked(fetchTemperature).mockImplementation(async () => { chiamate++; return 10; });
-    await recuperaDatiMancanti(() => chiamate >= 1);
+    await recuperaDatiMancanti(() => chiamate >= 1, 0);
     expect(chiamate).toBeLessThanOrEqual(2);
+  });
+
+  // Il ritmo va tenuto su tutto il giro, non dentro il singolo viaggio: nove
+  // viaggi a tappa singola sparavano nove richieste a Nominatim in due secondi
+  // e mezzo (274 ms di distanza minima, misurati dal vivo).
+  it("non spara raffiche a Nominatim con tanti viaggi a tappa singola", async () => {
+    const istanti: number[] = [];
+    vi.mocked(fetchRegion).mockImplementation(async () => {
+      istanti.push(Date.now());
+      return { name: "Una regione", code: "IT-XX" };
+    });
+    saveTrips([senzaNulla({ id: "a" }), senzaNulla({ id: "b" }), senzaNulla({ id: "c" })]);
+
+    await recuperaDatiMancanti(undefined, 60);
+
+    expect(istanti).toHaveLength(3);
+    const distanze = istanti.slice(1).map((t, i) => t - istanti[i]);
+    for (const d of distanze) expect(d).toBeGreaterThanOrEqual(50);
   });
 
   it("un viaggio senza coordinate non manda nessuno a cercare niente", async () => {
     saveTrips([senzaNulla({ latitude: NaN as unknown as number, longitude: NaN as unknown as number })]);
-    expect(await recuperaDatiMancanti()).toBe(0);
+    expect(await recuperaDatiMancanti(undefined, 0)).toBe(0);
     expect(fetchTemperature).not.toHaveBeenCalled();
   });
 });
