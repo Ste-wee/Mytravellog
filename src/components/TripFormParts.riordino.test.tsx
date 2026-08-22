@@ -177,6 +177,94 @@ describe("trascinamento delle tappe", () => {
     expect(p.onMoveWaypoint).not.toHaveBeenCalled();
   });
 
+  // ── Le cinque correzioni al gesto (2026-08-22) ────────────────────────────
+  // Prima: la tappa in mano si disegnava nella colonna della riga di ARRIVO,
+  // e siccome le righe alternano lato, scendendo dritti col dito la tappa si
+  // teletrasportava a destra e a sinistra a ogni riga attraversata.
+
+  /** Il cerchio della tappa che si sta trascinando (è l'unico con l'ombra). */
+  const nodoInMano = () => document.querySelector('circle[style*="drop-shadow"]');
+  /** Il segnaposto tratteggiato che mostra dove atterrerà. */
+  const segnaposto = () => document.querySelector('circle[stroke-dasharray="5 4"]');
+
+  it("la tappa in mano non cambia colonna mentre il dito scende dritto", () => {
+    renderPannello();
+    const napoli = nodoDi("Napoli");
+    // Napoli sta alla riga 3 (colonna destra); la riga 2 è a sinistra.
+    const cxPrima = document.querySelectorAll("circle")[0] && null;
+    fireEvent.pointerDown(napoli, { pointerId: 1, clientY: 292 });
+    fireEvent.pointerMove(napoli, { pointerId: 1, clientY: 292 - 40 });
+    const colonnaPresa = nodoInMano()?.getAttribute("cx");
+    fireEvent.pointerMove(napoli, { pointerId: 1, clientY: 208 });   // riga 2, colonna opposta
+    expect(nodoInMano()?.getAttribute("cx")).toBe(colonnaPresa);
+    expect(cxPrima).toBeNull();
+    fireEvent.pointerUp(napoli, { pointerId: 1, clientY: 208 });
+  });
+
+  it("il segnaposto invece si sposta: è lui a dire dove atterra", () => {
+    renderPannello();
+    const napoli = nodoDi("Napoli");
+    fireEvent.pointerDown(napoli, { pointerId: 1, clientY: 292 });
+    fireEvent.pointerMove(napoli, { pointerId: 1, clientY: 208 });
+    const a2 = segnaposto()?.getAttribute("cy");
+    fireEvent.pointerMove(napoli, { pointerId: 1, clientY: 124 });
+    expect(segnaposto()?.getAttribute("cy")).not.toBe(a2);
+    fireEvent.pointerUp(napoli, { pointerId: 1, clientY: 124 });
+  });
+
+  it("sotto la soglia è un tocco: non parte nessun trascinamento", () => {
+    const p = renderPannello();
+    const napoli = nodoDi("Napoli");
+    fireEvent.pointerDown(napoli, { pointerId: 1, clientY: 292 });
+    fireEvent.pointerMove(napoli, { pointerId: 1, clientY: 289 });   // 3 px: un dito fermo trema
+    expect(segnaposto()).toBeNull();
+    expect(nodoInMano()).toBeNull();
+    fireEvent.pointerUp(napoli, { pointerId: 1, clientY: 289 });
+    expect(p.onMoveWaypoint).not.toHaveBeenCalled();
+  });
+
+  it("passata la soglia il trascinamento parte", () => {
+    renderPannello();
+    const napoli = nodoDi("Napoli");
+    fireEvent.pointerDown(napoli, { pointerId: 1, clientY: 292 });
+    fireEvent.pointerMove(napoli, { pointerId: 1, clientY: 280 });   // 12 px
+    expect(segnaposto()).not.toBeNull();
+    fireEvent.pointerUp(napoli, { pointerId: 1, clientY: 280 });
+  });
+
+  it("la tappa resta agganciata al punto in cui l'hai presa", () => {
+    // Il disegno e' alto 348 unita' su 400 px di schermo: 1 px vale 0,87.
+    // Napoli sta a quota 292 e la si prende col dito a 320 (sotto il centro).
+    // Col trascinamento agganciato il nodo scende della STESSA distanza del
+    // dito: 292 + (180-320)*0,87 = 170, cioe' la riga 2. Senza aggancio il
+    // centro salterebbe sotto il polpastrello, 180*0,87 = 157: riga 1.
+    // Cambia la tappa dove finisce: e' esattamente il difetto da prevenire.
+    const p = renderPannello();
+    const napoli = nodoDi("Napoli");
+    fireEvent.pointerDown(napoli, { pointerId: 1, clientY: 320 });
+    fireEvent.pointerMove(napoli, { pointerId: 1, clientY: 180 });
+    fireEvent.pointerUp(napoli, { pointerId: 1, clientY: 180 });
+    expect(p.onMoveWaypoint).toHaveBeenCalledWith(2, 1);
+  });
+
+  it("mentre sposti la rotta sta calma: niente frecce che cambiano", () => {
+    renderPannello();
+    const napoli = nodoDi("Napoli");
+    expect(document.querySelectorAll("path[marker-end]").length).toBeGreaterThan(0);
+    fireEvent.pointerDown(napoli, { pointerId: 1, clientY: 292 });
+    fireEvent.pointerMove(napoli, { pointerId: 1, clientY: 208 });
+    expect(document.querySelectorAll("path[marker-end]").length).toBe(0);
+    fireEvent.pointerUp(napoli, { pointerId: 1, clientY: 208 });
+    expect(document.querySelectorAll("path[marker-end]").length).toBeGreaterThan(0);
+  });
+
+  it("la zona di presa arriva a 44 px anche se la bandiera è più piccola", () => {
+    renderPannello();
+    const napoli = nodoDi("Napoli") as HTMLElement;
+    expect(parseFloat(napoli.style.width)).toBeGreaterThanOrEqual(44);
+    expect(parseFloat(napoli.style.height)).toBeGreaterThanOrEqual(44);
+  });
+
   it("con una sola tappa non c'è niente da riordinare", () => {
     renderPannello({ waypoints: [wp("1", "Firenze")] });
     expect(screen.queryByRole("button", { name: /Trascina per spostarla/ })).toBeNull();

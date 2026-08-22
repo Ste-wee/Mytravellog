@@ -76,6 +76,13 @@ const SCORRIMENTO = (inMano: boolean) =>
     "left 190ms cubic-bezier(.2,.8,.25,1), top 190ms cubic-bezier(.2,.8,.25,1)";
 
 type Pt = { x: number; y: number };
+/** Una tappa in mano: da dove viene, dov'è il dito, dove cadrebbe. */
+type Presa = { da: number; y: number; a: number; attivo: boolean; scarto: number; partenzaY: number };
+/** Quanto deve muoversi il dito perché sia un trascinamento e non un tocco. */
+const SOGLIA_PRESA = 8;
+/** Colpetto di conferma alla presa e all'atterraggio. Dove il motorino non
+ *  c'è (desktop, iOS) `vibrate` non esiste: silenzio, e va benissimo. */
+const vibra = (ms: number) => { try { navigator.vibrate?.(ms); } catch { /* niente motorino */ } };
 type ArcSeg = { p0: Pt; p1: Pt; p2: Pt; transport: string | null };
 
 /**
@@ -195,15 +202,21 @@ function RouteHero({
   // Per i km della tratta nel selettore: rispetta l'unità scelta (km/mi).
   const { distanceUnit } = useSettings();
   /** Trascinamento in corso: quale tappa ho in mano, dov'è il dito e dove
-   *  cadrebbe se lo alzassi adesso. `null` = nessun trascinamento. */
-  const [drag, setDrag] = React.useState<{ da: number; y: number; a: number } | null>(null);
+   *  cadrebbe se lo alzassi adesso. `null` = nessun trascinamento.
+   *
+   *  `attivo` distingue la PRESA dal TRASCINAMENTO: al tocco si prende nota e
+   *  basta, e finché il dito non si è mosso di `SOGLIA_PRESA` non succede
+   *  niente — prima bastava sfiorare una tappa per spostarla.
+   *  `scarto` è la distanza fra dito e centro del nodo al momento della presa:
+   *  senza, il nodo saltava a incollarsi sotto il polpastrello. */
+  const [drag, setDrag] = React.useState<Presa | null>(null);
   /** Copia sempre aggiornata di `drag` per gli handler su window: al
    *  rilascio serve sapere dove si è arrivati SENZA leggerlo dentro un
    *  updater di setState — React in sviluppo esegue gli updater due volte, e
    *  chiamare lì onMoveWaypoint spostava la tappa DUE VOLTE (visibile solo
    *  nel browser, non nei test). */
-  const dragRef = React.useRef<{ da: number; y: number; a: number } | null>(null);
-  const aggiornaDrag = (v: { da: number; y: number; a: number } | null) => {
+  const dragRef = React.useRef<Presa | null>(null);
+  const aggiornaDrag = (v: Presa | null) => {
     dragRef.current = v;
     setDrag(v);
   };
@@ -245,10 +258,17 @@ function RouteHero({
   const rigaDallaY = (y: number) =>
     Math.min(n - 1, Math.max(1, Math.round((y - padTop) / vStep)));
 
-  const iniziaTrascinamento = (i: number) => () => {
+  const iniziaTrascinamento = (i: number) => (e: React.PointerEvent) => {
     if (n <= 2) return;                       // una sola tappa: niente da riordinare
     setActiveArc(null);
-    aggiornaDrag({ da: i, y: nodeY(i), a: i });
+    const box = svgRef.current?.getBoundingClientRect();
+    const yDito = box && box.height > 0 ? ((e.clientY - box.top) / box.height) * H : nodeY(i);
+    aggiornaDrag({
+      da: i, y: nodeY(i), a: i,
+      attivo: false,                          // ancora un tocco, non un trascinamento
+      scarto: nodeY(i) - yDito,               // dove stava il dito dentro il nodo
+      partenzaY: e.clientY,
+    });
   };
 
   // Il seguito del trascinamento vive su `window`, non sul nodo: il nodo si
@@ -262,13 +282,19 @@ function RouteHero({
       const corrente = dragRef.current;
       const box = svgRef.current?.getBoundingClientRect();
       if (!corrente || !box || box.height === 0) return;
-      const y = ((e.clientY - box.top) / box.height) * H;
-      aggiornaDrag({ ...corrente, y, a: rigaDallaY(y) });
+      // Sotto la soglia è ancora un tocco: non si muove niente.
+      if (!corrente.attivo && Math.abs(e.clientY - corrente.partenzaY) < SOGLIA_PRESA) return;
+      if (!corrente.attivo) vibra(8);
+      const y = ((e.clientY - box.top) / box.height) * H + corrente.scarto;
+      aggiornaDrag({ ...corrente, attivo: true, y, a: rigaDallaY(y) });
     };
     const concludi = () => {
       const finale = dragRef.current;
       aggiornaDrag(null);
-      if (finale && finale.a !== finale.da) onMoveWaypoint(finale.da - 1, finale.a - 1);  // la casa è 0
+      if (finale?.attivo && finale.a !== finale.da) {
+        vibra(14);
+        onMoveWaypoint(finale.da - 1, finale.a - 1);   // la casa è 0
+      }
     };
     const annulla = () => aggiornaDrag(null);
     window.addEventListener("pointermove", muovi);
@@ -292,17 +318,21 @@ function RouteHero({
     onMoveWaypoint(i - 1, a - 1);
   };
 
+  /** La presa, ma solo se è diventata trascinamento vero: tutto il disegno
+   *  guarda questa, così un tocco sotto soglia non muove nulla. */
+  const trascinando = drag?.attivo ? drag : null;
+
   // Durante il trascinamento la serpentina mostra già l'ordine finale: le
   // altre tappe scorrono, quella in mano segue il dito.
   const ordineMostrato = React.useMemo(() => {
     const idx = stops.map((_, i) => i);
-    if (!drag) return idx;
-    const [preso] = idx.splice(drag.da, 1);
-    idx.splice(drag.a, 0, preso);
+    if (!trascinando) return idx;
+    const [preso] = idx.splice(trascinando.da, 1);
+    idx.splice(trascinando.a, 0, preso);
     return idx;
-  }, [drag, stops.length]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [trascinando, stops.length]);   // eslint-disable-line react-hooks/exhaustive-deps
   /** Dove sta il nodo `i` mentre trascino (posizione nell'ordine mostrato). */
-  const rigaDi = (i: number) => (drag ? ordineMostrato.indexOf(i) : i);
+  const rigaDi = (i: number) => (trascinando ? ordineMostrato.indexOf(i) : i);
 
   // Archi bézier tra tappe consecutive: colonne alternate (sx/dx) → serpentina
   // verticale, ciascun arco bomba verso l'esterno della colonna di arrivo.
@@ -337,11 +367,18 @@ function RouteHero({
               {arcSegs.map((a, k) => {
                 const t = TRANSPORT.find(t => t.value === a.transport) ?? TRANSPORT[0];
                 const d = `M ${a.p0.x} ${a.p0.y} Q ${a.p1.x} ${a.p1.y} ${a.p2.x} ${a.p2.y}`;
+                // Mentre una tappa è in mano la rotta si fa neutra: prima ogni
+                // riga attraversata cambiava colore e freccia a tutti gli archi,
+                // e il disegno sfarfallava sotto il dito. Si ricompone al
+                // rilascio, con la sua animazione.
+                const calmo = !!trascinando;
+                const colore = calmo ? "#2f4a72" : t.color;
                 return (
                   <g key={k}>
-                    <path d={d} stroke={t.color} strokeWidth="8" fill="none" opacity="0.06"/>
-                    <path d={d} stroke={t.color} strokeWidth="2" strokeDasharray="5 3"
-                      fill="none" opacity="0.6" markerEnd={`url(#tf-arr-${t.value})`}/>
+                    <path d={d} stroke={colore} strokeWidth="8" fill="none" opacity={calmo ? 0 : 0.06}/>
+                    <path d={d} stroke={colore} strokeWidth="2" strokeDasharray="5 3"
+                      fill="none" opacity={calmo ? 0.8 : 0.6}
+                      markerEnd={calmo ? undefined : `url(#tf-arr-${t.value})`}/>
                     {/* outline-none: al tocco/click Chromium disegnava l'anello
                         di focus sul BOUNDING BOX dell'arco — un riquadrone
                         bianco su mezza serpentina. Da tastiera il focus resta
@@ -360,22 +397,30 @@ function RouteHero({
                 // `riga` = posizione sulla serpentina (cambia mentre trascino),
                 // `i` = identità della tappa (non cambia mai).
                 const riga = rigaDi(i);
-                const inMano = drag?.da === i;
-                const x = nodeX(riga);
-                const y = inMano ? drag.y : nodeY(riga);
+                const inMano = trascinando?.da === i;
+                // La tappa in mano resta nella colonna da cui l'hai presa.
+                // Prima si disegnava nella colonna della riga di ARRIVO, e
+                // siccome le righe alternano sinistra e destra, mentre il dito
+                // scendeva dritto la tappa si teletrasportava di lato a ogni
+                // riga attraversata: era quello a rendere il gesto caotico.
+                const x = inMano ? nodeX(trascinando.da) : nodeX(riga);
+                const y = inMano ? trascinando.y : nodeY(riga);
                 const isLast = riga === n - 1 && n > 1;
                 const lastT = isLast ? TRANSPORT.find(t => t.value === stop.transport) ?? TRANSPORT[0] : null;
                 const borderColor = stop.isHome ? "#fbbf24" : lastT ? lastT.color : "#60a5fa";
                 const bgFill = stop.isHome ? "rgba(251,191,36,0.1)" : lastT ? lastT.bg : "rgba(96,165,250,0.08)";
                 const r = isLast ? nodeR + 5 : nodeR;
-                const leftCol = riga % 2 === 0;
+                // Da che parte scrivere il nome: si guarda la colonna DOVE IL
+                // NODO STA davvero, non quella della sua riga — altrimenti
+                // sulla tappa in mano l'etichetta finirebbe sopra il cerchio.
+                const leftCol = x === xL;
                 const labelX = leftCol ? x + r + 9 : x - r - 9;
                 const trascinabile = !stop.isHome && n > 2;
                 return (
-                  <g key={i} style={{ opacity: drag && !inMano ? 0.75 : 1 }}>
+                  <g key={i} style={{ opacity: trascinando && !inMano ? 0.75 : 1 }}>
                     {/* Posto libero dove la tappa cadrà, così si vede dove va */}
                     {inMano && (
-                      <circle cx={nodeX(drag.a)} cy={nodeY(drag.a)} r={nodeR} fill="none"
+                      <circle cx={nodeX(trascinando.a)} cy={nodeY(trascinando.a)} r={nodeR} fill="none"
                         stroke="rgba(96,165,250,0.5)" strokeWidth="1.5" strokeDasharray="5 4"/>
                     )}
                     {/* La presa per trascinare NON sta qui ma sul div HTML
@@ -476,12 +521,16 @@ function RouteHero({
                 // muoversi insieme, altrimenti durante il trascinamento la
                 // bandiera resta indietro.
                 const riga = rigaDi(i);
-                const inMano = drag?.da === i;
-                const x = nodeX(riga);
-                const y = inMano ? drag.y : nodeY(riga);
+                const inMano = trascinando?.da === i;
+                const x = inMano ? nodeX(trascinando.da) : nodeX(riga);
+                const y = inMano ? trascinando.y : nodeY(riga);
                 const isLast = riga === n - 1 && n > 1;
                 const r = isLast ? nodeR + 5 : nodeR;
                 const size = r * 1.3;
+                // La bandiera resta di questa misura, ma la zona che risponde
+                // al dito arriva a 44: sotto, prendere una tappa su un telefono
+                // è una lotteria.
+                const presa = Math.max(44, size);
                 const trascinabile = !stop.isHome && n > 2;
                 return (
                   <div key={i}
@@ -496,12 +545,15 @@ function RouteHero({
                     style={{
                     position:"absolute",
                     left: (x / VBW) * 100 + "%",
-                    top: y - r * 0.65,
-                    transition: SCORRIMENTO(drag?.da === i),
+                    // La zona di presa cresce attorno allo stesso centro: si
+                    // toglie metà della crescita da sopra, o la bandiera
+                    // scivolerebbe in basso rispetto al cerchio.
+                    top: y - r * 0.65 - (presa - size) / 2,
+                    transition: SCORRIMENTO(inMano),
                     transform: "translateX(-50%)",
-                    width: size, height: size,
+                    width: presa, height: presa,
                     display:"flex", alignItems:"center", justifyContent:"center",
-                    overflow: "hidden", borderRadius: "50%",
+                    borderRadius: "50%",
                     // Il contenitore è trasparente ai puntatori: qui li
                     // riaccendo solo sulle tappe che si possono spostare.
                     pointerEvents: trascinabile ? "auto" : "none",
@@ -513,6 +565,10 @@ function RouteHero({
                     userSelect: trascinabile ? "none" : undefined,
                     cursor: trascinabile ? (inMano ? "grabbing" : "grab") : undefined,
                   }}>
+                    {/* La bandiera vive in un cerchio suo: il contenitore è
+                        più largo solo per farsi prendere dal dito. */}
+                    <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden",
+                      display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
                     {stop.isHome
                       ? <span style={{ fontSize: r * 0.75, lineHeight:1 }}>🏠</span>
                       : stop.countryCode
@@ -526,6 +582,7 @@ function RouteHero({
                             onError={e => { (e.target as HTMLImageElement).style.display="none"; }}/>
                         : <span style={{ fontSize: r * 0.65, lineHeight:1 }}>🌍</span>
                     }
+                    </div>
                   </div>
                 );
               })}
