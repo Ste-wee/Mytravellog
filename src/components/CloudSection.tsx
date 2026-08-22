@@ -78,7 +78,10 @@ export function CloudSection() {
   // guest | error
   return (
     <div className="space-y-3">
-      {status === "error" && errorMsg && (
+      {/* Si mostra QUANDO C'È, non solo in stato "error": un accesso
+          annullato torna a guest col suo messaggio, e legarlo allo stato lo
+          rendeva invisibile (trovato dal vivo chiudendo il popup). */}
+      {errorMsg && (
         <p role="alert" className="text-xs text-destructive flex items-center gap-1.5">
           <AlertTriangle className="w-3.5 h-3.5" /> {errorMsg}
         </p>
