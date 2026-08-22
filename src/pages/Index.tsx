@@ -2,7 +2,7 @@
 import { AppHeader } from "@/components/AppHeader";
 import { useEffect, useMemo, useRef, useState, Component, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadTrips, updateTrip, formatTripDate, Trip } from "@/lib/storage";
+import { loadTrips, updateTrip, formatTripDate, pulisciSepolti, Trip } from "@/lib/storage";
 import { distanceKm } from "@/lib/geo";
 import { hasCoords } from "@/lib/coords";
 import { tripTotalKm } from "@/lib/flyover";
@@ -159,8 +159,14 @@ function HomeInner() {
   // fine, il flag non viene scritto e si riprende al prossimo avvio.
   useEffect(() => {
     let annullato = false;
-    // Prima le temperature, poi i tracciati mancanti: entrambi girano una
-    // volta sola e in fila, per non aprire due raffiche di rete insieme.
+    // Prima di tutto, a costo zero e senza rete: butta via i record già
+    // sepolti rimasti nell'archivio. Sono invisibili nell'app ma pesano nel
+    // dato e finiscono nel backup — e chi aggiorna l'app può averne in pancia
+    // da prima che la scrittura imparasse a scartarli.
+    const buttati = pulisciSepolti();
+    if (buttati > 0) refresh();
+    // Poi le temperature, poi i tracciati mancanti: entrambi girano in fila,
+    // per non aprire due raffiche di rete insieme.
     ricalcolaTemperature(() => annullato)
       .then(n => { if (n > 0 && !annullato) refresh(); })
       .then(() => ricalcolaTracciati(() => annullato))

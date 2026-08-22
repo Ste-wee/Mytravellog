@@ -117,6 +117,15 @@ export function loadTrips(): Trip[] {
 }
 
 /**
+ * Si usa sia in LETTURA sia in SCRITTURA. In scrittura è la differenza fra
+ * "nascosto" e "cancellato": senza, un record già sepolto restava nel dato
+ * grezzo — intero, con coordinate, tracciato e temperature — finché la lapide
+ * non scadeva, sei mesi dopo. Invisibile nell'app, ma pesante nell'archivio e
+ * soprattutto CARICATO NEL BACKUP, quindi propagato a tutti i dispositivi.
+ * (Segnalato da Stefano il 2026-08-21: "non dovrebbe rimanere in memoria per
+ * 180 giorni no?" — no, infatti. A restare 180 giorni è solo la lapide, che
+ * pesa 38 byte e serve a propagare la cancellazione.)
+ *
  * Un viaggio con la lapide non deve MAI comparire nella lista, nemmeno se
  * qualcuno l'ha rimesso nell'array (un merge andato storto, un backup
  * ripristinato a mano, una scheda aperta da prima della cancellazione).
@@ -172,7 +181,7 @@ export function stripBudget<T extends object>(t: T): T {
 }
 
 export function saveTrips(trips: Trip[]): boolean {
-  return persist(KEY, JSON.stringify(trips.map(stripBudget)));
+  return persist(KEY, JSON.stringify(escludiCancellati(trips, "trips").map(stripBudget)));
 }
 
 /**
@@ -260,6 +269,41 @@ export function dropBudgetData(): number {
   return n;
 }
 
+/**
+ * Butta via i record già sepolti rimasti nell'archivio grezzo.
+ *
+ * Da quando saveTrips/savePlans filtrano, un nuovo sepolto sparisce subito.
+ * Ma i fantasmi VECCHI — chi ha aggiornato l'app con qualcuno già in pancia,
+ * come l'archivio di Stefano dopo il caso Zurigo — resterebbero finché la
+ * lapide non scade, sei mesi dopo, occupando spazio e viaggiando nel backup.
+ * Basta una scrittura per liberarsene: si fa all'avvio, e solo se serve
+ * davvero (nessuna scrittura a vuoto: timbrare l'archivio senza motivo è
+ * proprio l'abitudine che ha resuscitato un viaggio ad agosto).
+ *
+ * Ritorna quanti record ha buttato via.
+ */
+export function pulisciSepolti(): number {
+  let buttati = 0;
+  for (const [chiave, bucket, salva] of [
+    [KEY, "trips", saveTrips],
+    [KEY_PLANS, "plans", savePlans],
+  ] as [string, TombstoneBucket, (v: Trip[]) => boolean][]) {
+    let grezzi: Trip[];
+    try {
+      const raw = localStorage.getItem(chiave);
+      grezzi = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(grezzi)) continue;
+    } catch {
+      continue;   // archivio illeggibile: non è compito di questa funzione
+    }
+    const vivi = escludiCancellati(grezzi, bucket);
+    if (vivi.length === grezzi.length) continue;   // niente da fare: non si scrive
+    buttati += grezzi.length - vivi.length;
+    salva(vivi);
+  }
+  return buttati;
+}
+
 export function deleteTrip(id: string): void {
   saveTrips(loadTrips().filter((t) => t.id !== id));
   recordTombstone("trips", id); // così la cancellazione si propaga agli altri dispositivi
@@ -288,7 +332,7 @@ export function loadPlans(): Trip[] {
 }
 
 export function savePlans(plans: Trip[]): boolean {
-  return persist(KEY_PLANS, JSON.stringify(plans.map(stripBudget)));
+  return persist(KEY_PLANS, JSON.stringify(escludiCancellati(plans, "plans").map(stripBudget)));
 }
 
 export function addPlan(t: Omit<Trip, "id" | "created_at" | "status">, id?: string): Trip {
