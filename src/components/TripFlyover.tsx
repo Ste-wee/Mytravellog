@@ -894,7 +894,11 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       }
     };
 
-    init();
+    // Il seguito di init() e' una catena di await su rete (import dinamico,
+    // stile della mappa): senza raccogliere il rifiuto, un telefono offline
+    // sputa un "Failed to fetch" non gestito in console. Il globo non si
+    // disegna comunque -- ma in silenzio, e senza sporcare gli errori veri.
+    init().catch(() => { /* rete gia' giu': nessun globo, nessun rumore */ });
 
     return () => {
       cancelled = true;

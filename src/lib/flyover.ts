@@ -208,6 +208,47 @@ export function tracciatoFitto(coords: [number, number][] | null | undefined): b
   return pathLengthKm(coords) / (coords.length - 1) < 1;   // meno di 1 km per segmento
 }
 
+/** Quanto lontano possono stare i capi di una traccia dai punti della tratta
+ *  perché sia ancora "la stessa tratta": 300 m coprono l'imprecisione di un
+ *  GPS acceso in strada senza confondere due tappe diverse. */
+const VICINO_KM = 0.3;
+
+/**
+ * La traccia GPS già salvata per la tratta `da` → `a`, se esiste.
+ *
+ * Serve a NON buttare via un GPX importato. Salvando un viaggio, i due form
+ * richiedono il percorso su strada di ogni tratta e sovrascrivono quello che
+ * c'era: chi importava una traccia registrata sul campo e poi apriva "Modifica
+ * viaggio" (dove l'import porta subito dopo) si ritrovava il viaggio davvero
+ * fatto sostituito da un itinerario calcolato.
+ *
+ * Si riconosce dai fatti, non dalla provenienza: una traccia FITTA (punti ogni
+ * pochi metri, vedi `tracciatoFitto`) i cui capi coincidono con la tratta che
+ * si sta per salvare. Si cercano tutte le tratte del viaggio, non solo quella
+ * di pari indice: le tappe si possono riordinare, e sono i capi a dire di che
+ * tratta si tratta.
+ */
+export function tracciaFittaSalvata(
+  trip: Pick<Trip, "route_geometry" | "route_km" | "waypoints"> | null | undefined,
+  da: { lat: number; lon: number },
+  a: { lat: number; lon: number },
+): { coords: [number, number][]; km: number | null } | null {
+  if (!trip) return null;
+  const salvate = [
+    ...(trip.waypoints ?? []).map(w => ({ coords: w.route_geometry, km: w.route_km })),
+    { coords: trip.route_geometry, km: trip.route_km },
+  ];
+  for (const s of salvate) {
+    const g = s.coords;
+    if (!tracciatoFitto(g)) continue;
+    const primo = g![0], ultimo = g![g!.length - 1];
+    if (haversineKm(primo[1], primo[0], da.lat, da.lon) > VICINO_KM) continue;
+    if (haversineKm(ultimo[1], ultimo[0], a.lat, a.lon) > VICINO_KM) continue;
+    return { coords: g!, km: s.km ?? null };
+  }
+  return null;
+}
+
 /**
  * Percorsi SEPARATI per la "Mappa della vita": una polilinea [lon,lat][] per
  * ciascun viaggio (tracciato stradale reale dove disponibile), SENZA tratte di

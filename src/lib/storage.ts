@@ -75,8 +75,23 @@ const KEY_DELETED: Record<TombstoneBucket, string> = {
  *  lista cresca per sempre. */
 export const TOMBSTONE_TTL_MS = 180 * 24 * 60 * 60 * 1000;
 
-const prune = (list: Tombstone[], now = Date.now()): Tombstone[] =>
-  list.filter(d => d && typeof d.id === "string" && Number.isFinite(d.at) && now - d.at < TOMBSTONE_TTL_MS);
+/**
+ * Butta le lapidi scadute o malformate e tiene UNA sola lapide per id, la più
+ * recente. Il doppione nasce facile — si cancella un viaggio, il backup lo
+ * riporta, lo si ricancella — e prima restava lì per sei mesi insieme al primo:
+ * la stessa regola del merge (`mergeTombstones`), applicata anche in lettura e
+ * in scrittura.
+ */
+const prune = (list: Tombstone[], now = Date.now()): Tombstone[] => {
+  const piuRecente = new Map<string, Tombstone>();
+  for (const d of list) {
+    if (!d || typeof d.id !== "string" || !Number.isFinite(d.at)) continue;
+    if (now - d.at >= TOMBSTONE_TTL_MS) continue;
+    const gia = piuRecente.get(d.id);
+    if (!gia || d.at > gia.at) piuRecente.set(d.id, d);
+  }
+  return [...piuRecente.values()];
+};
 
 export function loadTombstones(bucket: TombstoneBucket): Tombstone[] {
   try {
@@ -192,11 +207,10 @@ export function saveTrips(trips: Trip[]): boolean {
 }
 
 /**
- * `id` è opzionale e serve solo a NuovoViaggio.tsx: genera un id di bozza
- * PRIMA di salvare (per poter già collegare le foto delle tappe via
- * photoStorage.ts), e lo passa qui perché il viaggio salvato usi lo stesso
- * id — altrimenti le foto caricate prima del salvataggio resterebbero
- * orfane sotto un id che il viaggio non ha più.
+ * `id` è opzionale e serve solo a NuovoViaggio.tsx, che conia l'id della
+ * bozza PRIMA di salvare e lo passa qui: il viaggio nasce con l'identità che
+ * aveva già mentre lo si scriveva, invece di riceverne una nuova all'ultimo
+ * momento.
  */
 export function addTrip(t: Omit<Trip, "id" | "created_at">, id?: string): Trip {
   const now = new Date().toISOString();
@@ -291,6 +305,17 @@ export function dropBudgetData(): number {
  */
 export function pulisciSepolti(): number {
   let buttati = 0;
+  // Anche le lapidi vanno normalizzate, non solo lette bene: `prune` toglie
+  // scadute e doppioni a ogni lettura, ma il dato GREZZO resta sporco finché
+  // qualcuno non lo riscrive — e intanto è quello che parte nel backup. Si
+  // riscrive solo se c'è davvero qualcosa da togliere.
+  for (const bucket of ["trips", "plans"] as TombstoneBucket[]) {
+    let grezze: unknown;
+    try { grezze = JSON.parse(localStorage.getItem(KEY_DELETED[bucket]) || "null"); } catch { continue; }
+    if (!Array.isArray(grezze)) continue;
+    const pulite = loadTombstones(bucket);
+    if (pulite.length !== grezze.length) saveTombstones(bucket, pulite);
+  }
   for (const [chiave, bucket, salva] of [
     [KEY, "trips", saveTrips],
     [KEY_PLANS, "plans", savePlans],

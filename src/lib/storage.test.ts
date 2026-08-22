@@ -5,6 +5,8 @@ import {
   saveTrips,
   setStorageErrorHandler,
   loadTombstones,
+  pulisciSepolti,
+  saveTombstones,
   mergeTombstones,
   TOMBSTONE_TTL_MS,
   updateTrip,
@@ -112,6 +114,51 @@ describe("updated_at e tombstone (backup Drive)", () => {
     expect(loadTrips()).toHaveLength(0);
     expect(loadTombstones("trips").map(d => d.id)).toContain(t1.id);
     expect(loadTombstones("plans")).toHaveLength(0); // bucket separati
+  });
+
+  // Cancellare lo stesso id due volte capita davvero: si cancella un viaggio,
+  // il backup di un altro dispositivo lo riporta, lo si ricancella. Prima
+  // restavano due lapidi per sei mesi.
+  it("una sola lapide per id, la più recente, anche cancellando due volte", () => {
+    const t1 = addTrip(makeTrip());
+    deleteTrip(t1.id);
+    const prima = loadTombstones("trips").find(d => d.id === t1.id)!.at;
+    saveTrips([{ ...makeTrip(), id: t1.id } as Trip]);   // tornato da un merge
+    deleteTrip(t1.id);
+    const lapidi = loadTombstones("trips").filter(d => d.id === t1.id);
+    expect(lapidi).toHaveLength(1);
+    expect(lapidi[0].at).toBeGreaterThanOrEqual(prima);
+  });
+
+  it("pulisciSepolti riscrive le lapidi sporche, non solo le legge bene", () => {
+    // Il dato grezzo può arrivare sporco da un merge o da una versione vecchia:
+    // finché nessuno lo riscrive resta così, e parte nel backup com'è.
+    const ora = Date.now();
+    localStorage.setItem("atlas.deleted.trips.v1", JSON.stringify([
+      { id: "x", at: ora - 90000 }, { id: "x", at: ora - 10 },
+      { id: "vecchia", at: ora - TOMBSTONE_TTL_MS - 1000 },
+    ]));
+    pulisciSepolti();
+    expect(JSON.parse(localStorage.getItem("atlas.deleted.trips.v1")!)).toEqual([{ id: "x", at: ora - 10 }]);
+  });
+
+  it("pulisciSepolti non riscrive le lapidi se sono già pulite", () => {
+    const ora = Date.now();
+    const sane = JSON.stringify([{ id: "x", at: ora - 10 }]);
+    localStorage.setItem("atlas.deleted.trips.v1", sane);
+    pulisciSepolti();
+    expect(localStorage.getItem("atlas.deleted.trips.v1")).toBe(sane);
+  });
+
+  it("la potatura toglie i doppioni anche da un archivio già sporco", () => {
+    const ora = Date.now();
+    saveTombstones("trips", [
+      { id: "x", at: ora - 90000 }, { id: "x", at: ora - 10 }, { id: "x", at: ora - 50000 },
+      { id: "y", at: ora - 1000 },
+    ]);
+    const lapidi = loadTombstones("trips");
+    expect(lapidi).toHaveLength(2);
+    expect(lapidi.find(d => d.id === "x")?.at).toBe(ora - 10);
   });
 
   it("mergeTombstones: unione per id con la cancellazione più recente", () => {

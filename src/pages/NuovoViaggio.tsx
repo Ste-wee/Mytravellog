@@ -71,12 +71,12 @@ const NuovoViaggio = () => {
   const [duplicato, setDuplicato] = useState<Trip | null>(null);
   const [destinationError, setDestinationError] = useState(false);
 
-  // Id di bozza, stabile per tutta la vita di questo form: prima le foto si
-  // potevano aggiungere solo riaprendo il viaggio in Modifica dopo averlo già
-  // salvato, perché le chiavi foto (photoStorage.ts) richiedono un id di
-  // viaggio che addTrip generava solo al salvataggio. Generandolo qui e
-  // passandolo ad addTrip (che ora lo accetta) invece di farne generare uno
-  // nuovo, le foto caricate prima di "Salva viaggio" restano collegate.
+  // Id di bozza, stabile per tutta la vita di questo form: il viaggio ha già
+  // un'identità mentre lo si sta scrivendo, e addTrip la riceve invece di
+  // coniarne una nuova al salvataggio. Nacque per tenere collegate le foto
+  // caricate prima di "Salva viaggio" (funzione poi rimossa); resta perché
+  // un id che cambia sotto i piedi a metà compilazione è comunque una brutta
+  // idea, e perché la bozza recuperata deve ritrovare lo stesso viaggio.
   const draftIdRef = useRef<string | null>(null);
   if (draftIdRef.current === null) draftIdRef.current = crypto.randomUUID();
   const draftId = draftIdRef.current;

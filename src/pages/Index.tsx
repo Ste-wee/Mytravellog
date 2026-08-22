@@ -10,6 +10,7 @@ import { stopChain } from "@/lib/stops";
 import { paeseVisibileDiViaggio, paeseVisibileDiTappa } from "@/lib/paesi";
 import { ricalcolaTemperature } from "@/lib/ricalcolaTemperature";
 import { ricalcolaTracciati } from "@/lib/ricalcolaTracciati";
+import { recuperaDatiMancanti } from "@/lib/recuperaDatiMancanti";
 import { fmtDistance, fmtNumber, useSettings } from "@/lib/settings";
 import { TRANSPORT, isTransportMode } from "@/lib/transport";
 import { Route, Globe, MapPin, Pencil, Plane, Plus, Video, X } from "lucide-react";
@@ -170,7 +171,15 @@ function HomeInner() {
     ricalcolaTemperature(() => annullato)
       .then(n => { if (n > 0 && !annullato) refresh(); })
       .then(() => ricalcolaTracciati(() => annullato))
-      .then(n => { if (n && n > 0 && !annullato) refresh(); });
+      .then(n => { if (n && n > 0 && !annullato) refresh(); })
+      // Ultimo della fila: completa i viaggi a cui manca temperatura,
+      // altitudine o regione perché al salvataggio la rete non c'era. Le
+      // altre due reti si occupano di dati che esistono e vanno aggiornati;
+      // questa dei buchi, e a differenza della migrazione qui sopra non si
+      // chiude mai alle spalle (memoria per viaggio, non un flag globale).
+      .then(() => recuperaDatiMancanti(() => annullato))
+      .then(n => { if (n && n > 0 && !annullato) refresh(); })
+      .catch(() => { /* rete giù a metà catena: si riprende al prossimo avvio */ });
     return () => { annullato = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

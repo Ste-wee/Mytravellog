@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildFlightPath, computeLegCamera, buildFlightLegs, pointAlongPath, easeInOutCubic, tripTotalKm, buildPerTripRouteCoords, tracciatoFitto, FlightStop } from "./flyover";
+import { buildFlightPath, computeLegCamera, buildFlightLegs, pointAlongPath, easeInOutCubic, tripTotalKm, buildPerTripRouteCoords, tracciatoFitto, tracciaFittaSalvata, FlightStop } from "./flyover";
 import { distanceKm } from "./geo";
 import type { Trip } from "./storage";
 
@@ -270,6 +270,47 @@ describe("tracciatoFitto", () => {
     expect(tracciatoFitto(null)).toBe(false);
     expect(tracciatoFitto([])).toBe(false);
     expect(tracciatoFitto([[9.19, 45.46]])).toBe(false);
+  });
+});
+
+describe("tracciaFittaSalvata", () => {
+  // Una traccia registrata sul campo: 200 punti da Milano verso nord-est.
+  const gpx: [number, number][] = Array.from({ length: 200 }, (_, i) => [9.19 + i * 0.002, 45.46 + i * 0.002]);
+  const capoA = { lat: 45.46, lon: 9.19 };
+  const capoB = { lat: gpx[199][1], lon: gpx[199][0] };
+
+  it("riconosce la traccia fitta i cui capi combaciano con la tratta", () => {
+    const trip = makeTrip({ route_geometry: gpx });
+    expect(tracciaFittaSalvata(trip, capoA, capoB)?.coords).toBe(gpx);
+  });
+
+  it("porta con sé anche la lunghezza salvata, se c'era", () => {
+    const trip = makeTrip({ route_geometry: gpx, route_km: 71 });
+    expect(tracciaFittaSalvata(trip, capoA, capoB)?.km).toBe(71);
+  });
+
+  it("non protegge un percorso su strada semplificato: quello si può rifare", () => {
+    const trip = makeTrip({ route_geometry: [[9.19, 45.46], [8.9, 46.2], [8.55, 47.37]] });
+    expect(tracciaFittaSalvata(trip, { lat: 45.46, lon: 9.19 }, { lat: 47.37, lon: 8.55 })).toBeNull();
+  });
+
+  it("non spaccia una traccia per un'altra tratta: contano i capi", () => {
+    const trip = makeTrip({ route_geometry: gpx });
+    expect(tracciaFittaSalvata(trip, capoA, { lat: 41.9, lon: 12.5 })).toBeNull();
+    expect(tracciaFittaSalvata(trip, { lat: 41.9, lon: 12.5 }, capoB)).toBeNull();
+  });
+
+  it("la cerca anche fra le tappe, non solo sulla tratta finale", () => {
+    const trip = makeTrip({
+      route_geometry: null,
+      waypoints: [{ city: "Meta", country: "Italia", transport_mode: "bici", lat: capoB.lat, lon: capoB.lon, route_geometry: gpx, route_km: 71 }],
+    });
+    expect(tracciaFittaSalvata(trip, capoA, capoB)?.km).toBe(71);
+  });
+
+  it("nessuna traccia salvata, nessuna protezione", () => {
+    expect(tracciaFittaSalvata(makeTrip(), capoA, capoB)).toBeNull();
+    expect(tracciaFittaSalvata(null, capoA, capoB)).toBeNull();
   });
 });
 

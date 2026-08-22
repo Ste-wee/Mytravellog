@@ -4,11 +4,11 @@ import type { Trip } from "./storage";
 export interface Photo {
   id: string;
   /**
-   * Non è (più) sempre l'id del viaggio in senso stretto: è la chiave della
-   * "tappa" a cui la foto è associata. Per compatibilità con le foto già
-   * salvate prima che esistesse il concetto di tappa, la destinazione usa
-   * ancora l'id del viaggio nudo — casa e ogni tappa intermedia usano invece
-   * destinationPhotoKey/homePhotoKey/waypointPhotoKey qui sotto.
+   * Non è sempre l'id del viaggio nudo: è la chiave di ciò a cui l'immagine
+   * appartiene. Oggi l'app scrive solo rilievi 3D (`<id>:relief`), ma in
+   * archivio possono esserci ancora foto di destinazione (`<id>`), di casa
+   * (`<id>:home`) e delle tappe (`<id>:waypoint:<idTappa>`), salvate quando
+   * la funzione esisteva. `deletePhotosForTrip` le porta via tutte.
    */
   tripId: string;
   data: ArrayBuffer;
@@ -16,38 +16,14 @@ export interface Photo {
   createdAt: string;
 }
 
-/** Chiave foto della destinazione — invariata (id del viaggio) per restare compatibile con le foto già salvate. */
-export function destinationPhotoKey(tripId: string): string {
-  return tripId;
-}
-
-/** Chiave foto della tappa "casa" (partenza) di un viaggio. */
-export function homePhotoKey(tripId: string): string {
-  return `${tripId}:home`;
-}
-
-/** Chiave foto di una singola tappa intermedia, identificata dal suo id stabile. */
-export function waypointPhotoKey(tripId: string, waypointId: string): string {
-  return `${tripId}:waypoint:${waypointId}`;
-}
-
 /**
  * Chiave dell'immagine "rilievo 3D" del viaggio: lo snapshot della panoramica
- * finale del flyover (percorso + puntine). NON è tra stopPhotoKeys — così non
- * viene mai mostrata come foto di tappa nel flyover — ma va cancellata insieme
- * al viaggio (vedi deletePhotosForTrip).
+ * finale del flyover (percorso + puntine). È l'unica immagine che l'app scriva
+ * ancora: viene rigenerata a ogni volo e cancellata col viaggio (vedi
+ * deletePhotosForTrip).
  */
 export function reliefPhotoKey(tripId: string): string {
   return `${tripId}:relief`;
-}
-
-/** Tutte le possibili chiavi foto di un viaggio (destinazione, casa, ogni tappa con id). */
-export function stopPhotoKeys(trip: Pick<Trip, "id" | "waypoints">): string[] {
-  const keys = [destinationPhotoKey(trip.id), homePhotoKey(trip.id)];
-  for (const w of trip.waypoints ?? []) {
-    if (w.id) keys.push(waypointPhotoKey(trip.id, w.id));
-  }
-  return keys;
 }
 
 interface PhotoDB extends DBSchema {
@@ -132,19 +108,31 @@ export function photoToBlob(photo: Photo): Blob {
   return new Blob([photo.data], { type: photo.type });
 }
 
-/** Cancella le foto di tutte le tappe del viaggio (casa, ogni waypoint, destinazione) + il rilievo 3D. */
-export async function deletePhotosForTrip(trip: Pick<Trip, "id" | "waypoints">): Promise<void> {
+/**
+ * Cancella TUTTO quello che questo archivio tiene per un viaggio: il rilievo
+ * 3D di oggi e le foto di ieri.
+ *
+ * Va a prefisso invece che per elenco di chiavi note. Prima si costruiva la
+ * lista (destinazione, casa, una per tappa) dal viaggio che stava per essere
+ * cancellato: bastava che una tappa fosse stata tolta prima, e la sua foto
+ * restava in IndexedDB per sempre, invisibile. Le foto delle tappe non si
+ * possono più aggiungere dall'app, ma chi le ha caricate quando si poteva le
+ * ha ancora in pancia — e pesano molto più dei viaggi.
+ *
+ * Gli id dei viaggi sono UUID: nessuno è prefisso di un altro, quindi
+ * "questo id, o questo id seguito da due punti" non può pescare nel viaggio
+ * di qualcun altro.
+ */
+export async function deletePhotosForTrip(trip: Pick<Trip, "id">): Promise<void> {
   const db = await getDB();
-  for (const key of [...stopPhotoKeys(trip), reliefPhotoKey(trip.id)]) {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    const index = tx.store.index("by-trip");
-    let cursor = await index.openCursor(key);
-    while (cursor) {
-      await cursor.delete();
-      cursor = await cursor.continue();
-    }
-    await tx.done;
+  const tx = db.transaction(STORE_NAME, "readwrite");
+  let cursor = await tx.store.index("by-trip").openCursor();
+  while (cursor) {
+    const chiave = cursor.value.tripId;
+    if (chiave === trip.id || chiave.startsWith(`${trip.id}:`)) await cursor.delete();
+    cursor = await cursor.continue();
   }
+  await tx.done;
 }
 
 /** Test-only: forza una nuova connessione al DB (utile tra i test con fake-indexeddb). */

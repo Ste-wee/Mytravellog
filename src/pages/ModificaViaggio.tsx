@@ -1,5 +1,6 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
 import { useEffect, useState } from "react";
+import { tracciaFittaSalvata } from "@/lib/flyover";
 import { AppHeader } from "@/components/AppHeader";
 import { useNavigate, useParams } from "react-router-dom";
 import { fetchElevation, fetchTemperature, fetchDrivingRoute, mergeRegions, distanceKm, GeoResult, RegionInfo } from "@/lib/geo";
@@ -228,6 +229,11 @@ const ModificaViaggio = () => {
       // Bici, moto e pullman seguono la strada reale esattamente come l'auto
       // (richiesta esplicita: stesso "stile di viaggio" della macchina).
       if (followsRoad(wp.transport_mode) && p && hasCoords(wp.lat, wp.lon)) {
+        // Una traccia GPS registrata sul campo (GPX) non si tocca: è il viaggio
+        // davvero fatto, e il percorso su strada la sostituirebbe con un altro
+        // itinerario. Vale solo se i capi combaciano con questa tratta.
+        const vera = tracciaFittaSalvata(trip, p, { lat: wp.lat, lon: wp.lon });
+        if (vera) return Promise.resolve(vera);
         return fetchDrivingRoute(p.lat, p.lon, wp.lat, wp.lon);
       }
       return Promise.resolve(null);

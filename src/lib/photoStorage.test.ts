@@ -3,7 +3,6 @@ import { IDBFactory } from "fake-indexeddb";
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   savePhoto, getPhotosForTrip, deletePhotosForTrip, photoToBlob, __resetPhotoDB,
-  destinationPhotoKey, homePhotoKey, waypointPhotoKey, stopPhotoKeys,
   reliefPhotoKey, saveReliefImage, getReliefImage,
 } from "./photoStorage";
 
@@ -55,7 +54,7 @@ describe("photoStorage", () => {
     await savePhoto("trip-1", makeBlob());
     await savePhoto("trip-1", makeBlob());
     await savePhoto("trip-2", makeBlob());
-    await deletePhotosForTrip({ id: "trip-1", waypoints: [] });
+    await deletePhotosForTrip({ id: "trip-1" });
     expect(await getPhotosForTrip("trip-1")).toEqual([]);
     expect(await getPhotosForTrip("trip-2")).toHaveLength(1);
   });
@@ -64,7 +63,7 @@ describe("photoStorage", () => {
   // è quella che restava orfana in IndexedDB quando un viaggio veniva
   // cancellato su un altro dispositivo e il merge di Drive lo toglieva qui.
   it("deletePhotosForTrip rimuove anche il rilievo 3D del biglietto", async () => {
-    const trip = { id: "trip-1", waypoints: [] };
+    const trip = { id: "trip-1" };
     await savePhoto(reliefPhotoKey(trip.id), makeBlob());
     await savePhoto("trip-2", makeBlob());
 
@@ -74,19 +73,26 @@ describe("photoStorage", () => {
     expect(await getPhotosForTrip("trip-2")).toHaveLength(1);
   });
 
-  it("deletePhotosForTrip rimuove anche le foto di casa e di ogni tappa con id", async () => {
-    const trip = { id: "trip-1", waypoints: [{ id: "wp-1", city: "Torino", country: "Italia", transport_mode: "train" as const }] };
-    await savePhoto(destinationPhotoKey(trip.id), makeBlob());
-    await savePhoto(homePhotoKey(trip.id), makeBlob());
-    await savePhoto(waypointPhotoKey(trip.id, "wp-1"), makeBlob());
-    await savePhoto("trip-2", makeBlob()); // di un altro viaggio, non deve essere toccata
+  // Le foto delle tappe non si possono più aggiungere dall'app, ma chi le ha
+  // caricate quando si poteva le ha ancora in IndexedDB: cancellare il viaggio
+  // deve portarsele via tutte, comprese quelle di tappe tolte tempo fa (che
+  // nessun elenco costruito dal viaggio di oggi nominerebbe più).
+  it("porta via anche le foto di ieri, tappe sparite comprese", async () => {
+    await savePhoto("trip-1", makeBlob());                       // destinazione
+    await savePhoto("trip-1:home", makeBlob());                  // casa
+    await savePhoto("trip-1:waypoint:wp-1", makeBlob());         // tappa ancora nel viaggio
+    await savePhoto("trip-1:waypoint:tappa-tolta", makeBlob());  // tappa cancellata tempo fa
+    await savePhoto("trip-1:relief", makeBlob());                // rilievo 3D
+    await savePhoto("trip-2", makeBlob());                       // di un altro viaggio
+    await savePhoto("trip-2:home", makeBlob());
 
-    await deletePhotosForTrip(trip);
+    await deletePhotosForTrip({ id: "trip-1" });
 
-    expect(await getPhotosForTrip(destinationPhotoKey(trip.id))).toEqual([]);
-    expect(await getPhotosForTrip(homePhotoKey(trip.id))).toEqual([]);
-    expect(await getPhotosForTrip(waypointPhotoKey(trip.id, "wp-1"))).toEqual([]);
+    for (const chiave of ["trip-1", "trip-1:home", "trip-1:waypoint:wp-1", "trip-1:waypoint:tappa-tolta", "trip-1:relief"]) {
+      expect(await getPhotosForTrip(chiave)).toEqual([]);
+    }
     expect(await getPhotosForTrip("trip-2")).toHaveLength(1);
+    expect(await getPhotosForTrip("trip-2:home")).toHaveLength(1);
   });
 
   it("assegna id univoci a foto diverse", async () => {
@@ -96,9 +102,8 @@ describe("photoStorage", () => {
   });
 
   describe("rilievo 3D del viaggio", () => {
-    it("reliefPhotoKey è distinta e non compare tra stopPhotoKeys", () => {
+    it("reliefPhotoKey sta sotto il viaggio ma con un suffisso suo", () => {
       expect(reliefPhotoKey("trip-1")).toBe("trip-1:relief");
-      expect(stopPhotoKeys({ id: "trip-1", waypoints: [] })).not.toContain("trip-1:relief");
     });
 
     it("saveReliefImage salva e getReliefImage ritrova lo stesso blob", async () => {
@@ -118,34 +123,23 @@ describe("photoStorage", () => {
 
     it("deletePhotosForTrip cancella anche il rilievo del viaggio", async () => {
       await saveReliefImage("trip-1", makeBlob());
-      await deletePhotosForTrip({ id: "trip-1", waypoints: [] });
+      await deletePhotosForTrip({ id: "trip-1" });
       expect(await getReliefImage("trip-1")).toBeNull();
     });
   });
 
-  describe("chiavi foto per tappa", () => {
-    it("destinationPhotoKey è l'id del viaggio nudo (retrocompatibile)", () => {
-      expect(destinationPhotoKey("trip-1")).toBe("trip-1");
-    });
+  // La cancellazione va a prefisso: "trip-1" non deve tirarsi dietro
+  // "trip-10". Con gli UUID veri non capita, ma la regola dev'essere quella
+  // giusta e non "funziona perché gli id sono lunghi".
+  it("un id non pesca nell'archivio di un altro che gli somiglia", async () => {
+    await savePhoto("trip-1", makeBlob());
+    await savePhoto("trip-10", makeBlob());
+    await savePhoto("trip-10:home", makeBlob());
 
-    it("homePhotoKey e waypointPhotoKey sono derivate dall'id del viaggio", () => {
-      expect(homePhotoKey("trip-1")).toBe("trip-1:home");
-      expect(waypointPhotoKey("trip-1", "wp-1")).toBe("trip-1:waypoint:wp-1");
-    });
+    await deletePhotosForTrip({ id: "trip-1" });
 
-    it("stopPhotoKeys include destinazione, casa e ogni tappa con id", () => {
-      const trip = {
-        id: "trip-1",
-        waypoints: [
-          { id: "wp-1", city: "Torino", country: "Italia", transport_mode: "train" as const },
-          { city: "Senza id", country: "Italia", transport_mode: "train" as const }, // legacy, nessun id
-        ],
-      };
-      expect(stopPhotoKeys(trip)).toEqual(["trip-1", "trip-1:home", "trip-1:waypoint:wp-1"]);
-    });
-
-    it("stopPhotoKeys senza tappe include solo destinazione e casa", () => {
-      expect(stopPhotoKeys({ id: "trip-1", waypoints: [] })).toEqual(["trip-1", "trip-1:home"]);
-    });
+    expect(await getPhotosForTrip("trip-1")).toEqual([]);
+    expect(await getPhotosForTrip("trip-10")).toHaveLength(1);
+    expect(await getPhotosForTrip("trip-10:home")).toHaveLength(1);
   });
 });
