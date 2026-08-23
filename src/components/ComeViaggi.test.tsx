@@ -56,7 +56,9 @@ describe("ComeViaggi", () => {
     render(<ComeViaggi trips={trips} />);
     const somma = numeri().reduce((s, n) => s + Number(n), 0);
     expect(somma).toBe(trips.length);
-    expect(screen.getByText(/4 in tutto/)).toBeTruthy();
+    // Il totale distingue le gite, o non torna con la Home (che le esclude
+    // dai "viaggi"): 3 viaggi + 1 gita = 4 schede.
+    expect(screen.getByText(/3 viaggi e 1 gita in giornata/)).toBeTruthy();
   });
 
   it("i dettagli compaiono solo dove c'è qualcosa da dire", () => {

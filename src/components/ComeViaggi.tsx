@@ -39,8 +39,16 @@ export function ComeViaggi({ trips }: { trips: Trip[] }) {
   return (
     <section className="mb-8 animate-fade-up">
       <h2 className="text-lg font-bold mb-1">Come viaggi</h2>
+      {/* Il totale si dice DISTINGUENDO le gite, o non torna con la Home:
+          lì "26 viaggi" esclude le gite (sono un'altra cosa, per scelta), e
+          qui un "27 in tutto" sembrava un numero sbagliato. 26 + 1 = 27, ma
+          va detto. La gita è la stessa cosa che conta la casella "in
+          giornata": lo stesso predicato, quindi i numeri non possono
+          divergere. */}
       <p className="text-xs text-muted-foreground mb-4">
-        Ogni viaggio in una casella sola: {trips.length} in tutto.
+        Ogni viaggio in una casella sola:{" "}
+        {trips.length - c.giornata} {trips.length - c.giornata === 1 ? "viaggio" : "viaggi"}
+        {c.giornata > 0 && ` e ${c.giornata} ${c.giornata === 1 ? "gita" : "gite"} in giornata`}.
       </p>
       {/* Tre in riga anche sul telefono: le etichette sono corte e i numeri
           grandi, e sotto i 120px di card il testo regge ancora. */}
