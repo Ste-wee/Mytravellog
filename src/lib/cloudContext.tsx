@@ -46,7 +46,14 @@ const LS_TS = "navta.cloud.localTs";        // ms dell'ultima modifica locale no
  * contro la volontà dell'utente. Con questo flag, se all'avvio arriva ancora un
  * utente si completa l'uscita invece di ricollegarsi.
  */
-const LS_SCOLLEGATO = "navta.cloud.scollegato";
+export const LS_SCOLLEGATO = "navta.cloud.scollegato";
+/** Chiave del cancello d'ingresso: scollegandosi la si toglie, così la
+ *  schermata di accesso torna. Vive in WelcomeGate.tsx, ma la stessa stringa
+ *  in due file è già stata una fonte di guai (la promessa sulla privacy
+ *  corretta in un posto solo): qui si importa da là, non si riscrive. */
+const LS_WELCOME = "navta.welcome.dismissed";
+/** Avvisa il cancello d'ingresso che l'utente è uscito di sua volontà. */
+export const EVENTO_SCOLLEGATO = "navta:cloud-scollegato";
 
 /**
  * Provider del backup automatico nel cloud. Monta il motore di sync a livello
@@ -239,6 +246,13 @@ export function CloudProvider({ children }: { children: ReactNode }) {
     // dell'utente resta scritta, e al riavvio si completa invece di ritrovarsi
     // collegati da soli.
     try { localStorage.setItem(LS_SCOLLEGATO, "1"); } catch { /* quota */ }
+    // Scollegarsi riporta alla schermata di ingresso: il cancello si archivia
+    // "per sempre" al primo avvio, ma un'uscita voluta è proprio il momento in
+    // cui va riaperto (richiesta di Stefano: "cliccando disconnetti deve
+    // riportarmi alla homepage di login"). L'evento la fa comparire SUBITO,
+    // senza aspettare un ricaricamento.
+    try { localStorage.removeItem(LS_WELCOME); } catch { /* quota */ }
+    window.dispatchEvent(new Event(EVENTO_SCOLLEGATO));
     utenteRef.current = null;
     syncedHashRef.current = "";
     if (mountedRef.current) { setEmail(null); setLastSyncAt(null); setErrorMsg(null); setStatus("guest"); }

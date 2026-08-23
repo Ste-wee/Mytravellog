@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { loadTrips } from "@/lib/storage";
-import { useCloud } from "@/lib/cloudContext";
+import { useCloud, LS_SCOLLEGATO, EVENTO_SCOLLEGATO } from "@/lib/cloudContext";
 import { GoogleG } from "@/components/GoogleG";
 import { Loader2, AlertTriangle } from "lucide-react";
 
@@ -13,13 +13,18 @@ const DISMISS_KEY = "navta.welcome.dismissed";
 const SYNCED_KEY = "navta.cloud.localTs";
 
 /**
- * La welcome compare SOLO su un dispositivo "vergine": mai sincronizzato,
- * zero viaggi, mai saltata. Un tap su una delle due strade la archivia per
- * sempre (da ospite ci si può sempre collegare dalle Impostazioni).
+ * La welcome compare su un dispositivo "vergine" — mai sincronizzato, zero
+ * viaggi, mai saltata — E ogni volta che si esce dall'account di proposito.
+ * Un tap su una delle due strade la archivia di nuovo (da ospite ci si può
+ * sempre collegare dalle Impostazioni).
  */
 export function shouldShowWelcome(): boolean {
   try {
     if (localStorage.getItem(DISMISS_KEY) === "1") return false;
+    // Uscita voluta: si torna all'ingresso anche con i viaggi in casa. Il
+    // flag lo posa la disconnessione e lo toglie il prossimo accesso, quindi la
+    // schermata resta finché non si sceglie una delle due strade.
+    if (localStorage.getItem(LS_SCOLLEGATO) === "1") return true;
     if (localStorage.getItem(SYNCED_KEY)) return false;
     return loadTrips().length === 0;
   } catch {
@@ -60,6 +65,14 @@ export function WelcomeGate() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { connect } = useCloud();
+
+  // Lo scollegamento riapre il cancello SUBITO: senza questo bisognava
+  // ricaricare l'app per rivedere la schermata di accesso.
+  useEffect(() => {
+    const riapri = () => { setVisible(true); setBusy(false); setError(null); };
+    window.addEventListener(EVENTO_SCOLLEGATO, riapri);
+    return () => window.removeEventListener(EVENTO_SCOLLEGATO, riapri);
+  }, []);
 
   // BLOCCA lo scroll della pagina sotto finché la welcome è aperta: senza,
   // su mobile il dito scorreva il contenuto dietro al velo (si vedevano le
