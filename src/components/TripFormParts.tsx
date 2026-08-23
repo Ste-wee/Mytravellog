@@ -10,6 +10,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { GeoResult, PlaceKind, distanceKm, placeSubtitle } from "@/lib/geo";
 import { hasCoords } from "@/lib/coords";
+import { riconosciBase, RiconoscimentoBase } from "@/lib/base";
 import { fmtDistance, useSettings } from "@/lib/settings";
 import { parseLocalDate } from "@/lib/storage";
 import { Loader2, MapPin, Plane, Route, Search, AlertCircle, X } from "lucide-react";
@@ -155,6 +156,209 @@ function ContinuousFlyer({ arcs, vbw }: { arcs: ArcSeg[]; vbw: number }) {
   );
 }
 
+type StopDisegno = { label: string; countryCode: string | null; isHome: boolean; transport: TransportMode | null };
+
+/**
+ * La serpentina quando il viaggio ha una BASE: la base si disegna una volta
+ * sola — grande, col suo colore e le notti — e le gite le pendono ai lati,
+ * andata e ritorno. I rientri (le tappe ripetute) spariscono dal disegno ma
+ * restano nei dati: per riordinarli c'è la vista lineare.
+ *
+ * È una vista di sola lettura per scelta (mockup A, validato da Stefano):
+ * niente trascinamento sulle gite — il gesto vive solo nella vista lineare,
+ * dove è appena stato messo a punto e lì resta.
+ */
+function SerpentinaConBase({ VBW, stops, base, notti, onRemoveWaypoint, onEditHome }: {
+  VBW: number;
+  stops: StopDisegno[];
+  base: RiconoscimentoBase;
+  notti: number | null;
+  onRemoveWaypoint: (i: number) => void;
+  onEditHome: () => void;
+}) {
+  const nodeRr = 22, baseR = 27;
+  const xL = 68, xR = VBW - 68;
+  const padTop = 40, mainStep = 84, gitaStep = 58;
+
+  // ── Dove sta ogni fermata visibile ─────────────────────────────────────────
+  // Le occorrenze della base oltre la prima NON hanno una posizione: sono
+  // collassate nel nodo unico della base.
+  const pos = new Map<number, { x: number; y: number }>();
+  const principali = [0, ...base.prima];
+  principali.forEach((idx, riga) => pos.set(idx, { x: riga % 2 === 0 ? xL : xR, y: padTop + riga * mainStep }));
+  const rigaBase = principali.length;
+  const baseX = rigaBase % 2 === 0 ? xL : xR;
+  const baseY = padTop + rigaBase * mainStep;
+  pos.set(base.baseIdx, { x: baseX, y: baseY });
+
+  let y = baseY + mainStep;
+  const latoDi: number[] = [];
+  base.gite.forEach((g, gi) => {
+    // Le gite si alternano ai lati partendo dal lato OPPOSTO alla base: la
+    // prima pende via dalla linea, non le si siede sopra.
+    const lato = (gi % 2 === 0) === (baseX === xL) ? xR : xL;
+    latoDi.push(lato);
+    for (const t of g.tappe) { pos.set(t, { x: lato, y }); y += gitaStep; }
+    y += 16;
+  });
+  base.dopo.forEach((idx, k) => {
+    pos.set(idx, { x: (rigaBase + 1 + k) % 2 === 0 ? xL : xR, y: y + 12 });
+    y += mainStep;
+  });
+  // L'altezza si misura sull'ultimo nodo DISEGNATO: il cursore y avanza anche
+  // dopo l'ultima gita, e fidarsi di lui lasciava una fascia vuota in fondo.
+  const H = Math.max(...[...pos.values()].map(p => p.y)) + nodeRr + 34;
+
+  const colore = (t: TransportMode | null) => (TRANSPORT.find(x => x.value === t) ?? TRANSPORT[0]).color;
+  const ultimaIdx = stops.length - 1;
+  const archi: React.ReactNode[] = [];
+  /** Arco "da riga a riga" con la pancia verso l'esterno, come la serpentina. */
+  const arcoPrincipale = (da: number, a: number, chiave: string) => {
+    const p0 = pos.get(da)!, p2 = pos.get(a)!;
+    const dx = p2.x > VBW / 2 ? Math.max(p0.x, p2.x) + 46 : Math.min(p0.x, p2.x) - 46;
+    const col = colore(stops[a].transport);
+    archi.push(
+      <path key={chiave} d={`M ${p0.x} ${p0.y} Q ${dx} ${(p0.y + p2.y) / 2} ${p2.x} ${p2.y}`}
+        stroke={col} strokeWidth="2" strokeDasharray="5 3" fill="none" opacity="0.6"
+        markerEnd={`url(#tfb-arr-${stops[a].transport ?? TRANSPORT[0].value})`}/>,
+    );
+  };
+  for (let k = 1; k < principali.length; k++) arcoPrincipale(principali[k - 1], principali[k], `m${k}`);
+  if (principali.length > 0) arcoPrincipale(principali[principali.length - 1], base.baseIdx, "m-base");
+  base.gite.forEach((g, gi) => {
+    const fuori = latoDi[gi] === xR ? latoDi[gi] + 44 : latoDi[gi] - 44;
+    const prima = pos.get(g.tappe[0])!;
+    archi.push(
+      <path key={`g${gi}-out`}
+        d={`M ${baseX} ${baseY} Q ${fuori} ${(baseY + prima.y) / 2} ${prima.x} ${prima.y}`}
+        stroke={colore(stops[g.tappe[0]].transport)} strokeWidth="2" strokeDasharray="5 3"
+        fill="none" opacity="0.6" markerEnd={`url(#tfb-arr-${stops[g.tappe[0]].transport ?? TRANSPORT[0].value})`}/>,
+    );
+    for (let k = 1; k < g.tappe.length; k++) {
+      const a = pos.get(g.tappe[k - 1])!, b = pos.get(g.tappe[k])!;
+      archi.push(
+        <path key={`g${gi}-${k}`} d={`M ${a.x} ${a.y} Q ${fuori} ${(a.y + b.y) / 2} ${b.x} ${b.y}`}
+          stroke={colore(stops[g.tappe[k]].transport)} strokeWidth="2" strokeDasharray="5 3"
+          fill="none" opacity="0.6" markerEnd={`url(#tfb-arr-${stops[g.tappe[k]].transport ?? TRANSPORT[0].value})`}/>,
+      );
+    }
+    // Il rientro: più esterno, più leggero, col mezzo della tappa-rientro
+    // (che nei dati esiste eccome, è solo collassata nel disegno).
+    const ultima = pos.get(g.tappe[g.tappe.length - 1])!;
+    const rientroIdx = base.occorrenze[gi + 1];
+    const molto = latoDi[gi] === xR ? latoDi[gi] + 84 : latoDi[gi] - 84;
+    // La freccia sul tratto di rientro punta alla base: dice "si torna lì"
+    // senza glifi speciali (il primo tentativo usava ↩ come testo: cadeva
+    // fuori tela e in certe font era un quadratino).
+    archi.push(
+      <path key={`g${gi}-back`}
+        d={`M ${ultima.x} ${ultima.y} Q ${molto} ${(ultima.y + baseY) / 2} ${baseX} ${baseY}`}
+        stroke={colore(stops[rientroIdx]?.transport ?? null)} strokeWidth="1.6"
+        strokeDasharray="2 4" fill="none" opacity="0.45"
+        markerEnd={`url(#tfb-arr-${stops[rientroIdx]?.transport ?? TRANSPORT[0].value})`}/>,
+    );
+  });
+  base.dopo.forEach((idx, k) => arcoPrincipale(k === 0 ? base.baseIdx : base.dopo[k - 1], idx, `d${k}`));
+
+  const etichettaNotti = notti != null && notti > 0
+    ? `🌙 ${notti} ${notti === 1 ? "notte" : "notti"}` : "🌙 base";
+
+  return (
+    <div style={{ position: "relative", width: "100%" }}>
+      <svg width="100%" height={H} viewBox={`0 0 ${VBW} ${H}`} style={{ display: "block", overflow: "visible" }}
+        role="img" aria-label={`Itinerario con base a ${stops[base.baseIdx]?.label}: ${base.gite.length} ${base.gite.length === 1 ? "gita" : "gite"}`}>
+        <defs>
+          {TRANSPORT.map(t => (
+            <marker key={t.value} id={`tfb-arr-${t.value}`} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <path d="M0,0 L6,3 L0,6 Z" fill={t.color} opacity="0.8"/>
+            </marker>
+          ))}
+        </defs>
+        {archi}
+        {[...pos.entries()].map(([idx, p]) => {
+          const stop = stops[idx];
+          const eBase = idx === base.baseIdx;
+          const eUltima = !base.destinazioneEBase && idx === ultimaIdx;
+          const lastT = eUltima ? TRANSPORT.find(t => t.value === stop.transport) ?? TRANSPORT[0] : null;
+          const r = eBase ? baseR : eUltima ? nodeRr + 5 : nodeRr;
+          const bordo = stop.isHome ? "#fbbf24" : eBase ? "#5dcaa5" : lastT ? lastT.color : "#60a5fa";
+          const fondo = stop.isHome ? "rgba(251,191,36,0.1)" : eBase ? "rgba(93,202,165,0.14)" : lastT ? lastT.bg : "rgba(96,165,250,0.08)";
+          const aSinistra = p.x < VBW / 2;
+          const labelX = aSinistra ? p.x + r + 9 : p.x - r - 9;
+          return (
+            <g key={idx}>
+              {eBase && <circle cx={p.x} cy={p.y} r={r + 6} fill="none" stroke="#5dcaa5"
+                strokeWidth="1" strokeDasharray="2 4" opacity="0.7"/>}
+              <circle cx={p.x} cy={p.y} r={r} fill={fondo} stroke={bordo}
+                strokeWidth={eBase ? (base.destinazioneEBase ? 2.8 : 2.4) : eUltima ? 2.5 : 1.5}
+                strokeDasharray={stop.isHome ? "3 2" : "none"}/>
+              {eBase && (() => {
+                const bx = aSinistra ? p.x + r + 8 : p.x - r - 8 - 66;
+                return (
+                  <g>
+                    <rect x={bx} y={p.y - r - 22} rx="8" ry="8" width="66" height="17"
+                      fill="#0d2244" stroke="#5dcaa5" strokeWidth="1"/>
+                    <text x={bx + 33} y={p.y - r - 10} textAnchor="middle" fontSize="10"
+                      fill="#5dcaa5" fontWeight="700">{etichettaNotti}</text>
+                  </g>
+                );
+              })()}
+              {stop.isHome ? (
+                <g style={{ cursor: "pointer" }} onClick={onEditHome}
+                  {...svgButton("Cambia la città di partenza", onEditHome)}>
+                  <circle cx={p.x + r - 4} cy={p.y - r + 4} r="20" fill="transparent"/>
+                  <circle cx={p.x + r - 4} cy={p.y - r + 4} r="10" fill="#0d1f3c" stroke="#fbbf24" strokeWidth="1.5"/>
+                  <text x={p.x + r - 4} y={p.y - r + 8} fontSize="11" textAnchor="middle" fill="#fbbf24">✎</text>
+                </g>
+              ) : !eBase && (
+                <g style={{ cursor: "pointer" }} onClick={() => onRemoveWaypoint(idx - 1)}
+                  {...svgButton(`Rimuovi la tappa ${stop.label}`, () => onRemoveWaypoint(idx - 1))}>
+                  <circle cx={p.x + r - 3} cy={p.y - r + 3} r="20" fill="transparent"/>
+                  <circle cx={p.x + r - 3} cy={p.y - r + 3} r="9" fill="#060e1e"
+                    stroke={eUltima ? bordo : "#1a2d4a"} strokeWidth="1.5"/>
+                  <text x={p.x + r - 3} y={p.y - r + 7} fontSize="10" textAnchor="middle"
+                    fill={eUltima ? bordo : "rgba(255,255,255,0.4)"}>×</text>
+                </g>
+              )}
+              <text x={labelX} y={p.y + 4} fontSize="12" textAnchor={aSinistra ? "start" : "end"}
+                fill={eBase ? "#5dcaa5" : eUltima ? bordo : stop.isHome ? "#fbbf24" : "rgba(255,255,255,0.7)"}
+                fontWeight={eBase || eUltima || stop.isHome ? "700" : "500"}>
+                {(eBase ? `${stop.label} · base` : stop.label).length > 20
+                  ? (eBase ? `${stop.label} · base` : stop.label).slice(0, 19) + "…"
+                  : (eBase ? `${stop.label} · base` : stop.label)}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+
+      {/* Bandiere: stessa lingua visiva della vista lineare, ma qui nessuno
+          trascina — l'overlay è solo decorazione. */}
+      <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+        {[...pos.entries()].map(([idx, p]) => {
+          const stop = stops[idx];
+          const r = idx === base.baseIdx ? baseR : (!base.destinazioneEBase && idx === ultimaIdx) ? nodeRr + 5 : nodeRr;
+          const size = r * 1.3;
+          return (
+            <div key={idx} aria-hidden="true" style={{ position: "absolute", left: (p.x / VBW) * 100 + "%",
+              top: p.y - r * 0.65, transform: "translateX(-50%)", width: size, height: size,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              overflow: "hidden", borderRadius: "50%" }}>
+              {stop.isHome
+                ? <span style={{ fontSize: r * 0.75, lineHeight: 1 }}>🏠</span>
+                : stop.countryCode
+                  ? <img src={`https://flagcdn.com/w80/${stop.countryCode.toLowerCase()}.png`}
+                      draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}/>
+                  : <span style={{ fontSize: r * 0.65, lineHeight: 1 }}>🌍</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export interface RouteHeroProps {
   waypoints: Waypoint[];
   home: { lat: number; lon: number; label: string } | null;
@@ -184,6 +388,10 @@ export interface RouteHeroProps {
   wpLoading: boolean;
   onAddWaypoint: (r: GeoResult) => void;
   destinationError?: boolean;
+  /** Notti dell'intero viaggio (da data inizio/fine): con una base unica sono
+   *  le notti passate LÌ, e il badge "🌙 N notti" le mostra. Null = date
+   *  incomplete, il badge dice solo "base". */
+  notti?: number | null;
 }
 
 function RouteHero({
@@ -191,7 +399,7 @@ function RouteHero({
   homeQuery, setHomeQuery, homeResults, onSelectHome, onRemoveWaypoint, onChangeTransport,
   onMoveWaypoint,
   wpTransport, setWpTransport, wpOpen, setWpOpen, wpQuery, setWpQuery,
-  wpResults, wpLoading, onAddWaypoint, destinationError
+  wpResults, wpLoading, onAddWaypoint, destinationError, notti
 }: RouteHeroProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const svgRef = React.useRef<SVGSVGElement>(null);
@@ -199,6 +407,10 @@ function RouteHero({
   const [activeArc, setActiveArc] = React.useState<number | null>(null);
   // Globo a tutto schermo per scegliere la tappa toccando un punto.
   const [globoAperto, setGloboAperto] = React.useState(false);
+  /** La base è stata riconosciuta ma l'utente vuole la serpentina lineare per
+   *  riordinare o cambiare i mezzi: la vista "a base" si guarda e basta
+   *  (scelta esplicita di Stefano: niente trascinamento sulle gite appese). */
+  const [riordino, setRiordino] = React.useState(false);
   // Per i km della tratta nel selettore: rispetta l'unità scelta (km/mi).
   const { distanceUnit } = useSettings();
   /** Trascinamento in corso: quale tappa ho in mano, dov'è il dito e dove
@@ -241,6 +453,15 @@ function RouteHero({
     { label: homeLabel, countryCode: null as string | null, isHome: true, transport: null as TransportMode | null },
     ...waypoints.map(w => ({ label: w.city, countryCode: w.country_code as string | null, isHome: false, transport: w.transport_mode as TransportMode | null })),
   ];
+
+  // La base del viaggio (Firenze in "Milano→Firenze→Siena→Firenze→…"):
+  // dedotta dalle coordinate, nessun campo nuovo. Null = viaggio lineare.
+  const base = React.useMemo<RiconoscimentoBase | null>(() => {
+    if (!home) return null;
+    return riconosciBase([{ lat: home.lat, lon: home.lon }, ...waypoints]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [home?.lat, home?.lon, waypoints]);
+  const vistaBase = base != null && !riordino;
 
   const n = stops.length;
   const VBW = Math.max(300, containerW);
@@ -351,7 +572,10 @@ function RouteHero({
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"100%" }}>
       <div ref={containerRef} style={{ flex:1, padding:"12px 0 0", position:"relative" }}>
-        {showArcs ? (
+        {showArcs && vistaBase && base ? (
+          <SerpentinaConBase VBW={VBW} stops={stops} base={base} notti={notti ?? null}
+            onRemoveWaypoint={onRemoveWaypoint} onEditHome={onEditHome}/>
+        ) : showArcs ? (
           <div style={{ position:"relative", width:"100%" }}>
             <svg ref={svgRef} width="100%" height={H} viewBox={`0 0 ${VBW} ${H}`}
               style={{ display:"block", overflow:"visible" }}>
@@ -623,6 +847,21 @@ function RouteHero({
           </div>
         )}
 
+        {/* La vista a base si guarda; per toccare l'ordine o i mezzi si passa
+            alla serpentina lineare di oggi, col suo trascinamento. */}
+        {base != null && (
+          <div style={{ textAlign: "center", margin: "4px 0 2px" }}>
+            <button type="button" onClick={() => setRiordino(v => !v)}
+              style={{ fontSize: 12, fontWeight: 600, padding: "7px 16px", borderRadius: 999,
+                cursor: "pointer",
+                background: riordino ? "rgba(93,202,165,0.14)" : "rgba(255,255,255,0.05)",
+                border: riordino ? "1px solid #5dcaa5" : "1px solid #1a2d4a",
+                color: riordino ? "#5dcaa5" : "rgba(255,255,255,0.65)" }}>
+              {riordino ? "✓ Fine: torna alla vista con la base" : "Riordina o cambia mezzo"}
+            </button>
+          </div>
+        )}
+
         {/* Home edit field */}
         {editingHome && (
           <div style={{ margin:"0 20px 8px", background:"#0d1f3c", border:"0.5px solid #fbbf24",
@@ -768,9 +1007,13 @@ export function ItineraryPanel(props: RouteHeroProps) {
           <div style={{ fontSize:11, color:"rgba(255,255,255,0.6)", marginTop:1 }}>
             {/* L'indizio del trascinamento compare solo quando il riordino
                 esiste (≥2 tappe): prima la funzione era invisibile — nulla
-                diceva che i pallini si possono prendere. */}
+                diceva che i pallini si possono prendere. Con la BASE
+                riconosciuta l'indizio cambia: nella vista a base non si
+                trascina niente, e promettere il gesto sarebbe una bugia. */}
             {props.waypoints.length >= 2
-              ? "Tocca 🏠 per la partenza · trascina le tappe per riordinarle"
+              ? (props.home && riconosciBase([{ lat: props.home.lat, lon: props.home.lon }, ...props.waypoints])
+                  ? "Tocca 🏠 per la partenza · la base raccoglie le sue gite"
+                  : "Tocca 🏠 per la partenza · trascina le tappe per riordinarle")
               : "Tocca 🏠 per cambiare città di partenza"}
           </div>
         </div>

@@ -324,6 +324,9 @@ const ModificaViaggio = () => {
           wpResults={wpResults} wpLoading={wpLoading}
           onAddWaypoint={addWaypoint}
           destinationError={destinationError}
+          // Le notti del viaggio: col riconoscimento della base diventano il
+          // badge sul nodo (con base unica, le notti del viaggio sono le sue).
+          notti={dateStart && dateEnd ? Math.max(0, Math.round((Date.parse(dateEnd) - Date.parse(dateStart)) / 86_400_000)) : null}
         />
 
         {/* RIGHT — Form compatto */}
