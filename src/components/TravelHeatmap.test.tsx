@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { TravelHeatmap } from "./TravelHeatmap";
 import type { Trip } from "@/lib/storage";
 
@@ -19,9 +20,13 @@ const trip = (over: Partial<Trip> = {}): Trip => ({
 
 const tappa = (city: string) => ({ city, country: "X", transport_mode: "train" as const });
 
-/** Apre la cella del mese cliccando il primo bottone della griglia. */
+/** Ogni anno è un link al suo recap: il componente vuole un router. */
+const monta = (trips: Trip[]) =>
+  render(<MemoryRouter><TravelHeatmap trips={trips} /></MemoryRouter>);
+
+/** Apre il riquadro del mese toccando la cella di giugno. */
 function apriMese() {
-  const celle = screen.getAllByRole("button").filter(b => /giu/i.test(b.getAttribute("aria-label") ?? ""));
+  const celle = screen.getAllByRole("button").filter(b => /^Giu/i.test(b.getAttribute("aria-label") ?? ""));
   fireEvent.click(celle[0]);
 }
 
@@ -29,49 +34,55 @@ describe("TravelHeatmap — dettaglio del mese", () => {
   // IL CASO SEGNALATO: la riga nominava solo la destinazione, quindi di un
   // viaggio con tre mete se ne leggeva una. Ora c'è la catena, come sul biglietto.
   it("mostra tutte le tappe del viaggio, non solo la destinazione", () => {
-    render(<TravelHeatmap trips={[trip({ waypoints: [tappa("Trieste"), tappa("Ljubljana")] })]} />);
+    monta([trip({ waypoints: [tappa("Trieste"), tappa("Ljubljana")] })]);
     apriMese();
     expect(screen.getByText(/Milano → Trieste → Ljubljana → Vienna/)).toBeInTheDocument();
   });
 
   it("un viaggio senza tappe resta la sola meta (niente percorso da raccontare)", () => {
-    render(<TravelHeatmap trips={[trip()]} />);
+    monta([trip()]);
     apriMese();
     expect(screen.getByText(/^Vienna/)).toBeInTheDocument();
     expect(screen.queryByText(/→ Vienna/)).not.toBeInTheDocument();
   });
 
   it("la riga porta anche le date del viaggio", () => {
-    render(<TravelHeatmap trips={[trip({ waypoints: [tappa("Trieste")] })]} />);
+    monta([trip({ waypoints: [tappa("Trieste")] })]);
     apriMese();
     expect(screen.getByText(/15 giu 2024/)).toBeInTheDocument();
   });
 
-  // Il fade-indizio dello scroll deve ricalcolarsi anche al RESIZE: ruotando
-  // il telefono la griglia può iniziare (o smettere) di scorrere senza che
-  // nessuno la tocchi. jsdom non misura: si fingono le dimensioni e si spara
-  // l'evento — se il listener sparisce, il fade non compare mai.
-  it("il fade compare dopo un resize che rende la griglia scorrevole", async () => {
-    const { container } = render(<TravelHeatmap trips={[trip()]} />);
-    const scroller = [...container.querySelectorAll("div")].find(d => d.style.overflowX === "auto")!;
-    // Il fade si riconosce dal fratello aria-hidden con pointer-events none:
-    // jsdom SCARTA il background linear-gradient (cssstyle non lo supporta),
-    // quindi non si può cercare per gradiente come nel browser vero.
-    const fade = () => [...scroller.parentElement!.children].find(
-      c => c !== scroller && c.getAttribute("aria-hidden") !== null);
-    expect(fade()).toBeUndefined(); // jsdom: misure a 0, niente da scorrere
-    Object.defineProperty(scroller, "scrollWidth", { value: 460, configurable: true });
-    Object.defineProperty(scroller, "clientWidth", { value: 320, configurable: true });
-    await act(async () => { window.dispatchEvent(new Event("resize")); });
-    expect(fade()).toBeDefined();
+  // La catena NON si tronca: l'ellipsis si mangiava proprio l'arrivo
+  // La sezione non deve più allungarsi di una riga all'anno: la striscia è
+  // sempre di dodici celle, e gli anni sono righe di testo che si ripiegano.
+  it("dodici celle sempre, e gli anni come righe che portano al recap", () => {
+    monta([
+      trip({ id: "a", trip_date: "2024-06-15", date_end: "2024-06-21" }),
+      trip({ id: "b", trip_date: "2019-03-02", date_end: "2019-03-05" }),
+    ]);
+    // le celle accese sono bottoni; giugno e marzo
+    const accese = screen.getAllByRole("button").filter(b => /giorn/i.test(b.getAttribute("aria-label") ?? ""));
+    expect(accese).toHaveLength(2);
+    // e ogni anno è un link al suo recap
+    expect(screen.getByRole("link", { name: /Il tuo 2024/ }).getAttribute("href")).toBe("/recap?anno=2024");
+    expect(screen.getByRole("link", { name: /Il tuo 2019/ })).toBeTruthy();
   });
 
-  // La catena NON si tronca: l'ellipsis si mangiava proprio l'arrivo
+  it("il riquadro del mese elenca i viaggi di TUTTI gli anni, non di uno solo", () => {
+    monta([
+      trip({ id: "a", city: "Vienna", trip_date: "2024-06-15", date_end: "2024-06-21" }),
+      trip({ id: "b", city: "Oslo", trip_date: "2019-06-02", date_end: "2019-06-05" }),
+    ]);
+    apriMese();
+    expect(screen.getByText(/^Vienna/)).toBeInTheDocument();
+    expect(screen.getByText(/^Oslo/)).toBeInTheDocument();
+  });
+
   // ("Vienn…") e la data che stava sulla stessa riga. jsdom non disegna,
   // quindi il taglio non si può "vedere": si inchioda lo stile che lo
   // causava e la data su una riga separata.
   it("la catena va a capo invece di troncarsi, e la data vive su una riga sua", () => {
-    render(<TravelHeatmap trips={[trip({ waypoints: [tappa("Innsbruck"), tappa("Salisburgo")] })]} />);
+    monta([trip({ waypoints: [tappa("Innsbruck"), tappa("Salisburgo")] })]);
     apriMese();
     const catena = screen.getByText(/Milano → Innsbruck → Salisburgo → Vienna/);
     expect(catena.style.textOverflow).not.toBe("ellipsis");

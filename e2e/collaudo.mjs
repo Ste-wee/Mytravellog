@@ -73,7 +73,7 @@ const visita = async (nome, hash, attese) => {
 
 await visita("home", "#/", ["NAV·TA"]);
 await visita("miei-viaggi", "#/miei-viaggi", ["IN PROGRAMMA", "Barcellona", "Roma", "Diario", "Vacanza", "Da prenotare"]);
-await visita("statistiche", "#/statistiche", ["Highlights di viaggio", "Distanze", "Anni e mesi"]);
+await visita("statistiche", "#/statistiche", ["Highlights di viaggio", "Distanze", "Quando viaggi", "Come viaggi"]);
 await visita("in-programma", "#/in-programma", ["Barcellona", "DA ORGANIZZARE", "Da prenotare"]);
 await visita("nuovo-viaggio", "#/nuovo-viaggio", ["Itinerario", "Periodo", "Valutazione", "Compagni"]);
 await visita("importa-gpx", "#/importa-gpx", ["Importa da GPX"]);

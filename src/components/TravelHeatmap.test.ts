@@ -1,8 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { computeMonthlyTravelDays, daysSinceLastTrip, tripsTouchingMonth, TravelHeatmap } from "./TravelHeatmap";
+import { computeMonthlyTravelDays, daysSinceLastTrip, computeSeasonality, tripsInMonthAnyYear, TravelHeatmap } from "./TravelHeatmap";
 import type { Trip } from "@/lib/storage";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import React from "react";
+
+/** Le righe degli anni sono link al recap: serve un router attorno. */
+const monta = (trips: Trip[]) =>
+  render(React.createElement(MemoryRouter, null, React.createElement(TravelHeatmap, { trips })));
 
 function makeTrip(overrides: Partial<Trip> = {}): Trip {
   return {
@@ -112,61 +117,98 @@ describe("daysSinceLastTrip", () => {
   });
 });
 
-describe("tripsTouchingMonth", () => {
+describe("computeSeasonality", () => {
+  it("somma i giorni di TUTTI gli anni nello stesso mese", () => {
+    const s = computeSeasonality([
+      makeTrip({ id: "a", trip_date: "2024-06-01", date_end: "2024-06-05" }),   // 5 giorni a giugno
+      makeTrip({ id: "b", trip_date: "2019-06-10", date_end: "2019-06-12" }),   // 3 giorni a giugno
+      makeTrip({ id: "c", trip_date: "2020-01-02", date_end: null }),           // 1 a gennaio
+    ]);
+    expect(s[5]).toBe(8);
+    expect(s[0]).toBe(1);
+    expect(s.reduce((a, b) => a + b, 0)).toBe(9);
+    expect(s).toHaveLength(12);
+  });
+
+  it("un viaggio a cavallo di due mesi li riempie entrambi", () => {
+    const s = computeSeasonality([makeTrip({ trip_date: "2024-06-29", date_end: "2024-07-02" })]);
+    expect(s[5]).toBe(2);
+    expect(s[6]).toBe(2);
+  });
+
+  it("nessun viaggio: dodici zeri, non una lista vuota", () => {
+    expect(computeSeasonality([])).toEqual(new Array(12).fill(0));
+  });
+});
+
+describe("tripsInMonthAnyYear", () => {
   it("include un viaggio che inizia e finisce nel mese richiesto", () => {
     const trip = makeTrip({ id: "a", trip_date: "2024-06-10", date_end: "2024-06-12" });
-    expect(tripsTouchingMonth([trip], 2024, 5)).toEqual([trip]); // giugno = mese 5
+    expect(tripsInMonthAnyYear([trip], 5)).toEqual([trip]); // giugno = mese 5
   });
 
   it("esclude un viaggio in un mese diverso", () => {
     const trip = makeTrip({ id: "a", trip_date: "2024-05-10", date_end: "2024-05-12" });
-    expect(tripsTouchingMonth([trip], 2024, 5)).toEqual([]);
+    expect(tripsInMonthAnyYear([trip], 5)).toEqual([]);
   });
 
   it("include un viaggio a cavallo che tocca solo parzialmente il mese richiesto", () => {
     const trip = makeTrip({ id: "a", trip_date: "2024-06-28", date_end: "2024-07-03" });
-    expect(tripsTouchingMonth([trip], 2024, 5)).toEqual([trip]); // giugno
-    expect(tripsTouchingMonth([trip], 2024, 6)).toEqual([trip]); // luglio
-    expect(tripsTouchingMonth([trip], 2024, 7)).toEqual([]);     // agosto: non toccato
+    expect(tripsInMonthAnyYear([trip], 5)).toEqual([trip]); // giugno
+    expect(tripsInMonthAnyYear([trip], 6)).toEqual([trip]); // luglio
+    expect(tripsInMonthAnyYear([trip], 7)).toEqual([]);     // agosto: non toccato
   });
 
-  it("esclude lo stesso mese di un anno diverso", () => {
-    const trip = makeTrip({ id: "a", trip_date: "2023-06-10", date_end: null });
-    expect(tripsTouchingMonth([trip], 2024, 5)).toEqual([]);
+  it("include lo stesso mese di ANNI diversi: è il senso della striscia", () => {
+    const vecchio = makeTrip({ id: "a", trip_date: "2019-06-10", date_end: null });
+    const nuovo = makeTrip({ id: "b", trip_date: "2024-06-10", date_end: null });
+    // dal più recente: la striscia racconta "tutti i miei giugno"
+    expect(tripsInMonthAnyYear([vecchio, nuovo], 5)).toEqual([nuovo, vecchio]);
   });
 });
 
 describe("TravelHeatmap — legenda e scroll mobile", () => {
   it("mostra 0 e il massimo di giorni effettivo nella legenda", () => {
-    render(React.createElement(TravelHeatmap, {
-      trips: [
+    monta([
         makeTrip({ id: "a", trip_date: "2024-06-01", date_end: "2024-06-05" }), // 5 giorni
         makeTrip({ id: "b", trip_date: "2024-08-01", date_end: null }),          // 1 giorno
-      ],
-    }));
+      ]);
     expect(screen.getByText("0")).toBeInTheDocument();
     expect(screen.getByText("5 giorni")).toBeInTheDocument();
   });
 
   it("non mostra la legenda quando non c'è nessun viaggio (nessun massimo da mostrare)", () => {
-    render(React.createElement(TravelHeatmap, { trips: [] }));
+    monta([]);
     expect(screen.queryByText(/giorni$/)).not.toBeInTheDocument();
   });
 
-  it("la griglia ha una larghezza minima e sta in un contenitore con scroll orizzontale", () => {
+  // Il problema che ha fatto nascere la striscia: la griglia anno×mese non
+  // teneva i dodici mesi in larghezza (da agosto si vedeva solo scorrendo) e
+  // cresceva di una riga all'anno. Ora niente larghezze minime e niente
+  // scorrimento: dodici colonne che si adattano.
+  it("la striscia non ha larghezze minime né contenitori che scorrono", () => {
     const trip = makeTrip({ id: "a", trip_date: "2024-06-01", date_end: null });
-    const { container } = render(React.createElement(TravelHeatmap, { trips: [trip] }));
-    const cell = container.querySelector('[title="Giu 2024: 1 giorno di viaggio"]')!;
-    const grid = cell.parentElement!;
-    const scrollWrapper = grid.parentElement!;
-    expect(grid.style.minWidth).toBe("460px");
-    expect(scrollWrapper.style.overflowX).toBe("auto");
+    const { container } = monta([trip]);
+    const cell = container.querySelector('[title="Giu: 1 giorno di viaggio in tutto"]')!;
+    const grid = cell.parentElement as HTMLElement;
+    expect(grid.style.gridTemplateColumns).toBe("repeat(12, 1fr)");
+    expect(grid.style.minWidth).toBe("");
+    expect([...container.querySelectorAll("div")].some(d => d.style.overflowX === "auto")).toBe(false);
+  });
+
+  it("l'altezza non dipende dagli anni: dodici celle con uno o con dieci anni", () => {
+    const uno = monta([makeTrip({ id: "a", trip_date: "2024-06-01", date_end: null })]);
+    const celleUno = uno.container.querySelectorAll('[title*="di viaggio in tutto"]').length;
+    uno.unmount();
+    const dieci = monta(Array.from({ length: 10 }, (_, i) =>
+      makeTrip({ id: String(i), trip_date: `${2015 + i}-06-01`, date_end: null })));
+    expect(dieci.container.querySelectorAll('[title*="di viaggio in tutto"]').length).toBe(celleUno);
   });
 });
 
 describe("TravelHeatmap — render", () => {
   it("renderizza senza crash e mostra 0 giorni in viaggio e '—' di astinenza senza viaggi", () => {
-    render(React.createElement(TravelHeatmap, { trips: [] }));
+    monta([]);
     expect(screen.getByText("—")).toBeInTheDocument();
     expect(screen.getByText("giorni senza viaggiare")).toBeInTheDocument();
     expect(screen.getByText("giorni in viaggio")).toBeInTheDocument();
@@ -174,52 +216,46 @@ describe("TravelHeatmap — render", () => {
   });
 
   it("i giorni condivisi da due viaggi contano UNA volta anche nel totale della heatmap", () => {
-    render(React.createElement(TravelHeatmap, {
-      trips: [
+    monta([
         makeTrip({ trip_date: "2024-06-15", date_end: "2024-06-21" }), // 7 giorni
         makeTrip({ trip_date: "2024-06-21", date_end: "2024-06-25" }), // 5, il 21 condiviso
-      ],
-    }));
+      ]);
     expect(screen.getByText("11")).toBeInTheDocument(); // 7 + 5 - 1, non 12
   });
 
   it("mostra il totale corretto di giorni in viaggio (conteggio inclusivo, non differenza di date)", () => {
-    render(React.createElement(TravelHeatmap, {
-      trips: [
+    monta([
         makeTrip({ trip_date: "2024-06-01", date_end: "2024-06-05" }), // 5 giorni inclusi gli estremi
         makeTrip({ trip_date: "2024-08-10", date_end: null }),          // 1 giorno
-      ],
-    }));
+      ]);
     expect(screen.getByText("6")).toBeInTheDocument();
   });
 
   it("mostra il numero corretto di giorni di astinenza con un viaggio passato", () => {
-    render(React.createElement(TravelHeatmap, { trips: [makeTrip({ trip_date: daysAgoISO(9), date_end: daysAgoISO(6) })] }));
+    monta([makeTrip({ trip_date: daysAgoISO(9), date_end: daysAgoISO(6) })]);
     expect(screen.getByText("6")).toBeInTheDocument();
   });
 
   it("mostra solo l'anno del viaggio, non l'anno corrente se non c'è nessun viaggio quest'anno", () => {
     const oldYear = new Date().getFullYear() - 2;
-    render(React.createElement(TravelHeatmap, { trips: [makeTrip({ trip_date: `${oldYear}-03-01`, date_end: null })] }));
+    monta([makeTrip({ trip_date: `${oldYear}-03-01`, date_end: null })]);
     expect(screen.getByText(String(oldYear))).toBeInTheDocument();
     expect(screen.queryByText(String(new Date().getFullYear()))).not.toBeInTheDocument();
   });
 
   it("salta un anno senza nessun viaggio anche se è compreso tra due anni con viaggi", () => {
     const gapYear = new Date().getFullYear() - 3;
-    render(React.createElement(TravelHeatmap, {
-      trips: [
+    monta([
         makeTrip({ trip_date: `${gapYear}-03-01`, date_end: null }),
         makeTrip({ trip_date: `${gapYear + 2}-03-01`, date_end: null }),
-      ],
-    }));
+      ]);
     expect(screen.getByText(String(gapYear))).toBeInTheDocument();
     expect(screen.getByText(String(gapYear + 2))).toBeInTheDocument();
     expect(screen.queryByText(String(gapYear + 1))).not.toBeInTheDocument();
   });
 
   it("non mostra nessuna riga anno senza viaggi", () => {
-    render(React.createElement(TravelHeatmap, { trips: [] }));
+    monta([]);
     expect(screen.queryByText(String(new Date().getFullYear()))).not.toBeInTheDocument();
   });
 });
@@ -227,21 +263,21 @@ describe("TravelHeatmap — render", () => {
 describe("TravelHeatmap — accessibilità delle celle", () => {
   it("una cella con giorni è un <button> reale, raggiungibile da tastiera", () => {
     const trip = makeTrip({ id: "a", trip_date: "2024-06-01", date_end: null });
-    render(React.createElement(TravelHeatmap, { trips: [trip] }));
-    const cell = screen.getByRole("button", { name: "Giu 2024: 1 giorno di viaggio" });
+    monta([trip]);
+    const cell = screen.getByRole("button", { name: "Giu: 1 giorno di viaggio in tutto" });
     expect(cell.tagName).toBe("BUTTON");
   });
 
   it("una cella senza giorni non è un button (resta un div non interattivo)", () => {
     const trip = makeTrip({ id: "a", trip_date: "2024-06-01", date_end: null });
-    render(React.createElement(TravelHeatmap, { trips: [trip] }));
-    expect(screen.queryByRole("button", { name: /Lug 2024/ })).not.toBeInTheDocument();
+    monta([trip]);
+    expect(screen.queryByRole("button", { name: /^Lug/ })).not.toBeInTheDocument();
   });
 
   it("aria-pressed riflette lo stato selezionato della cella", () => {
     const trip = makeTrip({ id: "a", trip_date: "2024-06-01", date_end: null });
-    render(React.createElement(TravelHeatmap, { trips: [trip] }));
-    const cell = screen.getByRole("button", { name: "Giu 2024: 1 giorno di viaggio" });
+    monta([trip]);
+    const cell = screen.getByRole("button", { name: "Giu: 1 giorno di viaggio in tutto" });
     expect(cell).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(cell);
     expect(cell).toHaveAttribute("aria-pressed", "true");
@@ -249,8 +285,8 @@ describe("TravelHeatmap — accessibilità delle celle", () => {
 
   it("il pulsante di chiusura ha un nome accessibile", () => {
     const trip = makeTrip({ id: "a", trip_date: "2024-06-01", date_end: null });
-    render(React.createElement(TravelHeatmap, { trips: [trip] }));
-    fireEvent.click(screen.getByRole("button", { name: "Giu 2024: 1 giorno di viaggio" }));
+    monta([trip]);
+    fireEvent.click(screen.getByRole("button", { name: "Giu: 1 giorno di viaggio in tutto" }));
     expect(screen.getByRole("button", { name: "Chiudi" })).toBeInTheDocument();
   });
 });
@@ -258,25 +294,25 @@ describe("TravelHeatmap — accessibilità delle celle", () => {
 describe("TravelHeatmap — riepilogo del mese al click", () => {
   it("il click su una cella con giorni apre il riepilogo con città e date del viaggio", () => {
     const trip = makeTrip({ id: "a", city: "Palermo", trip_date: "2024-06-01", date_end: "2024-06-05" });
-    const { container } = render(React.createElement(TravelHeatmap, { trips: [trip] }));
-    const cell = container.querySelector('[title="Giu 2024: 5 giorni di viaggio"]')!;
+    const { container } = monta([trip]);
+    const cell = container.querySelector('[title="Giu: 5 giorni di viaggio in tutto"]')!;
     fireEvent.click(cell);
-    expect(screen.getByText("Giu 2024 — 5 giorni")).toBeInTheDocument();
+    expect(screen.getByText("Giu — 5 giorni")).toBeInTheDocument();
     expect(screen.getByText("Palermo")).toBeInTheDocument();
   });
 
   it("usa il singolare '1 giorno' nell'intestazione del riepilogo, non '1 giorni'", () => {
     const trip = makeTrip({ id: "a", city: "Palermo", trip_date: "2024-06-01", date_end: null });
-    const { container } = render(React.createElement(TravelHeatmap, { trips: [trip] }));
-    const cell = container.querySelector('[title="Giu 2024: 1 giorno di viaggio"]')!;
+    const { container } = monta([trip]);
+    const cell = container.querySelector('[title="Giu: 1 giorno di viaggio in tutto"]')!;
     fireEvent.click(cell);
-    expect(screen.getByText("Giu 2024 — 1 giorno")).toBeInTheDocument();
+    expect(screen.getByText("Giu — 1 giorno")).toBeInTheDocument();
   });
 
   it("un secondo click sulla stessa cella chiude il riepilogo", () => {
     const trip = makeTrip({ id: "a", city: "Palermo", trip_date: "2024-06-01", date_end: null });
-    const { container } = render(React.createElement(TravelHeatmap, { trips: [trip] }));
-    const cell = container.querySelector('[title="Giu 2024: 1 giorno di viaggio"]')!;
+    const { container } = monta([trip]);
+    const cell = container.querySelector('[title="Giu: 1 giorno di viaggio in tutto"]')!;
     fireEvent.click(cell);
     expect(screen.getByText("Palermo")).toBeInTheDocument();
     fireEvent.click(cell);
@@ -285,8 +321,8 @@ describe("TravelHeatmap — riepilogo del mese al click", () => {
 
   it("il pulsante × chiude il riepilogo", () => {
     const trip = makeTrip({ id: "a", city: "Palermo", trip_date: "2024-06-01", date_end: null });
-    const { container } = render(React.createElement(TravelHeatmap, { trips: [trip] }));
-    const cell = container.querySelector('[title="Giu 2024: 1 giorno di viaggio"]')!;
+    const { container } = monta([trip]);
+    const cell = container.querySelector('[title="Giu: 1 giorno di viaggio in tutto"]')!;
     fireEvent.click(cell);
     expect(screen.getByText("Palermo")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Chiudi" }));
@@ -295,8 +331,8 @@ describe("TravelHeatmap — riepilogo del mese al click", () => {
 
   it("una cella senza giorni non apre nessun riepilogo", () => {
     const trip = makeTrip({ id: "a", city: "Palermo", trip_date: "2024-06-01", date_end: null });
-    const { container } = render(React.createElement(TravelHeatmap, { trips: [trip] }));
-    const emptyCell = container.querySelector('[title="Lug 2024: 0 giorni di viaggio"]')!;
+    const { container } = monta([trip]);
+    const emptyCell = container.querySelector('[title="Lug: 0 giorni di viaggio in tutto"]')!;
     fireEvent.click(emptyCell);
     expect(screen.queryByText("Palermo")).not.toBeInTheDocument();
   });
@@ -306,8 +342,8 @@ describe("TravelHeatmap — riepilogo del mese al click", () => {
       makeTrip({ id: "a", city: "Palermo", trip_date: "2024-06-01", date_end: null }),
       makeTrip({ id: "b", city: "Catania", trip_date: "2024-06-15", date_end: null }),
     ];
-    const { container } = render(React.createElement(TravelHeatmap, { trips }));
-    const cell = container.querySelector('[title="Giu 2024: 2 giorni di viaggio"]')!;
+    const { container } = monta(trips);
+    const cell = container.querySelector('[title="Giu: 2 giorni di viaggio in tutto"]')!;
     fireEvent.click(cell);
     expect(screen.getByText("Palermo")).toBeInTheDocument();
     expect(screen.getByText("Catania")).toBeInTheDocument();

@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState, Fragment } from "react";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Trip, parseLocalDate, formatTripDate } from "@/lib/storage";
 import { calendarDayKeys } from "@/lib/travelDays";
 import { stopChain } from "@/lib/stops";
-import { Hourglass, CalendarDays, X } from "lucide-react";
+import { availableYears, computeYearRecap } from "@/lib/recap";
+import { Hourglass, CalendarDays, X, ChevronRight } from "lucide-react";
 import { fmtNumber } from "@/lib/settings";
 
 const MONTH_LABELS = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
@@ -25,18 +27,40 @@ export function computeMonthlyTravelDays(trips: Trip[]): Map<string, number> {
   return map;
 }
 
-/** Viaggi che toccano almeno un giorno del mese indicato (month = 0-11),
- * anche solo parzialmente (es. un viaggio 28 giugno-3 luglio compare sia in
- * giugno che in luglio) — stesso criterio di sovrapposizione usato per
- * calcolare i giorni della cella corrispondente. */
-export function tripsTouchingMonth(trips: Trip[], year: number, month: number): Trip[] {
-  const monthStart = new Date(year, month, 1);
-  const monthEnd = new Date(year, month + 1, 0);
-  return trips.filter(t => {
-    const start = parseLocalDate(t.trip_date);
-    const end = t.date_end ? parseLocalDate(t.date_end) : start;
-    return start <= monthEnd && end >= monthStart;
-  });
+/**
+ * Giorni di viaggio per MESE DELL'ANNO (0-11), sommando tutti gli anni: la
+ * stagionalità di una vita di viaggi in dodici numeri.
+ *
+ * Sostituisce la griglia anno×mese, che cresceva di una riga all'anno (tredici
+ * righe per una quindicina di celle accese) e in larghezza non teneva i dodici
+ * mesi: da agosto in poi si vedeva solo scorrendo di lato.
+ */
+export function computeSeasonality(trips: Trip[]): number[] {
+  const perMese = new Array(12).fill(0) as number[];
+  for (const key of calendarDayKeys(trips)) {
+    // le chiavi sono "anno-mese-giorno" con mese 0-11
+    const pezzi = key.split("-");
+    const mese = Number(pezzi[1]);
+    if (mese >= 0 && mese < 12) perMese[mese]++;
+  }
+  return perMese;
+}
+
+/** Viaggi che toccano un dato mese in QUALSIASI anno, dal più recente. */
+export function tripsInMonthAnyYear(trips: Trip[], month: number): Trip[] {
+  return trips
+    .filter(t => {
+      const start = parseLocalDate(t.trip_date);
+      const end = t.date_end ? parseLocalDate(t.date_end) : start;
+      // Un viaggio a cavallo di più mesi tocca ognuno di quelli attraversati.
+      const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+      while (cur <= end) {
+        if (cur.getMonth() === month) return true;
+        cur.setMonth(cur.getMonth() + 1);
+      }
+      return false;
+    })
+    .sort((a, b) => (b.trip_date || "").localeCompare(a.trip_date || ""));
 }
 
 /** Giorni trascorsi dalla fine dell'ultimo viaggio (0 se in corso oggi). */
@@ -70,16 +94,22 @@ export function TravelHeatmap({ trips }: Props) {
     [monthlyDays]
   );
 
-  // Solo gli anni con almeno un giorno di viaggio: niente righe vuote per gli
-  // anni senza nessun viaggio, anche se sono "in mezzo" tra due anni con
-  // viaggi o se coincidono con l'anno corrente.
-  const years = useMemo(() => {
-    const withTravel = new Set<number>();
-    for (const key of monthlyDays.keys()) withTravel.add(Number(key.split("-")[0]));
-    return Array.from(withTravel).sort((a, b) => a - b);
-  }, [monthlyDays]);
+  // La striscia: dodici numeri, tutti gli anni sommati.
+  const stagionalita = useMemo(() => computeSeasonality(trips), [trips]);
+  // Gli anni, dal più recente: solo quelli con almeno un viaggio (li filtra
+  // già availableYears, la stessa fonte del Recap annuale).
+  const anni = useMemo(() => availableYears(trips), [trips]);
+  const riassuntoAnno = useMemo(
+    () => new Map(anni.map(a => [a, computeYearRecap(trips, a)])),
+    [trips, anni],
+  );
+  /** Quanti anni si vedono prima di "mostra tutti": cinque riempiono lo
+   *  schermo senza allungare la pagina. */
+  const ANNI_A_VISTA = 5;
+  const [tuttiGliAnni, setTuttiGliAnni] = useState(false);
+  const anniVisibili = tuttiGliAnni ? anni : anni.slice(0, ANNI_A_VISTA);
 
-  const maxDays = useMemo(() => Math.max(1, ...Array.from(monthlyDays.values())), [monthlyDays]);
+  const maxDays = useMemo(() => Math.max(1, ...stagionalita), [stagionalita]);
 
   const cellColor = (days: number) => {
     if (days === 0) return "rgba(255,255,255,0.06)";
@@ -87,27 +117,14 @@ export function TravelHeatmap({ trips }: Props) {
     return `rgba(96,165,250,${alpha.toFixed(2)})`;
   };
 
-  // Riassunto del mese: si apre/chiude cliccando una cella (niente hover —
-  // su touch non esiste, e così l'interazione è identica su ogni dispositivo).
-  const [selectedCell, setSelectedCell] = useState<{ year: number; month: number } | null>(null);
-  // C'è ancora griglia oltre il bordo destro? Guida la sfumatura-indizio.
-  // Si ricalcola su scroll, al mount/cambio viaggi E al RESIZE: ruotando il
-  // telefono la griglia può entrare tutta (o smettere di entrare) senza che
-  // nessuno scrolli, e lo stato resterebbe stantio fino al primo tocco.
-  const [scrollabile, setScrollabile] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const aggiorna = () => {
-      const el = scrollRef.current;
-      if (el) setScrollabile(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
-    };
-    aggiorna();
-    window.addEventListener("resize", aggiorna);
-    return () => window.removeEventListener("resize", aggiorna);
-  }, [trips]);
-  const selectedMonthTrips = useMemo(
-    () => selectedCell ? tripsTouchingMonth(trips, selectedCell.year, selectedCell.month) : [],
-    [trips, selectedCell]
+  // Riassunto del mese: si apre/chiude toccando una cella (niente hover — su
+  // touch non esiste, e così l'interazione è identica su ogni dispositivo).
+  // Ora il mese è quello dell'ANNO (0-11) e il riquadro elenca tutti i viaggi
+  // fatti in quel mese, di ogni anno: "tutti i miei marzo".
+  const [meseAperto, setMeseAperto] = useState<number | null>(null);
+  const viaggiDelMese = useMemo(
+    () => meseAperto == null ? [] : tripsInMonthAnyYear(trips, meseAperto),
+    [trips, meseAperto],
   );
 
   return (
@@ -135,60 +152,48 @@ export function TravelHeatmap({ trips }: Props) {
         </div>
       </div>
 
-      <h2 className="text-lg font-bold mb-4">Anni e mesi di viaggio</h2>
+      <h2 className="text-lg font-bold mb-1">Quando viaggi</h2>
+      <p className="text-xs text-muted-foreground mb-4">
+        I giorni di viaggio mese per mese, tutti gli anni insieme.
+      </p>
 
-      {/* Larghezza minima + scroll orizzontale: su schermi stretti le celle
-          altrimenti si comprimono sotto i ~17px, troppo piccole per un tap
-          preciso — meglio scorrere che rimpicciolire all'infinito. La
-          SFUMATURA sul bordo destro dice che c'è altro oltre il taglio
-          ("Lug A…" troncato sembrava un difetto): sparisce a fine corsa. */}
-      <div style={{ position: "relative" }}>
-        <div style={{ overflowX: "auto" }} ref={scrollRef} onScroll={e => {
-          const el = e.currentTarget;
-          setScrollabile(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
-        }}>
-        <div style={{ display: "grid", gridTemplateColumns: "34px repeat(12,1fr)", gap: 4, alignItems: "center", minWidth: 460 }}>
-          <div />
-          {MONTH_LABELS.map(m => (
-            <div key={m} style={{ fontSize: 9, textAlign: "center", color: "rgba(255,255,255,0.6)" }}>{m}</div>
-          ))}
-          {years.map(year => (
-            <Fragment key={year}>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.6)" }}>{year}</div>
-              {MONTH_LABELS.map((label, m) => {
-                const days = monthlyDays.get(`${year}-${m}`) ?? 0;
-                const isSelected = selectedCell?.year === year && selectedCell?.month === m;
-                const cellLabel = `${label} ${year}: ${days} giorn${days === 1 ? "o" : "i"} di viaggio`;
-                const cellStyle = {
-                  aspectRatio: "1", borderRadius: 4, background: cellColor(days),
-                  outline: isSelected ? "1.5px solid #60a5fa" : "none", outlineOffset: 1,
-                } as const;
-                // Le celle senza giorni non sono interattive: restano <div>, non
-                // fanno parte del focus da tastiera. Quelle con giorni sono
-                // <button> reali (non solo div con onClick) così Tab/Enter/Spazio
-                // funzionano e uno screen reader le annuncia come tali.
-                if (days === 0) {
-                  return <div key={`${year}-${m}`} title={cellLabel} style={{ ...cellStyle, cursor: "default" }} />;
-                }
-                return (
-                  <button key={`${year}-${m}`} type="button"
-                    onClick={() => setSelectedCell(isSelected ? null : { year, month: m })}
-                    title={cellLabel} aria-label={cellLabel} aria-pressed={isSelected}
-                    style={{ ...cellStyle, cursor: "pointer", border: "none", padding: 0, font: "inherit" }} />
-                );
-              })}
-            </Fragment>
-          ))}
-        </div>
-        </div>
-        {scrollabile && (
-          <div aria-hidden style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 28,
-            pointerEvents: "none", background: "linear-gradient(to right, rgba(10,22,40,0), #0a1628)" }}/>
-        )}
+      {/* La striscia: dodici celle, una per mese dell'anno. Prima qui c'era
+          una griglia anno×mese che cresceva di una riga all'anno — tredici
+          righe per una quindicina di celle accese — e in larghezza non teneva
+          i dodici mesi: da agosto in poi si vedeva solo scorrendo di lato.
+          Ora l'altezza è la stessa per sempre e i mesi ci stanno tutti. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 3 }}>
+        {MONTH_LABELS.map((m, i) => (
+          // Tre lettere, non l'iniziale: con dodici colonne su una riga sola lo
+          // spazio adesso c'è, e "G F M A M G L A S O N D" era indecifrabile
+          // (G = gennaio o giugno? M = marzo o maggio?).
+          <div key={`l${i}`} style={{ fontSize: 8, textAlign: "center", color: "rgba(255,255,255,0.6)", letterSpacing: "-0.2px" }}>
+            {m}
+          </div>
+        ))}
+        {MONTH_LABELS.map((label, m) => {
+          const days = stagionalita[m];
+          const aperto = meseAperto === m;
+          const voce = `${label}: ${days} giorn${days === 1 ? "o" : "i"} di viaggio in tutto`;
+          const stile = {
+            height: 34, borderRadius: 5, background: cellColor(days),
+            outline: aperto ? "1.5px solid #60a5fa" : "none", outlineOffset: 1,
+          } as const;
+          // Le celle senza giorni non sono interattive: restano <div>, fuori
+          // dal giro del Tab. Quelle con giorni sono <button> reali.
+          if (days === 0) {
+            return <div key={m} title={voce} style={{ ...stile, cursor: "default" }} />;
+          }
+          return (
+            <button key={m} type="button" onClick={() => setMeseAperto(aperto ? null : m)}
+              title={voce} aria-label={voce} aria-pressed={aperto}
+              style={{ ...stile, cursor: "pointer", border: "none", padding: 0, font: "inherit" }} />
+          );
+        })}
       </div>
 
-      {years.length > 0 && (
-      <div className="flex items-center justify-end gap-1.5 mt-3.5">
+      {anni.length > 0 && (
+      <div className="flex items-center justify-end gap-1.5 mt-3">
         <span style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>0</span>
         {[0, 0.25, 0.5, 0.75, 1].map(a => (
           <div key={a} style={{ width: 10, height: 10, borderRadius: 3, background: a === 0 ? "rgba(255,255,255,0.06)" : `rgba(96,165,250,${a})` }} />
@@ -197,31 +202,23 @@ export function TravelHeatmap({ trips }: Props) {
       </div>
       )}
 
-      {selectedCell && (
+      {meseAperto != null && (
         <div style={{ marginTop: 14, padding: "12px 14px", background: "#0a1e38", border: "0.5px solid #1a2d4a", borderRadius: 10 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: "#f0f4ff" }}>
-              {(() => {
-                const d = monthlyDays.get(`${selectedCell.year}-${selectedCell.month}`) ?? 0;
-                return `${MONTH_LABELS[selectedCell.month]} ${selectedCell.year} — ${d} giorn${d === 1 ? "o" : "i"}`;
-              })()}
+              {`${MONTH_LABELS[meseAperto]} — ${stagionalita[meseAperto]} giorn${stagionalita[meseAperto] === 1 ? "o" : "i"}`}
             </span>
-            <button type="button" onClick={() => setSelectedCell(null)} aria-label="Chiudi"
+            <button type="button" onClick={() => setMeseAperto(null)} aria-label="Chiudi"
               style={{ background: "none", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", display: "flex" }}>
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {selectedMonthTrips.map(t => (
+            {viaggiDelMese.map(t => (
               <div key={t.id} style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
                 {/* La catena delle tappe, come la fila sul biglietto: prima si
                     leggeva solo la destinazione, quindi un Milano→Trieste→
-                    Ljubljana→Vienna nominava una meta su quattro. Con una sola
-                    meta resta il nome nudo (non c'è nessun percorso da dire).
-                    La catena VA A CAPO invece di troncarsi: l'ellipsis si
-                    mangiava proprio l'arrivo ("Vienn…") e, a ruota, la data
-                    che stava sulla stessa riga. La data vive su una riga sua,
-                    più piccola e tenue: è servizio, non racconto. */}
+                    Ljubljana→Vienna nominava una meta su quattro. */}
                 <span style={{ display: "block", lineHeight: 1.5 }}>
                   {stopChain(t) ?? t.city}
                 </span>
@@ -232,6 +229,38 @@ export function TravelHeatmap({ trips }: Props) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Gli anni come righe di testo, dal più recente. Ognuna porta al recap
+          di quell'anno: i dati per il riassunto vengono da computeYearRecap,
+          la stessa funzione del poster, così i numeri non possono divergere. */}
+      {anni.length > 0 && (
+        <div style={{ marginTop: 18, borderTop: "0.5px solid #1a2d4a", paddingTop: 12 }}>
+          {anniVisibili.map(a => {
+            const r = riassuntoAnno.get(a);
+            if (!r) return null;
+            return (
+              <Link key={a} to={`/recap?anno=${a}`}
+                aria-label={`Il tuo ${a}: ${r.trips} viagg${r.trips === 1 ? "io" : "i"}, ${r.days} giorn${r.days === 1 ? "o" : "i"}. Apri il recap dell'anno`}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                  gap: 10, padding: "9px 2px", textDecoration: "none",
+                  borderBottom: "0.5px solid rgba(26,45,74,0.6)" }}>
+                <span className="font-mono" style={{ fontSize: 13, fontWeight: 700, color: "#f0f4ff" }}>{a}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "rgba(255,255,255,0.6)" }}>
+                  {r.trips} {r.trips === 1 ? "viaggio" : "viaggi"} · {r.days} {r.days === 1 ? "giorno" : "giorni"}
+                  <ChevronRight className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.35)" }} aria-hidden />
+                </span>
+              </Link>
+            );
+          })}
+          {anni.length > ANNI_A_VISTA && (
+            <button type="button" onClick={() => setTuttiGliAnni(v => !v)}
+              style={{ width: "100%", marginTop: 10, background: "none", border: "none",
+                color: "#60a5fa", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "6px 0" }}>
+              {tuttiGliAnni ? "Mostra meno" : `Mostra tutti i ${anni.length} anni`}
+            </button>
+          )}
         </div>
       )}
     </div>

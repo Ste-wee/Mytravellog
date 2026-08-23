@@ -11,8 +11,13 @@ vi.mock("@/components/ContinentsMap", () => ({
 vi.mock("@/components/StatsSection", () => ({
   StatsSection: ({ trips }: any) => <div data-testid="stats-section">{trips.length}</div>,
 }));
+// Il mock deve portare ANCHE computeKmByTransportMode: lib/recap.ts la
+// importa da qui (dipendenza al contrario, lib → componente) e la heatmap
+// ora passa da recap.ts per i riassunti degli anni. Senza, il mock rompe una
+// catena che non c'entra nulla con questo test.
 vi.mock("@/components/TravelHighlights", () => ({
   TravelHighlights: ({ trips }: any) => <div data-testid="highlights">{trips.length}</div>,
+  computeKmByTransportMode: () => ({}),
 }));
 
 function mount() {
