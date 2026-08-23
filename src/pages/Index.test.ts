@@ -41,7 +41,7 @@ function makeTrip(overrides: Partial<Trip> = {}): Trip {
 
 describe("computeHomeStats", () => {
   it("conta 0 di tutto con nessun viaggio", () => {
-    expect(computeHomeStats([])).toEqual({ trips: 0, gite: 0, countries: 0, cities: 0, km: 0 });
+    expect(computeHomeStats([])).toEqual({ trips: 0, countries: 0, cities: 0, km: 0 });
   });
 
   // Scelta di Stefano (2026-08-23): una gita in giornata non e` un viaggio
@@ -51,9 +51,12 @@ describe("computeHomeStats", () => {
     const viaggio = makeTrip({ trip_date: "2026-06-01", date_end: "2026-06-05", city: "Zurigo", country: "Svizzera", country_code: "CH" });
     const s = computeHomeStats([gita, viaggio]);
     expect(s.trips).toBe(1);
-    expect(s.gite).toBe(1);
     expect(s.cities).toBe(2);        // a Como ci sei stato
     expect(s.countries).toBe(2);
+    // Il NUMERO delle gite non sta in Home: la riga tiene quattro voci, non
+    // cinque (cinque vanno a capo su un telefono). Si legge in "I miei viaggi"
+    // e in "Come viaggi" dentro Statistiche.
+    expect("gite" in s).toBe(false);
   });
 
   it("conta anche i paesi/città delle tappe intermedie, non solo la destinazione", () => {
