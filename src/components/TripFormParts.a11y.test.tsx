@@ -23,7 +23,7 @@ function setup(over: Partial<React.ComponentProps<typeof ItineraryPanel>> = {}) 
     home: { lat: 45.46, lon: 9.19, label: "Milano, Italia" },
     onEditHome: vi.fn(), editingHome: false,
     homeQuery: "", setHomeQuery: vi.fn(), homeResults: [], onSelectHome: vi.fn(),
-    onRemoveWaypoint: vi.fn(), onChangeTransport: vi.fn(), onMoveWaypoint: vi.fn(),
+    onRemoveWaypoint: vi.fn(), onChangeTransport: vi.fn(), onMoveWaypoint: vi.fn(), onSegnaBase: vi.fn(),
     wpTransport: "plane" as const, setWpTransport: vi.fn(),
     wpOpen: false, setWpOpen: vi.fn(), wpQuery: "", setWpQuery: vi.fn(),
     wpResults: [], wpLoading: false, onAddWaypoint: vi.fn(),

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { riconosciBase } from "./base";
+import { riconosciBase, inserisciRientri } from "./base";
 
 // La sequenza è quella del form: indice 0 = casa, l'ultima fermata = destinazione.
 const MILANO = { lat: 45.4642, lon: 9.19 };
@@ -78,5 +78,74 @@ describe("riconosciBase — il posto dove si dorme si deduce dalle coordinate", 
   it("meno di quattro fermate: mai una base", () => {
     expect(riconosciBase([MILANO, FIRENZE, FIRENZE])).toBeNull();
     expect(riconosciBase([MILANO, FIRENZE])).toBeNull();
+  });
+});
+
+describe("inserisciRientri — il ponte fra un itinerario e la sua base", () => {
+  // Il caso vero di Stefano: Milano → Sofia → Rila → Plovdiv, dove Sofia è la
+  // base ma non c'è nessun rientro scritto, quindi l'app lo legge come
+  // itinerante. Un tocco sulla tenda scrive i rientri.
+  type T = { nome: string; lat: number; lon: number; id?: string };
+  const SOFIA = { nome: "Sofia", lat: 42.6977, lon: 23.3219 };
+  const RILA = { nome: "Rila", lat: 42.1333, lon: 23.34 };
+  const PLOVDIV = { nome: "Plovdiv", lat: 42.1354, lon: 24.7453 };
+  let seq = 0;
+  const copia = (b: T): T => ({ ...b, id: "copia" + (++seq) });
+  const nomi = (v: T[]) => v.map(x => x.nome);
+
+  it("appende un rientro dopo ogni tappa successiva alla base", () => {
+    seq = 0;
+    const v: T[] = [SOFIA, RILA, PLOVDIV];
+    expect(nomi(inserisciRientri(v, 0, copia)))
+      .toEqual(["Sofia", "Rila", "Sofia", "Plovdiv", "Sofia"]);
+  });
+
+  it("ogni rientro è una copia con un id suo (le chiavi del disegno)", () => {
+    seq = 0;
+    const out = inserisciRientri<T>([SOFIA, RILA, PLOVDIV], 0, copia);
+    const ids = out.slice(1).filter(x => x.nome === "Sofia").map(x => x.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toEqual(["copia1", "copia2"]);
+  });
+
+  it("la base a metà itinerario lascia in pace quello che viene prima", () => {
+    seq = 0;
+    expect(nomi(inserisciRientri<T>([{ nome: "Belgrado", lat: 44.8, lon: 20.46 }, SOFIA, RILA], 1, copia)))
+      .toEqual(["Belgrado", "Sofia", "Rila", "Sofia"]);
+  });
+
+  it("l'ultima tappa non può essere base: non c'è niente da appendere", () => {
+    seq = 0;
+    const v = [SOFIA, RILA, PLOVDIV];
+    expect(inserisciRientri(v, 2, copia)).toBe(v);
+  });
+
+  it("indice fuori intervallo: itinerario intatto", () => {
+    const v = [SOFIA, RILA];
+    expect(inserisciRientri(v, -1, copia)).toBe(v);
+    expect(inserisciRientri(v, 9, copia)).toBe(v);
+  });
+
+  it("una base senza coordinate non si può riconoscere: niente rientri", () => {
+    const v = [{ nome: "Ignota" } as T, RILA];
+    expect(inserisciRientri(v, 0, copia)).toBe(v);
+  });
+
+  // Toccare due volte la tenda non deve raddoppiare i rientri, e un itinerario
+  // già scritto a mano non va gonfiato.
+  it("i rientri già presenti non si duplicano", () => {
+    seq = 0;
+    const gia: T[] = [SOFIA, RILA, SOFIA, PLOVDIV, SOFIA];
+    expect(nomi(inserisciRientri(gia, 0, copia))).toEqual(nomi(gia));
+  });
+
+  it("e il risultato è davvero riconosciuto come base", () => {
+    seq = 0;
+    const casa = { nome: "Milano", lat: 45.4642, lon: 9.19 };
+    const conRientri = inserisciRientri<T>([SOFIA, RILA, PLOVDIV], 0, copia);
+    const b = riconosciBase([casa, ...conRientri]);
+    expect(b).not.toBeNull();
+    expect(b!.gite).toHaveLength(2);            // Rila e Plovdiv
+    expect(b!.destinazioneEBase).toBe(true);    // si finisce alla base
   });
 });

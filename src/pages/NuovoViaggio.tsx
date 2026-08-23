@@ -11,6 +11,7 @@ import { trovaDuplicato } from "@/lib/duplicati";
 import { createPortal } from "react-dom";
 import { useSettings } from "@/lib/settings";
 import { sequentialMap, moveItem } from "@/lib/utils";
+import { inserisciRientri } from "@/lib/base";
 import { toast } from "sonner";
 import {
   TransportMode, Waypoint, ItineraryPanel, TripFormFields,
@@ -104,6 +105,14 @@ const NuovoViaggio = () => {
   const removeWaypoint = (i: number) => setWaypoints(prev => prev.filter((_, idx) => idx !== i));
   const moveWaypoint = (from: number, to: number) =>
     setWaypoints(prev => moveItem(prev, from, to));
+  /**
+   * Segna la tappa come base: scrive nell'itinerario un rientro dopo ogni
+   * tappa successiva. Non è finzione — quei chilometri li hai percorsi, e
+   * l'app riconosce la base proprio dai rientri (nessun campo nuovo).
+   */
+  const segnaBase = (i: number) => {
+    setWaypoints(prev => inserisciRientri(prev, i, base => ({ ...base, id: crypto.randomUUID() })));
+  };
   const changeTransport = (i: number, mode: TransportMode) =>
     setWaypoints(prev => prev.map((w, idx) => idx === i ? { ...w, transport_mode: mode } : w));
 
@@ -286,6 +295,7 @@ const NuovoViaggio = () => {
           onRemoveWaypoint={removeWaypoint}
           onChangeTransport={changeTransport}
           onMoveWaypoint={moveWaypoint}
+          onSegnaBase={segnaBase}
           wpTransport={wpTransport} setWpTransport={setWpTransport}
           wpOpen={wpOpen} setWpOpen={setWpOpen}
           wpQuery={wpQuery} setWpQuery={setWpQuery}

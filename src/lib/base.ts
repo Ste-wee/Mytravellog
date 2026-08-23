@@ -49,6 +49,45 @@ const stessoPosto = (a: FermataConCoordinate, b: FermataConCoordinate): boolean 
   haversineKm(a.lat, a.lon, b.lat, b.lon) < STESSO_POSTO_KM;
 
 /**
+ * Segna la tappa `baseIdx` come base: dopo ogni tappa che viene dopo di lei
+ * inserisce un RIENTRO alla base.
+ *
+ * ⚠️ Il perché è più interessante del come. La base si riconosce dai rientri
+ * (vedi `riconosciBase`), ma nessuno pensa a inserire tre volte «Sofia»
+ * mentre censisce un viaggio: Stefano ha trovato «tappa fissa: 0» pur avendo
+ * fatto dieci viaggi con una base, e guardando il suo itinerario bulgaro
+ * (Milano → Sofia → Rila → Plovdiv) ha chiesto come si ottenesse «tutta quella
+ * cosa super figa». Non si otteneva: la funzione c'era e non era raggiungibile.
+ * Questo è il ponte — un tocco scrive quello che uno scriverebbe a mano.
+ *
+ * I rientri si scrivono DAVVERO nell'itinerario, non si finge: quei
+ * chilometri li hai percorsi (~300 in più, nel caso bulgaro), e i dati
+ * restano quelli che il resto dell'app già capisce — nessun campo nuovo,
+ * nessuna regola nuova, nessuna migrazione.
+ *
+ * `copia` fabbrica il rientro dalla base (serve un id nuovo: gli id delle
+ * tappe fanno da chiave nel disegno e nel riordino).
+ */
+export function inserisciRientri<T extends FermataConCoordinate>(
+  tappe: T[], baseIdx: number, copia: (base: T) => T,
+): T[] {
+  if (baseIdx < 0 || baseIdx >= tappe.length - 1) return tappe;   // ultima o fuori: niente da appendere
+  const base = tappe[baseIdx];
+  if (base.lat == null || base.lon == null) return tappe;          // senza coordinate non si riconosce
+  const out = tappe.slice(0, baseIdx + 1);
+  for (let i = baseIdx + 1; i < tappe.length; i++) {
+    const tappa = tappe[i];
+    out.push(tappa);
+    // Se il rientro c'è già (tocco ripetuto, o itinerario scritto a mano) non
+    // si duplica: due «Sofia» di fila non sono una gita, sono un refuso.
+    const prossima = tappe[i + 1];
+    const eGiaRientro = stessoPosto(tappa, base) || (prossima != null && stessoPosto(prossima, base));
+    if (!eGiaRientro) out.push(copia(base));
+  }
+  return out;
+}
+
+/**
  * Trova la base di una sequenza di fermate (indice 0 = casa).
  *
  * Ritorna null quando il viaggio non ha una base: nessuna ripetizione, oppure

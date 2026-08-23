@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Trip, updatePlan, deletePlan, promotePlanToTrip } from "@/lib/storage";
 import { moveItem } from "@/lib/utils";
+import { inserisciRientri } from "@/lib/base";
 import { GeoResult } from "@/lib/geo";
 import { usePlaceSearch } from "@/lib/usePlaceSearch";
 import { useSettings } from "@/lib/settings";
@@ -94,6 +95,15 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
   // che il selettore del mezzo usava per forzare il re-render.
   const moveWaypoint = (from: number, to: number) =>
     setWaypoints(prev => moveItem(prev, from, to));
+  /**
+   * Segna la tappa come base: scrive nell'itinerario un rientro dopo ogni
+   * tappa successiva. Non è finzione — quei chilometri li hai percorsi, e
+   * l'app riconosce la base proprio dai rientri (nessun campo nuovo).
+   */
+  const segnaBase = (i: number) => {
+    dirtyRef.current = true;
+    setWaypoints(prev => inserisciRientri(prev, i, base => ({ ...base, id: crypto.randomUUID() })));
+  };
   const changeTransport = (i: number, mode: TransportMode) => {
     dirtyRef.current = true;
     setWaypoints(prev => prev.map((w, idx) => idx === i ? { ...w, transport_mode: mode } : w));
@@ -232,6 +242,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
               onRemoveWaypoint={removeWaypoint}
               onChangeTransport={changeTransport}
           onMoveWaypoint={moveWaypoint}
+          onSegnaBase={segnaBase}
               wpTransport={wpTransport} setWpTransport={setWpTransport}
               wpOpen={wpOpen} setWpOpen={setWpOpen}
               wpQuery={wpQuery} setWpQuery={setWpQuery}

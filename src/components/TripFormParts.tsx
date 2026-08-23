@@ -379,6 +379,13 @@ export interface RouteHeroProps {
    *  come trucco per forzare un nuovo array: funzionava solo grazie a come è
    *  implementata la rimozione, e la mutazione avveniva fuori dal setter. */
   onChangeTransport: (i: number, mode: TransportMode) => void;
+  /**
+   * Segna la tappa `i` come BASE del viaggio: scrive nell'itinerario un
+   * rientro dopo ogni tappa successiva, così quello che hai fatto davvero
+   * (dormo a Sofia, esco e torno) diventa leggibile — e i km contano i
+   * ritorni. Il disegno poi la riconosce da sé, senza campi nuovi.
+   */
+  onSegnaBase: (i: number) => void;
   /** Sposta la tappa `from` nella posizione `to` (indici sui waypoints).
    *  Il mezzo viaggia con la tappa: `transport_mode` descrive come ci si
    *  arriva, quindi resta attaccato alla tappa che si muove. */
@@ -401,7 +408,7 @@ export interface RouteHeroProps {
 
 function RouteHero({
   waypoints, home, onEditHome, editingHome,
-  homeQuery, setHomeQuery, homeResults, onSelectHome, onRemoveWaypoint, onChangeTransport,
+  homeQuery, setHomeQuery, homeResults, onSelectHome, onRemoveWaypoint, onSegnaBase, onChangeTransport,
   onMoveWaypoint,
   wpTransport, setWpTransport, wpOpen, setWpOpen, wpQuery, setWpQuery,
   wpResults, wpLoading, onAddWaypoint, destinationError, notti
@@ -676,6 +683,21 @@ function RouteHero({
                           stroke={isLast ? borderColor : "#1a2d4a"} strokeWidth="1.5"/>
                         <text x={x+r-3} y={y-r+7} fontSize="10" textAnchor="middle"
                           fill={isLast ? borderColor : "rgba(255,255,255,0.4)"}>×</text>
+                      </g>
+                    )}
+                    {/* La TENDA: segna questa tappa come base. Compare solo
+                        dove serve — non sulla casa, e non sull'ultima tappa
+                        (dopo di lei non c'è niente da far tornare). Il
+                        riconoscimento della base vuole almeno una gita, quindi
+                        sotto le due tappe non ha senso proporla. */}
+                    {!stop.isHome && !isLast && waypoints.length >= 2 && (
+                      <g style={{cursor:"pointer"}} onClick={() => onSegnaBase(i-1)}
+                        {...svgButton(`Segna ${stop.label} come base: le tappe dopo diventano gite che tornano qui`,
+                          () => onSegnaBase(i-1))}>
+                        <circle cx={x-r+3} cy={y+r-3} r="20" fill="transparent"/>
+                        <circle cx={x-r+3} cy={y+r-3} r="9" fill="#060e1e"
+                          stroke="#5dcaa5" strokeWidth="1.5"/>
+                        <text x={x-r+3} y={y+r+1} fontSize="9" textAnchor="middle" fill="#5dcaa5">⌂</text>
                       </g>
                     )}
                     <text x={labelX} y={y+4} fontSize="12" textAnchor={leftCol ? "start" : "end"}

@@ -22,7 +22,7 @@ function renderPannello(waypoints: Waypoint[], extra: Partial<React.ComponentPro
     home: { lat: 45.4642, lon: 9.19, label: "Milano, Italia" },
     onEditHome: vi.fn(), editingHome: false,
     homeQuery: "", setHomeQuery: vi.fn(), homeResults: [], onSelectHome: vi.fn(),
-    onRemoveWaypoint: vi.fn(), onChangeTransport: vi.fn(), onMoveWaypoint: vi.fn(),
+    onRemoveWaypoint: vi.fn(), onChangeTransport: vi.fn(), onMoveWaypoint: vi.fn(), onSegnaBase: vi.fn(),
     wpTransport: "car" as const, setWpTransport: vi.fn(),
     wpOpen: false, setWpOpen: vi.fn(), wpQuery: "", setWpQuery: vi.fn(),
     wpResults: [], wpLoading: false, onAddWaypoint: vi.fn(),
