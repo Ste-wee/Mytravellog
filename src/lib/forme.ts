@@ -6,14 +6,21 @@ import { hasCoords } from "./coords";
 /**
  * La FORMA di un viaggio: che tipo di viaggio è stato.
  *
- * Le quattro forme si escludono a vicenda e coprono tutto, così i conteggi
- * sommano sempre al totale dei viaggi. Le tre chieste da Stefano (in giornata,
- * a tappe, tappa fissa) si sovrapponevano — un viaggio con base è anche a
- * tappe, una gita può avere tappe — e tre numeri sovrapposti in una pagina di
- * statistiche non tornano mai col totale. La quarta forma ("diretto") è quella
- * che mancava: senza, un Milano→Zurigo→Milano non starebbe in nessuna casella.
+ * Tre forme che si escludono a vicenda e coprono tutto, così i conteggi
+ * sommano sempre al totale dei viaggi.
+ *
+ * ⚠️ Storia da non ripetere. Il primo taglio ne aveva QUATTRO, con "base" (una
+ * meta con gite che ne partono) separata da "diretto" (una meta e basta).
+ * Stefano ha guardato i suoi numeri — 0 e 10 — e ha chiesto: «non sono la
+ * stessa cosa?». Aveva ragione: in entrambi i casi dormi in un posto solo, e
+ * la differenza che avevo codificato non era COME viaggia ma se avesse censito
+ * il rientro come tappa. Due nomi per la stessa esperienza, con la casella
+ * inventata da me vuota e i suoi dieci viaggi veri in quella dal nome meno
+ * riconoscibile. Ora "fissa" vuol dire quello che vuol dire in italiano —
+ * hai dormito in un posto — e le gite dalla base sono un DETTAGLIO, non una
+ * forma di viaggio a sé.
  */
-export type Forma = "giornata" | "base" | "itinerante" | "diretto";
+export type Forma = "giornata" | "fissa" | "itinerante";
 
 /** Le fermate di un viaggio SALVATO: casa → tappe → destinazione. */
 function fermate(t: Trip): { lat?: number | null; lon?: number | null }[] {
@@ -29,8 +36,8 @@ function fermate(t: Trip): { lat?: number | null; lon?: number | null }[] {
  *
  * L'ordine delle domande È la definizione, e non è arbitrario: la durata viene
  * prima della struttura (una gita resta una gita anche con due tappe), e la
- * base prima delle tappe (un viaggio con base è per definizione a tappe, ma
- * "tappa fissa" dice qualcosa di più preciso).
+ * base prima delle tappe (chi rientra sempre nello stesso posto sta fermo lì,
+ * anche se fra i rientri si è mosso).
  */
 export function formaDiViaggio(t: Trip): Forma {
   return conForma(t).forma;
@@ -46,17 +53,22 @@ export function formaDiViaggio(t: Trip): Forma {
 function conForma(t: Trip): { forma: Forma; base: ReturnType<typeof riconosciBase> } {
   if (eGitaInGiornata(t)) return { forma: "giornata", base: null };
   const base = hasCoords(t.home_latitude, t.home_longitude) ? riconosciBase(fermate(t)) : null;
-  if (base) return { forma: "base", base };
+  if (base) return { forma: "fissa", base };   // una meta, con gite che ne partono
   const tappe = (t.waypoints ?? []).filter(w => hasCoords(w.lat, w.lon));
-  return { forma: tappe.length > 0 ? "itinerante" : "diretto", base: null };
+  // Nessuna tappa intermedia = una meta e basta: sempre "fissa", ci hai
+  // dormito. Il fatto che non ci siano gite non la rende un'altra cosa.
+  return { forma: tappe.length > 0 ? "itinerante" : "fissa", base: null };
 }
 
 export interface ContoForme {
   giornata: number;
-  base: number;
+  fissa: number;
   itinerante: number;
-  diretto: number;
-  /** Gite totali dei viaggi con tappa fissa (le uscite dalla base). */
+  /** Quanti dei viaggi a tappa fissa hanno gite che partono dalla base: è il
+   *  dettaglio che distingue "Firenze e basta" da "Firenze più Siena e Pisa",
+   *  senza farne due forme di viaggio diverse. */
+  conGite: number;
+  /** Gite totali partite dalle basi. */
   giteDallaBase: number;
   /** Tappe in media dei viaggi itineranti, arrotondate; 0 se non ce ne sono. */
   tappeMedie: number;
@@ -64,12 +76,12 @@ export interface ContoForme {
 
 /** Quanti viaggi per forma, più i due dettagli che valgono la pena di dire. */
 export function contaForme(trips: Trip[]): ContoForme {
-  const conto: ContoForme = { giornata: 0, base: 0, itinerante: 0, diretto: 0, giteDallaBase: 0, tappeMedie: 0 };
+  const conto: ContoForme = { giornata: 0, fissa: 0, itinerante: 0, conGite: 0, giteDallaBase: 0, tappeMedie: 0 };
   let tappeItineranti = 0;
   for (const t of trips) {
     const { forma, base } = conForma(t);
     conto[forma]++;
-    if (forma === "base") conto.giteDallaBase += base?.gite.length ?? 0;
+    if (base) { conto.conGite++; conto.giteDallaBase += base.gite.length; }
     if (forma === "itinerante") {
       tappeItineranti += (t.waypoints ?? []).filter(w => hasCoords(w.lat, w.lon)).length;
     }

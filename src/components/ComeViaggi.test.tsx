@@ -17,17 +17,30 @@ const viaggio = (over: Partial<Trip> = {}): Trip => ({
 const numeri = () => [...document.querySelectorAll(".font-mono")].map(n => n.textContent);
 
 describe("ComeViaggi", () => {
-  it("archivio vuoto: la sezione non c'è (niente quattro zeri)", () => {
+  it("archivio vuoto: la sezione non c'è", () => {
     const { container } = render(<ComeViaggi trips={[]} />);
     expect(container.firstChild).toBeNull();
   });
 
-  it("le quattro caselle ci sono sempre, anche quelle a zero", () => {
+  it("le tre caselle ci sono sempre, anche quelle a zero", () => {
     render(<ComeViaggi trips={[viaggio()]} />);
-    for (const l of ["In giornata", "Tappa fissa", "Itineranti", "Andata e ritorno"]) {
+    for (const l of ["In giornata", "Tappa fissa", "Itineranti"]) {
       expect(screen.getByText(l)).toBeTruthy();
     }
-    expect(numeri()).toEqual(["0", "0", "0", "1"]);
+    // un viaggio con una meta sola sta in "tappa fissa": ci hai dormito
+    expect(numeri()).toEqual(["0", "1", "0"]);
+  });
+
+  // La domanda di Stefano: "tappa fissa" e "andata e ritorno" erano due nomi
+  // per la stessa esperienza (0 contro 10 nei suoi dati).
+  it("una meta sola e una meta con gite finiscono nella stessa casella", () => {
+    render(<ComeViaggi trips={[
+      viaggio(),
+      viaggio({ city: "Firenze", latitude: 43.7696, longitude: 11.2558,
+        waypoints: [wp("Firenze", 43.7696, 11.2558), wp("Siena", 43.3188, 11.3308)] }),
+    ]} />);
+    expect(numeri()).toEqual(["0", "2", "0"]);
+    expect(screen.getByText(/1 con gite/)).toBeTruthy();
   });
 
   // L'invariante che rende la sezione onesta: se la somma non fa il totale,
@@ -51,8 +64,14 @@ describe("ComeViaggi", () => {
       viaggio({ city: "Firenze", latitude: 43.7696, longitude: 11.2558,
         waypoints: [wp("Firenze", 43.7696, 11.2558), wp("Siena", 43.3188, 11.3308)] }),
     ]} />);
-    expect(screen.getByText("1 gita dalla base")).toBeTruthy();
+    expect(screen.getByText(/un posto, più notti · 1 con gite/)).toBeTruthy();
     // la casella "in giornata" è a zero: il suo sottotitolo non si mostra
     expect(screen.queryByText("parti e torni")).toBeNull();
+  });
+
+  it("senza gite il sottotitolo non le nomina", () => {
+    render(<ComeViaggi trips={[viaggio()]} />);
+    expect(screen.getByText("un posto, più notti")).toBeTruthy();
+    expect(screen.queryByText(/con gite/)).toBeNull();
   });
 });

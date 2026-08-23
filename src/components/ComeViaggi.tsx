@@ -1,33 +1,39 @@
 import { Trip } from "@/lib/storage";
 import { contaForme } from "@/lib/forme";
-import { Sun, Tent, Waypoints, ArrowRightLeft } from "lucide-react";
+import { Sun, Tent, Waypoints } from "lucide-react";
 
 /**
- * "Come viaggi": le quattro forme dei viaggi, in Statistiche.
+ * "Come viaggi": le forme dei viaggi, in Statistiche.
  *
- * Quattro caselle che si escludono a vicenda e sommano al totale — la
- * differenza con gli "Highlights di viaggio" qui accanto è che quelli sono
- * RECORD ("il più alto", "il più lontano") e questi sono CONTEGGI: risponde a
- * "che tipo di viaggiatore sei", non a "qual è il tuo primato". Per questo è
- * una sezione sua e non due card in più là dentro.
+ * Tre caselle che si escludono a vicenda e sommano al totale — la differenza
+ * con gli "Highlights di viaggio" qui accanto è che quelli sono RECORD ("il
+ * più alto", "il più lontano") e questi sono CONTEGGI: risponde a "che tipo di
+ * viaggiatore sei", non a "qual è il tuo primato". Per questo è una sezione
+ * sua e non due card in più là dentro.
+ *
+ * Erano quattro: "tappa fissa" (base con gite) e "andata e ritorno" (una meta
+ * sola) sono state unite perché descrivevano la stessa esperienza — in
+ * entrambe dormi in un posto solo — e Stefano l'ha visto dai suoi numeri, 0
+ * contro 10. Le gite dalla base ora sono un dettaglio nel sottotitolo.
  *
  * Le caselle a zero si mostrano comunque: in una scomposizione uno zero è
- * un'informazione ("non fai gite"), e togliere una casella spaccherebbe la
- * griglia 2×2 del telefono.
+ * un'informazione ("non fai gite in giornata").
  */
 export function ComeViaggi({ trips }: { trips: Trip[] }) {
-  if (trips.length === 0) return null;   // niente quattro zeri su un archivio vuoto
+  if (trips.length === 0) return null;   // niente caselle a zero su un archivio vuoto
   const c = contaForme(trips);
 
   const caselle = [
     { label: "In giornata", valore: c.giornata, colore: "#fbbf24", Icona: Sun,
       sub: "parti e torni" },
-    { label: "Tappa fissa", valore: c.base, colore: "#5dcaa5", Icona: Tent,
-      sub: c.giteDallaBase > 0 ? `${c.giteDallaBase} ${c.giteDallaBase === 1 ? "gita" : "gite"} dalla base` : undefined },
+    { label: "Tappa fissa", valore: c.fissa, colore: "#5dcaa5", Icona: Tent,
+      // Le gite si nominano solo se ci sono: senza, il sottotitolo dice
+      // semplicemente com'è fatto un viaggio a tappa fissa.
+      sub: c.conGite > 0
+        ? `un posto, più notti · ${c.conGite} con gite`
+        : "un posto, più notti" },
     { label: "Itineranti", valore: c.itinerante, colore: "#a78bfa", Icona: Waypoints,
       sub: c.tappeMedie > 0 ? `${c.tappeMedie} ${c.tappeMedie === 1 ? "tappa" : "tappe"} in media` : undefined },
-    { label: "Andata e ritorno", valore: c.diretto, colore: "#60a5fa", Icona: ArrowRightLeft,
-      sub: "una meta sola" },
   ];
 
   return (
@@ -36,7 +42,9 @@ export function ComeViaggi({ trips }: { trips: Trip[] }) {
       <p className="text-xs text-muted-foreground mb-4">
         Ogni viaggio in una casella sola: {trips.length} in tutto.
       </p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      {/* Tre in riga anche sul telefono: le etichette sono corte e i numeri
+          grandi, e sotto i 120px di card il testo regge ancora. */}
+      <div className="grid grid-cols-3 gap-2">
         {caselle.map(({ label, valore, colore, Icona, sub }) => (
           <div key={label}
             style={{ background:"#0a1628", border:"0.5px solid #1a2d4a", borderRadius:14,

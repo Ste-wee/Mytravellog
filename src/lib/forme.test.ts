@@ -14,7 +14,7 @@ const viaggio = (over: Partial<Trip> = {}): Trip => ({
   ...over,
 } as Trip);
 
-describe("formaDiViaggio — quattro caselle che si escludono", () => {
+describe("formaDiViaggio — tre caselle che si escludono", () => {
   it("stesso giorno: in giornata", () => {
     expect(formaDiViaggio(viaggio({ trip_date: "2026-05-10", date_end: "2026-05-10" }))).toBe("giornata");
   });
@@ -40,7 +40,7 @@ describe("formaDiViaggio — quattro caselle che si escludono", () => {
     });
     expect(formaDiViaggio(gitaConBase)).toBe("giornata");
     // e la controprova: le stesse tappe su due giorni diventano tappa fissa
-    expect(formaDiViaggio({ ...gitaConBase, date_end: "2026-05-11" })).toBe("base");
+    expect(formaDiViaggio({ ...gitaConBase, date_end: "2026-05-11" })).toBe("fissa");
   });
 
   it("rientri nello stesso posto: tappa fissa", () => {
@@ -48,7 +48,25 @@ describe("formaDiViaggio — quattro caselle che si escludono", () => {
     expect(formaDiViaggio(viaggio({
       city: "Firenze", latitude: 43.7696, longitude: 11.2558,
       waypoints: [wp("Firenze", 43.7696, 11.2558), wp("Siena", 43.3188, 11.3308)],
-    }))).toBe("base");
+    }))).toBe("fissa");
+  });
+
+  // La domanda di Stefano guardando i suoi numeri (0 tappe fisse, 10 andata e
+  // ritorno): «non sono la stessa cosa?». Sì: in entrambi i casi dormi in un
+  // posto solo, e la differenza che avevo codificato era se il rientro fosse
+  // stato censito come tappa. Ora finiscono nella stessa casella.
+  it("una meta sola e una meta con gite stanno nella STESSA casella", () => {
+    const soloFirenze = viaggio({ city: "Firenze", latitude: 43.7696, longitude: 11.2558 });
+    const firenzeConGite = viaggio({
+      city: "Firenze", latitude: 43.7696, longitude: 11.2558,
+      waypoints: [wp("Firenze", 43.7696, 11.2558), wp("Siena", 43.3188, 11.3308)],
+    });
+    expect(formaDiViaggio(soloFirenze)).toBe("fissa");
+    expect(formaDiViaggio(firenzeConGite)).toBe("fissa");
+    // e il dettaglio che le distingue resta contato a parte
+    const c = contaForme([soloFirenze, firenzeConGite]);
+    expect(c.fissa).toBe(2);
+    expect(c.conGite).toBe(1);
   });
 
   it("tappe senza rientri: itinerante", () => {
@@ -57,24 +75,24 @@ describe("formaDiViaggio — quattro caselle che si escludono", () => {
     }))).toBe("itinerante");
   });
 
-  it("una meta e via: andata e ritorno", () => {
-    expect(formaDiViaggio(viaggio())).toBe("diretto");
+  it("una meta e via: tappa fissa (ci hai dormito)", () => {
+    expect(formaDiViaggio(viaggio())).toBe("fissa");
   });
 
   // I viaggi salvati da versioni vecchie possono non avere affatto il campo
   // waypoints: nessuna delle quattro domande deve inciamparci.
-  it("un viaggio senza il campo tappe è andata e ritorno, non un errore", () => {
+  it("un viaggio senza il campo tappe è a tappa fissa, non un errore", () => {
     const legacy = { trip_date: "2026-06-01", date_end: "2026-06-05",
       home_latitude: MILANO.lat, home_longitude: MILANO.lon,
       latitude: 47.3769, longitude: 8.5417, city: "Zurigo" } as Trip;
-    expect(formaDiViaggio(legacy)).toBe("diretto");
-    expect(contaForme([legacy])).toMatchObject({ diretto: 1, tappeMedie: 0 });
+    expect(formaDiViaggio(legacy)).toBe("fissa");
+    expect(contaForme([legacy])).toMatchObject({ fissa: 1, tappeMedie: 0 });
   });
 
   it("tappe senza coordinate non fanno un itinerante", () => {
     expect(formaDiViaggio(viaggio({
       waypoints: [{ city: "Ignota", country: "Italia", transport_mode: "car" }],
-    } as Partial<Trip>))).toBe("diretto");
+    } as Partial<Trip>))).toBe("fissa");
   });
 
   it("senza casa non si cerca nessuna base: si guarda solo le tappe", () => {
@@ -95,13 +113,13 @@ describe("contaForme — la somma deve fare il totale", () => {
         wp("Firenze", 43.7696, 11.2558), wp("Pisa", 43.7228, 10.4017)] }),
     viaggio({ waypoints: [wp("Lugano", 46.0, 8.95), wp("Lucerna", 47.05, 8.31)] }),  // itinerante (2)
     viaggio({ waypoints: [wp("Basilea", 47.56, 7.59)] }),                            // itinerante (1)
-    viaggio(),                                                                        // diretto
+    viaggio(),                                                                        // fissa (una meta)
   ];
 
-  it("ogni viaggio in una casella sola", () => {
+  it("ogni viaggio in una casella sola, e la somma fa il totale", () => {
     const c = contaForme(archivio);
-    expect(c.giornata + c.base + c.itinerante + c.diretto).toBe(archivio.length);
-    expect(c).toMatchObject({ giornata: 2, base: 1, itinerante: 2, diretto: 1 });
+    expect(c.giornata + c.fissa + c.itinerante).toBe(archivio.length);
+    expect(c).toMatchObject({ giornata: 2, fissa: 2, itinerante: 2, conGite: 1 });
   });
 
   it("conta le gite fatte dalle basi", () => {
@@ -115,7 +133,7 @@ describe("contaForme — la somma deve fare il totale", () => {
 
   it("archivio vuoto: tutto a zero, niente divisioni per zero", () => {
     expect(contaForme([])).toEqual({
-      giornata: 0, base: 0, itinerante: 0, diretto: 0, giteDallaBase: 0, tappeMedie: 0,
+      giornata: 0, fissa: 0, itinerante: 0, conGite: 0, giteDallaBase: 0, tappeMedie: 0,
     });
   });
 });
