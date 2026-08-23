@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { Trip, loadTrips } from "@/lib/storage";
 import { StatsSection } from "@/components/StatsSection";
 import { ContinentsMap } from "@/components/ContinentsMap";
+import { ComeViaggi } from "@/components/ComeViaggi";
 import { TravelHighlights } from "@/components/TravelHighlights";
 import { TravelHeatmap } from "@/components/TravelHeatmap";
 
@@ -66,6 +67,11 @@ const Stats = () => {
           <StatsSection trips={trips} />
 
           <ContinentsMap trips={trips} />
+
+          {/* Dopo la geografia (dove sei stato), prima dei record (quanto in
+              alto, quanto lontano): risponde a una domanda diversa, che tipo
+              di viaggiatore sei. Posizione scelta da Stefano. */}
+          <ComeViaggi trips={trips} />
 
           <TravelHighlights trips={trips} />
 
