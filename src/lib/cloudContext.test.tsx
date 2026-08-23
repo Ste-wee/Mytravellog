@@ -33,13 +33,14 @@ const viaggio = (id: string, over: Partial<Trip> = {}): Trip => ({
 } as Trip);
 
 function Sonda() {
-  const { status, email, errorMsg, connect } = useCloud();
+  const { status, email, errorMsg, connect, disconnect } = useCloud();
   return (
     <div>
       <span data-testid="status">{status}</span>
       <span data-testid="email">{email ?? "-"}</span>
       <span data-testid="err">{errorMsg ?? "-"}</span>
       <button onClick={() => connect()}>Collega</button>
+      <button onClick={() => disconnect()}>Scollega</button>
     </div>
   );
 }
@@ -152,6 +153,68 @@ describe("CloudProvider — macchina a stati", () => {
     await waitFor(() => expect(screen.getByTestId("err").textContent).toBe("Accesso annullato."));
     expect(screen.getByTestId("status").textContent).toBe("guest");
     expect(sync.scriviArchivio).not.toHaveBeenCalled();
+  });
+
+  // Segnalato da Stefano: premuto "Disconnetti" MENTRE l'app diceva
+  // "Sincronizzazione…", si tornava subito connessi. La sincronizzazione in
+  // volo atterrava dopo lo scollegamento e rimetteva lo stato "connected":
+  // il suo finale era protetto solo dal montaggio, non dal fatto che
+  // quell'utente ci fosse ancora.
+  it("Disconnetti durante una sincronizzazione: si resta scollegati", async () => {
+    saveTrips([viaggio("locale")]);
+    let atterra: (() => void) | null = null;
+    vi.mocked(sync.leggiArchivio).mockImplementation(() =>
+      new Promise(res => { atterra = () => res(null); }));
+
+    monta();
+    act(() => ascoltatore()({ uid: "u1", email: "s@x.it" }));
+    await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("syncing"));
+
+    await act(async () => { screen.getByText("Scollega").click(); });
+    expect(screen.getByTestId("status").textContent).toBe("guest");
+
+    // la sincronizzazione in volo atterra ORA, a scollegamento avvenuto
+    await act(async () => { atterra?.(); await Promise.resolve(); });
+    expect(screen.getByTestId("status").textContent).toBe("guest");
+    expect(screen.getByTestId("email").textContent).toBe("-");
+  });
+
+  // Due finestre diverse, due guardie: sopra ci si scollega mentre si LEGGE,
+  // qui mentre si SCRIVE nel cloud. La seconda l'ha scoperta un mutation test:
+  // togliendo la guardia della scrittura i test passavano tutti, perché
+  // nessuno arrivava fin lì.
+  it("Disconnetti durante la SCRITTURA nel cloud: si resta scollegati", async () => {
+    saveTrips([viaggio("locale")]);
+    let scritturaFinita: (() => void) | null = null;
+    vi.mocked(sync.scriviArchivio).mockImplementation(() =>
+      new Promise(res => { scritturaFinita = () => res(undefined); }));
+
+    monta();
+    act(() => ascoltatore()({ uid: "u1", email: "s@x.it" }));
+    await waitFor(() => expect(sync.scriviArchivio).toHaveBeenCalled());
+
+    await act(async () => { screen.getByText("Scollega").click(); });
+    expect(screen.getByTestId("status").textContent).toBe("guest");
+
+    await act(async () => { scritturaFinita?.(); await Promise.resolve(); });
+    expect(screen.getByTestId("status").textContent).toBe("guest");
+    expect(screen.getByTestId("email").textContent).toBe("-");
+  });
+
+  it("Disconnetti durante una sincronizzazione che FALLISCE: nessun errore al guest", async () => {
+    saveTrips([viaggio("locale")]);
+    let esplodi: (() => void) | null = null;
+    vi.mocked(sync.leggiArchivio).mockImplementation(() =>
+      new Promise((_, rej) => { esplodi = () => rej(new Error("rete")); }));
+
+    monta();
+    act(() => ascoltatore()({ uid: "u1", email: "s@x.it" }));
+    await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("syncing"));
+    await act(async () => { screen.getByText("Scollega").click(); });
+    await act(async () => { esplodi?.(); await Promise.resolve(); });
+
+    expect(screen.getByTestId("status").textContent).toBe("guest");
+    expect(screen.getByTestId("err").textContent).toBe("-");
   });
 
   it("scollegato offline: il flag resta e al riavvio si completa l'uscita", async () => {

@@ -84,6 +84,17 @@ export function CloudProvider({ children }: { children: ReactNode }) {
    *  ragno dal buco. Si riparte solo riaprendo l'app, dopo aver sistemato il
    *  documento a mano. */
   const corrottoRef = useRef(false);
+  /**
+   * Ogni accesso e ogni uscita aprono una "generazione". Una sincronizzazione
+   * partita in una generazione precedente non deve più toccare lo stato.
+   *
+   * Serve perché una sincronizzazione dura secondi (lettura + scrittura su
+   * rete) e nel frattempo l'utente può scollegarsi: il finale di `doSync` era
+   * protetto solo dal montaggio, quindi atterrava e rimetteva "connected".
+   * Segnalato da Stefano premendo Disconnetti durante "Sincronizzazione…":
+   * tornava collegato da solo.
+   */
+  const generazioneRef = useRef(0);
 
   const getLocalTs = () => Number(localStorage.getItem(LS_TS) || 0);
   const setLocalTs = (v: number) => { try { localStorage.setItem(LS_TS, String(v)); } catch { /* quota */ } };
@@ -93,7 +104,14 @@ export function CloudProvider({ children }: { children: ReactNode }) {
    * ricarica il risultato. Chi chiama tiene il lock per tutta la durata.
    */
   const doSync = async (uid: string) => {
+    const mia = generazioneRef.current;
+    /** Questa sincronizzazione conta ancora? (montati, e nessun cambio di
+     *  account o uscita avvenuti mentre eravamo sulla rete) */
+    const attuale = () => mountedRef.current && generazioneRef.current === mia;
     const remote = await leggiArchivio(uid);   // può lanciare "archivio_corrotto"
+    // Scollegati mentre leggevamo: si lascia tutto com'è, né in locale né nel
+    // cloud. Chi è appena uscito non deve vedersi tornare i dati addosso.
+    if (!attuale()) return;
     const local = loadTrips();
     const localPlans = loadPlans();
     const now = Date.now();
@@ -124,14 +142,15 @@ export function CloudProvider({ children }: { children: ReactNode }) {
       deletedTrips: delTrips, deletedPlans: delPlans,
     });
     if (!okTrips || !okPlans) {
-      if (mountedRef.current) { setStatus("error"); setErrorMsg("Spazio del browser esaurito: i dati sul dispositivo non sono aggiornati (il backup nel cloud sì)."); }
+      if (attuale()) { setStatus("error"); setErrorMsg("Spazio del browser esaurito: i dati sul dispositivo non sono aggiornati (il backup nel cloud sì)."); }
       return;
     }
+    if (!attuale()) return;   // uscita arrivata durante la scrittura nel cloud
     setLocalTs(now);
     // Hash dai dati appena scritti, NON da localStorage: una modifica arrivata
     // durante l'upload deve risultare "da pushare", non già sincronizzata.
     syncedHashRef.current = snapshotOf(merged, mergedPlans);
-    if (mountedRef.current) { setLastSyncAt(now); setStatus("connected"); setErrorMsg(null); }
+    setLastSyncAt(now); setStatus("connected"); setErrorMsg(null);
     daRiprovareRef.current = false;
     corrottoRef.current = false;   // il documento è tornato leggibile (o è nuovo)
   };
@@ -156,7 +175,12 @@ export function CloudProvider({ children }: { children: ReactNode }) {
   const pushLocal = async () => {
     const u = utenteRef.current;
     if (!u) return;
-    try { await doSync(u.uid); } catch (e) { inGuaio(e); }
+    const mia = generazioneRef.current;
+    try { await doSync(u.uid); }
+    // Un guasto di una sincronizzazione già superata non è un errore da
+    // mostrare: chi si è scollegato non deve leggere "sincronizzazione non
+    // riuscita" sotto il bottone di accesso.
+    catch (e) { if (generazioneRef.current === mia) inGuaio(e); }
   };
 
   const stopWatcher = () => {
@@ -175,9 +199,12 @@ export function CloudProvider({ children }: { children: ReactNode }) {
 
   /** Prima sincronizzazione dopo l'accesso: lock per tutto il read-modify-write. */
   const primaSync = async (uid: string) => {
+    const mia = generazioneRef.current;
     busyRef.current = true;
     if (mountedRef.current) setStatus("syncing");
-    try { await doSync(uid); } finally { busyRef.current = false; }
+    try { await doSync(uid); }
+    catch (e) { if (generazioneRef.current === mia) throw e; }   // uscito: guasto ormai irrilevante
+    finally { busyRef.current = false; }
   };
 
   const connect = async (): Promise<boolean> => {
@@ -207,6 +234,7 @@ export function CloudProvider({ children }: { children: ReactNode }) {
 
   const disconnect = async () => {
     stopWatcher();
+    generazioneRef.current++;   // quello che è in volo non conta più
     // Il flag PRIMA dell'uscita vera: se `esci()` fallisce (offline) la scelta
     // dell'utente resta scritta, e al riavvio si completa invece di ritrovarsi
     // collegati da soli.
@@ -226,6 +254,9 @@ export function CloudProvider({ children }: { children: ReactNode }) {
         esci().catch(() => { /* ancora offline: si riprova al prossimo avvio */ });
         return;
       }
+      // Cambio di stato dell'accesso: da qui in poi è un'altra storia, e le
+      // sincronizzazioni della precedente non devono più scrivere niente.
+      if (utenteRef.current?.uid !== u?.uid) generazioneRef.current++;
       utenteRef.current = u;
       if (!u) {
         stopWatcher();
@@ -234,7 +265,12 @@ export function CloudProvider({ children }: { children: ReactNode }) {
         return;
       }
       if (mountedRef.current) setEmail(u.email);
-      primaSync(u.uid).then(startWatcher).catch(e => { inGuaio(e); startWatcher(); });
+      const mia = generazioneRef.current;
+      const seAncoraLui = () => { if (generazioneRef.current === mia) startWatcher(); };
+      primaSync(u.uid).then(seAncoraLui).catch(e => {
+        if (generazioneRef.current !== mia) return;   // scollegato nel frattempo
+        inGuaio(e); seAncoraLui();
+      });
     });
 
     const onVisibility = () => {
