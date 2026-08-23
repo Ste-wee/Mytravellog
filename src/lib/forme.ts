@@ -33,10 +33,22 @@ function fermate(t: Trip): { lat?: number | null; lon?: number | null }[] {
  * "tappa fissa" dice qualcosa di più preciso).
  */
 export function formaDiViaggio(t: Trip): Forma {
-  if (eGitaInGiornata(t)) return "giornata";
-  if (hasCoords(t.home_latitude, t.home_longitude) && riconosciBase(fermate(t))) return "base";
+  return conForma(t).forma;
+}
+
+/**
+ * La forma, insieme alla base riconosciuta se c'è.
+ *
+ * Serve a chi ha bisogno di entrambe (il conteggio, per dire quante gite sono
+ * partite dalle basi) senza riconoscere la base DUE volte per lo stesso
+ * viaggio: `riconosciBase` confronta ogni fermata con tutte le precedenti.
+ */
+function conForma(t: Trip): { forma: Forma; base: ReturnType<typeof riconosciBase> } {
+  if (eGitaInGiornata(t)) return { forma: "giornata", base: null };
+  const base = hasCoords(t.home_latitude, t.home_longitude) ? riconosciBase(fermate(t)) : null;
+  if (base) return { forma: "base", base };
   const tappe = (t.waypoints ?? []).filter(w => hasCoords(w.lat, w.lon));
-  return tappe.length > 0 ? "itinerante" : "diretto";
+  return { forma: tappe.length > 0 ? "itinerante" : "diretto", base: null };
 }
 
 export interface ContoForme {
@@ -55,12 +67,9 @@ export function contaForme(trips: Trip[]): ContoForme {
   const conto: ContoForme = { giornata: 0, base: 0, itinerante: 0, diretto: 0, giteDallaBase: 0, tappeMedie: 0 };
   let tappeItineranti = 0;
   for (const t of trips) {
-    const forma = formaDiViaggio(t);
+    const { forma, base } = conForma(t);
     conto[forma]++;
-    if (forma === "base") {
-      const b = riconosciBase(fermate(t));
-      conto.giteDallaBase += b?.gite.length ?? 0;
-    }
+    if (forma === "base") conto.giteDallaBase += base?.gite.length ?? 0;
     if (forma === "itinerante") {
       tappeItineranti += (t.waypoints ?? []).filter(w => hasCoords(w.lat, w.lon)).length;
     }

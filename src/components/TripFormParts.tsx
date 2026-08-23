@@ -260,8 +260,13 @@ function SerpentinaConBase({ VBW, stops, base, notti, onRemoveWaypoint, onEditHo
   });
   base.dopo.forEach((idx, k) => arcoPrincipale(k === 0 ? base.baseIdx : base.dopo[k - 1], idx, `d${k}`));
 
+  // Il badge dice la verità sulle notti: su una gita in giornata (zero
+  // notti, es. Milano → Como → Bellagio → Como in un pomeriggio) la luna era
+  // una bugia — di notti non ce n'è nessuna. Lì la base resta una base, ma si
+  // annuncia col sole, la stessa lingua dei conteggi in Home.
   const etichettaNotti = notti != null && notti > 0
-    ? `🌙 ${notti} ${notti === 1 ? "notte" : "notti"}` : "🌙 base";
+    ? `🌙 ${notti} ${notti === 1 ? "notte" : "notti"}`
+    : notti === 0 ? "☀ in giornata" : "🌙 base";
 
   return (
     <div style={{ position: "relative", width: "100%" }}>
@@ -992,6 +997,12 @@ function RouteHero({
 
 /** La card "Itinerario" completa (intestazione + editor visuale): la colonna sinistra dei due form. */
 export function ItineraryPanel(props: RouteHeroProps) {
+  // Serve solo a scegliere l'indizio in testa, ma è O(n²) e girava a ogni
+  // render: memorizzato come nel RouteHero qui sotto.
+  const conBase = React.useMemo(
+    () => !!(props.home && riconosciBase([{ lat: props.home.lat, lon: props.home.lon }, ...props.waypoints])),
+    [props.home, props.waypoints],
+  );
   return (
     <div style={{ background:"#0a1628", border:"0.5px solid #1a2d4a",
       borderRadius:14, overflow:"hidden", display:"flex", flexDirection:"column", height:"100%" }}>
@@ -1011,7 +1022,7 @@ export function ItineraryPanel(props: RouteHeroProps) {
                 riconosciuta l'indizio cambia: nella vista a base non si
                 trascina niente, e promettere il gesto sarebbe una bugia. */}
             {props.waypoints.length >= 2
-              ? (props.home && riconosciBase([{ lat: props.home.lat, lon: props.home.lon }, ...props.waypoints])
+              ? (conBase
                   ? "Tocca 🏠 per la partenza · la base raccoglie le sue gite"
                   : "Tocca 🏠 per la partenza · trascina le tappe per riordinarle")
               : "Tocca 🏠 per cambiare città di partenza"}

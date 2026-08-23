@@ -58,6 +58,15 @@ describe("serpentina con base", () => {
     expect(etichette().some(t => t.trim() === "🌙 base")).toBe(true);
   });
 
+  // Trovato in revisione: su una giornata (zero notti) il badge diceva
+  // "🌙 base" — la luna su un viaggio dove non si dorme è una bugia.
+  it("zero notti: il badge parla di giornata, non di luna", () => {
+    renderPannello(toscana(), { notti: 0 });
+    const testi = etichette();
+    expect(testi.some(t => t.includes("in giornata"))).toBe(true);
+    expect(testi.some(t => t.includes("🌙"))).toBe(false);
+  });
+
   it("un viaggio lineare non cambia: niente base, niente bottone", () => {
     renderPannello([wp("Siena", 43.3188, 11.3308), wp("Pisa", 43.7228, 10.4017)]);
     expect(etichette().some(t => t.includes("· base"))).toBe(false);

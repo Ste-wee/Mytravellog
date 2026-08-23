@@ -61,6 +61,16 @@ describe("formaDiViaggio — quattro caselle che si escludono", () => {
     expect(formaDiViaggio(viaggio())).toBe("diretto");
   });
 
+  // I viaggi salvati da versioni vecchie possono non avere affatto il campo
+  // waypoints: nessuna delle quattro domande deve inciamparci.
+  it("un viaggio senza il campo tappe è andata e ritorno, non un errore", () => {
+    const legacy = { trip_date: "2026-06-01", date_end: "2026-06-05",
+      home_latitude: MILANO.lat, home_longitude: MILANO.lon,
+      latitude: 47.3769, longitude: 8.5417, city: "Zurigo" } as Trip;
+    expect(formaDiViaggio(legacy)).toBe("diretto");
+    expect(contaForme([legacy])).toMatchObject({ diretto: 1, tappeMedie: 0 });
+  });
+
   it("tappe senza coordinate non fanno un itinerante", () => {
     expect(formaDiViaggio(viaggio({
       waypoints: [{ city: "Ignota", country: "Italia", transport_mode: "car" }],
