@@ -8,12 +8,13 @@ import { hasCoords } from "@/lib/coords";
 import { tripTotalKm } from "@/lib/flyover";
 import { stopChain } from "@/lib/stops";
 import { paeseVisibileDiViaggio, paeseVisibileDiTappa } from "@/lib/paesi";
+import { contaViaggiEGite } from "@/lib/gite";
 import { ricalcolaTemperature } from "@/lib/ricalcolaTemperature";
 import { ricalcolaTracciati } from "@/lib/ricalcolaTracciati";
 import { recuperaDatiMancanti } from "@/lib/recuperaDatiMancanti";
 import { fmtDistance, fmtNumber, useSettings } from "@/lib/settings";
 import { TRANSPORT, isTransportMode } from "@/lib/transport";
-import { Route, Globe, MapPin, Pencil, Plane, Plus, Video, X } from "lucide-react";
+import { Route, Globe, MapPin, Pencil, Plane, Plus, Sun, Video, X } from "lucide-react";
 import { WorldMap, CityInfo } from "@/components/WorldMap";
 import { StarField, StarFieldController } from "@/components/StarField";
 import { TripFlyover } from "@/components/TripFlyover";
@@ -57,7 +58,11 @@ export function computeHomeStats(trips: Trip[]) {
   // viaggio vivono nella heatmap (TravelHeatmap), con conteggio INCLUSIVO
   // (Gen 1→Gen 5 = 5 giorni), coerente con TripCardTicket. Il vecchio `days`
   // di questa funzione era codice morto e per giunta non inclusivo: rimosso.
-  return { trips: trips.length, countries: countries.size, cities: cities.size, km };
+  // Le gite in giornata si contano a parte: una a Como non è un viaggio come
+  // cinque giorni a Zurigo. Tutto il RESTO le include — paesi, città, km,
+  // giorni: a Como ci sei stato davvero (scelta di Stefano, 2026-08-23).
+  const { viaggi, gite } = contaViaggiEGite(trips);
+  return { trips: viaggi, gite, countries: countries.size, cities: cities.size, km };
 }
 
 /**
@@ -397,8 +402,11 @@ function HomeInner() {
           // pagina Statistiche" — i numeri sparivano proprio a chi non li vede.
           const voce = [
             `${stats.trips} ${stats.trips === 1 ? "viaggio" : "viaggi"}`,
+            // Le gite si nominano solo se ci sono, come nella riga: chi non ne
+            // fa non deve sentirsi dire "0 gite in giornata".
+            ...(stats.gite > 0 ? [`${stats.gite} ${stats.gite === 1 ? "gita" : "gite"} in giornata`] : []),
             `${stats.countries} ${stats.countries === 1 ? "paese" : "paesi"}`,
-            `${stats.cities} città`,
+            ...(stats.gite > 0 ? [] : [`${stats.cities} città`]),
             `${fmtDistance(stats.km, distanceUnit)} percorsi`,
           ].join(", ");
           // La riga dei numeri È l'interruttore: un tocco accende i paesi con
@@ -415,8 +423,20 @@ function HomeInner() {
               gap:12, width:"100%", padding:"9px 12px", background:"none", border:"none", cursor:"pointer" }}>
             {[
               { Icona: Plane,  valore: fmtNumber(stats.trips),     chiave:"viaggi", colore:"#f0f4ff", iconaColore:"#60a5fa" },
+              // Le gite prendono il posto delle città SOLO quando esistono: la
+              // riga sta su una riga sola anche sul telefono, e chi non fa gite
+              // in giornata vede esattamente quello che vedeva prima. Le città
+              // restano comunque in Statistiche.
+              ...(stats.gite > 0
+                // Blu come gli altri conteggi: la regola di colore dell'app e'
+                // blu = conteggi, ambra = strada. A distinguere la gita basta
+                // l'icona del sole.
+                ? [{ Icona: Sun, valore: fmtNumber(stats.gite), chiave:"gite", colore:"#f0f4ff", iconaColore:"#60a5fa" }]
+                : []),
               { Icona: Globe,  valore: fmtNumber(stats.countries), chiave:"paesi",  colore:"#f0f4ff", iconaColore:"#60a5fa" },
-              { Icona: MapPin, valore: fmtNumber(stats.cities),    chiave:"citta",  colore:"#f0f4ff", iconaColore:"#60a5fa" },
+              ...(stats.gite > 0
+                ? []
+                : [{ Icona: MapPin, valore: fmtNumber(stats.cities), chiave:"citta", colore:"#f0f4ff", iconaColore:"#60a5fa" }]),
               // L'ambra è dei km, come le rotte sul globo (regola di colore
               // dell'app: blu = conteggi, ambra = strada percorsa).
               { Icona: Route,  valore: fmtDistance(stats.km, distanceUnit), chiave:"km", colore:"#fbbf24", iconaColore:"#fbbf24" },

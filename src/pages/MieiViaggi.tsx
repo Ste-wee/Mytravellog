@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
+import { contaViaggiEGite } from "@/lib/gite";
 import { TripCardTicket } from "@/components/TripCardTicket";
 import { TripFlyover } from "@/components/TripFlyover";
 import { PlanCard } from "@/components/PlanCard";
@@ -53,6 +54,8 @@ const UNDO_GRACE_MS = 5000;
 
 export default function MieiViaggi() {
   const [trips, setTrips] = useState<Trip[]>([]);
+  // Viaggi e gite in giornata, contati a parte come in Home.
+  const conteggi = contaViaggiEGite(trips);
   // Viaggi "in programma": vivono in un bucket separato (fuori da statistiche,
   // globo e recap) ma si vedono e si aprono QUI, in cima ai ricordi.
   const [plans, setPlans] = useState<Trip[]>([]);
@@ -211,7 +214,12 @@ export default function MieiViaggi() {
           <div>
             <h2 className="text-2xl font-bold">I miei viaggi</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              {trips.length} {trips.length === 1 ? "viaggio" : "viaggi"}
+              {/* Stessa distinzione della Home: le gite in giornata hanno il
+                  loro numero. Due conteggi diversi per la stessa cosa in due
+                  schermate è il pasticcio già fatto oggi con la promessa sulla
+                  privacy, corretta in un posto solo su due. */}
+              {conteggi.viaggi} {conteggi.viaggi === 1 ? "viaggio" : "viaggi"}
+              {conteggi.gite > 0 && ` · ${conteggi.gite} ${conteggi.gite === 1 ? "gita" : "gite"} in giornata`}
               {plans.length > 0 && ` · ${plans.length} in programma`}
             </p>
           </div>
