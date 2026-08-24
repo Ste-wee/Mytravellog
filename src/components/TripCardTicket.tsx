@@ -11,6 +11,7 @@ import { TripFlyover } from "@/components/TripFlyover";
 import { TripDiary, DiaryEntry } from "@/components/TripDiary";
 import { getReliefImage } from "@/lib/photoStorage";
 import { tripTotalKm } from "@/lib/flyover";
+import { fermateDelBiglietto } from "@/lib/stops";
 
 // Colori/icone/etichette vengono da @/lib/transport (fonte unica). Qui resta
 // solo il ripiego per un viaggio senza mezzo indicato, che è specifico del
@@ -155,9 +156,12 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
   }, [trip]);
   // Km percorsi: stradali reali dove disponibile (coerente con Home/Statistiche/poster).
   const tripKm = tripTotalKm(trip);
-  const stops = hasWaypoints
-    ? [trip.home_label?.split(",")[0] ?? "Casa", ...trip.waypoints!.map(w => w.city), trip.city]
-    : null;
+  // Le fermate DA RACCONTARE, non quelle salvate: in un viaggio a tappa fissa
+  // la base si nomina una volta invece di una per rientro (vedi
+  // fermateDelBiglietto). Undici fermate per sei posti nascondevano il viaggio.
+  const fermate = hasWaypoints ? fermateDelBiglietto(trip) : null;
+  const stops = fermate?.nomi ?? null;
+  const baseIdx = fermate?.baseIdx ?? null;
 
   // Eliminazione: l'apertura del menu ⋮ fa da gesto deliberato, quindi la voce
   // "Elimina" richiama direttamente onDeleteRequested (niente più arm a due tap).
@@ -235,8 +239,24 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
               {stops.map((stop, i) => (
                 <div key={i} style={{display:"flex",alignItems:"center",gap:4,flex:i < stops.length-1 ? 1 : 0}}>
                   <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-                    <div style={{width:i===0?8:i===stops.length-1?8:6,height:i===0?8:i===stops.length-1?8:6,borderRadius:"50%",background:i===0?"#fbbf24":i===stops.length-1?ts.color:"#60a5fa"}}/>
-                    <div style={{fontSize:9,color:"rgba(255,255,255,0.75)"}}>{abbr(stop)}</div>
+                    {/* Il pallino "di arrivo" sta sulla BASE quando c'è: è lì
+                        che hai dormito. Senza questo finiva sull'ultima fermata
+                        della fila, che dopo aver tolto i rientri è una gita
+                        (Capri, nel viaggio napoletano). Il verde della base è
+                        lo stesso della serpentina, così il linguaggio è uno. */}
+                    <div style={{
+                      width: i===0 || i===baseIdx || (baseIdx===null && i===stops.length-1) ? (i===baseIdx ? 9 : 8) : 6,
+                      height: i===0 || i===baseIdx || (baseIdx===null && i===stops.length-1) ? (i===baseIdx ? 9 : 8) : 6,
+                      borderRadius:"50%",
+                      background: i===0 ? "#fbbf24"
+                        : i===baseIdx ? "#5dcaa5"
+                        : baseIdx===null && i===stops.length-1 ? ts.color
+                        : "#60a5fa",
+                      boxShadow: i===baseIdx ? "0 0 0 3px rgba(93,202,165,0.18)" : undefined,
+                    }}/>
+                    <div style={{fontSize:9,
+                      color: i===baseIdx ? "#5dcaa5" : "rgba(255,255,255,0.75)",
+                      fontWeight: i===baseIdx ? 700 : undefined}}>{abbr(stop)}</div>
                   </div>
                   {i < stops.length-1 && (
                     <div style={{flex:1,borderTop:"1.5px dashed rgba(96,165,250,0.3)",marginBottom:12}}/>
@@ -246,8 +266,10 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
             </div>
             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
               {stops.map((stop, i) => (
-                <span key={i} style={{fontSize:10,color:"rgba(255,255,255,0.6)"}}>
-                  {stop}{i < stops.length-1 && <span style={{color:"rgba(255,255,255,0.6)",margin:"0 2px"}}>→</span>}
+                <span key={i} style={{fontSize:10,
+                  color: i===baseIdx ? "#5dcaa5" : "rgba(255,255,255,0.6)",
+                  fontWeight: i===baseIdx ? 700 : undefined}}>
+                  {stop}{i < stops.length-1 && <span style={{color:"rgba(255,255,255,0.6)",margin:"0 2px",fontWeight:400}}>→</span>}
                 </span>
               ))}
             </div>
