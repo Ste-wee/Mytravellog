@@ -41,22 +41,47 @@ function makeTrip(overrides: Partial<Trip> = {}): Trip {
 
 describe("computeHomeStats", () => {
   it("conta 0 di tutto con nessun viaggio", () => {
-    expect(computeHomeStats([])).toEqual({ trips: 0, countries: 0, cities: 0, km: 0 });
+    expect(computeHomeStats([])).toEqual({
+      trips: 0, countries: 0, cities: 0, km: 0, gite: 0, giteCitta: 0, giteKm: 0,
+    });
   });
 
-  // Scelta di Stefano (2026-08-23): una gita in giornata non e` un viaggio
-  // come cinque giorni a Zurigo, ma i posti li hai visti davvero.
-  it("le gite in giornata escono dal conteggio viaggi, non dal resto", () => {
+  // Scelta di Stefano (2026-08-24): le gite in giornata hanno una casa loro.
+  // Prima erano "viaggi minori" — fuori dal conteggio viaggi ma DENTRO città e
+  // km: la stessa gita non era un viaggio per un numero ed era un viaggio per
+  // quello accanto, sulla stessa schermata. Ora escono da tutti i conti e si
+  // contano a parte, dichiarate.
+  it("le gite in giornata escono da TUTTI i conti e si contano a parte", () => {
     const gita = makeTrip({ trip_date: "2026-05-10", date_end: "2026-05-10", city: "Como", country: "Italia" });
     const viaggio = makeTrip({ trip_date: "2026-06-01", date_end: "2026-06-05", city: "Zurigo", country: "Svizzera", country_code: "CH" });
     const s = computeHomeStats([gita, viaggio]);
     expect(s.trips).toBe(1);
-    expect(s.cities).toBe(2);        // a Como ci sei stato
-    expect(s.countries).toBe(2);
-    // Il NUMERO delle gite non sta in Home: la riga tiene quattro voci, non
-    // cinque (cinque vanno a capo su un telefono). Si legge in "I miei viaggi"
-    // e in "Come viaggi" dentro Statistiche.
-    expect("gite" in s).toBe(false);
+    expect(s.cities).toBe(1);        // Como non è più nel totale...
+    expect(s.countries).toBe(1);
+    expect(s.gite).toBe(1);          // ...è qui, dichiarata
+    expect(s.giteCitta).toBe(1);
+  });
+
+  // L'insidia del conteggio separato: una città vista in gita E in un viaggio
+  // vero non deve comparire in entrambi i numeri, o la somma che il lettore fa
+  // a mente (29 + 2) conta due volte lo stesso posto.
+  it("una città vista anche in un viaggio vero non si conta due volte", () => {
+    const gita = makeTrip({ trip_date: "2026-05-10", date_end: "2026-05-10", city: "Como", country: "Italia" });
+    const viaggio = makeTrip({ trip_date: "2026-06-01", date_end: "2026-06-05", city: "Como", country: "Italia" });
+    const s = computeHomeStats([gita, viaggio]);
+    expect(s.cities).toBe(1);
+    expect(s.giteCitta).toBe(0);   // Como è già contata sopra
+  });
+
+  it("con SOLE gite i conti del viaggio sono a zero, ma le gite si vedono", () => {
+    const s = computeHomeStats([
+      makeTrip({ trip_date: "2026-05-10", date_end: "2026-05-10", city: "Como", country: "Italia" }),
+      makeTrip({ trip_date: "2026-07-20", date_end: "2026-07-20", city: "Torino", country: "Italia" }),
+    ]);
+    expect(s.trips).toBe(0);
+    expect(s.cities).toBe(0);
+    expect(s.gite).toBe(2);
+    expect(s.giteCitta).toBe(2);
   });
 
   it("conta anche i paesi/città delle tappe intermedie, non solo la destinazione", () => {

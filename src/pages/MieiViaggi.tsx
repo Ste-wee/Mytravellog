@@ -3,14 +3,14 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
-import { contaViaggiEGite } from "@/lib/gite";
+import { contaViaggiEGite, separaGite } from "@/lib/gite";
 import { TripCardTicket } from "@/components/TripCardTicket";
 import { TripFlyover } from "@/components/TripFlyover";
 import { PlanCard } from "@/components/PlanCard";
 import { TripPlanner } from "@/components/TripPlanner";
 import { loadTrips, loadPlans, deleteTrip, parseLocalDate, Trip } from "@/lib/storage";
 import { deletePhotosForTrip } from "@/lib/photoStorage";
-import { Search, X, Video, Plane, Plus, Sparkles, Globe2, CalendarClock, ArrowRight, List, LayoutGrid } from "lucide-react";
+import { Search, X, Video, Plane, Plus, Sparkles, Globe2, CalendarClock, ArrowRight, List, LayoutGrid, Sun } from "lucide-react";
 import { transportColor } from "@/lib/transport";
 
 /**
@@ -194,7 +194,13 @@ export default function MieiViaggi() {
     (!search || matchesSearch(t, search)) && (!yearFilter || tripYear(t) === yearFilter)
   );
 
-  const byYear = filtered.reduce((acc, t) => {
+  // Le gite in giornata hanno una casa loro (scelta di Stefano, 2026-08-24):
+  // stanno sotto il diario, in una sezione dichiarata, invece di mescolarsi
+  // agli anni. Restano cercabili e filtrabili come tutto il resto — il filtro
+  // è già applicato qui sopra, questa è solo la divisione dei due mucchi.
+  const { viaggi: soloViaggi, gite: soloGite } = separaGite(filtered);
+
+  const byYear = soloViaggi.reduce((acc, t) => {
     const year = tripYear(t);
     if (!acc[year]) acc[year] = [];
     acc[year].push(t);
@@ -413,6 +419,56 @@ export default function MieiViaggi() {
                 )}
               </div>
             ))}
+
+            {/* GITE IN GIORNATA — la loro casa. Sotto il diario e non dentro gli
+                anni: sono un'altra cosa (fuori da statistiche, recap e "quando
+                viaggi"), e mescolarle agli anni era proprio l'incoerenza che
+                Stefano ha chiesto di chiudere. Sempre visibile, senza cassetto:
+                sono poche per definizione, e un cassetto da aprire nasconde di
+                nuovo quello che stiamo cercando di dichiarare. */}
+            {soloGite.length > 0 && (
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+                  <Sun style={{width:14,height:14,color:"#fbbf24",flexShrink:0}}/>
+                  <span style={{fontSize:11,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",color:"#fbbf24"}}>
+                    Gite in giornata
+                  </span>
+                  <div style={{flex:1,height:"0.5px",background:"rgba(251,191,36,0.25)"}}/>
+                  <span style={{fontSize:11,color:"rgba(251,191,36,0.85)"}}>{soloGite.length}</span>
+                </div>
+                {/* Fuori dai conti del viaggio: detto una volta qui, così il
+                    numero in cima e le statistiche non sembrano sbagliati. */}
+                <p style={{fontSize:11.5,color:"rgba(255,255,255,0.45)",margin:"0 0 12px",lineHeight:1.5}}>
+                  Parti e torni lo stesso giorno: contate a parte, fuori da statistiche e recap.
+                </p>
+                {vista === "griglia" ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+                    {soloGite.map((t, i) => (
+                      <div key={t.id} className="animate-fade-up" style={{ animationDelay: `${i * 40}ms`, display: "grid", minWidth: 0 }}>
+                        <SchedaCompatta trip={t} anno={tripYear(t)} onApri={apriDallaGriglia}/>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {soloGite.map((t, i) => (
+                      <div key={t.id} id={`viaggio-${t.id}`} className="animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
+                        <div style={{
+                          transition: `opacity ${DELETE_ANIM_MS}ms ease, transform ${DELETE_ANIM_MS}ms ease, box-shadow 300ms ease`,
+                          opacity: leavingId === t.id ? 0 : 1,
+                          transform: leavingId === t.id ? "scale(0.95)" : "none",
+                          boxShadow: evidenziaId === t.id ? "0 0 0 2px #60a5fa, 0 0 24px rgba(96,165,250,0.35)" : "none",
+                          borderRadius: 16,
+                        }}>
+                          <TripCardTicket trip={t} onDeleteRequested={handleDeleteRequested}
+                            onSelectCompanion={setCompanionMap}/>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

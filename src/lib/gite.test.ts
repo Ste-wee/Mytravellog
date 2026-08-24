@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { eGitaInGiornata, contaViaggiEGite } from "./gite";
+import { eGitaInGiornata, contaViaggiEGite, separaGite } from "./gite";
 import type { Trip } from "./storage";
 
 const v = (trip_date: string, date_end: string | null): Trip =>
@@ -55,5 +55,39 @@ describe("contaViaggiEGite", () => {
   it("nessuna gita: il totale resta quello di prima", () => {
     const trips = [v("2026-06-01", "2026-06-05"), v("2026-07-01", "2026-07-03")];
     expect(contaViaggiEGite(trips)).toEqual({ viaggi: 2, gite: 0 });
+  });
+});
+
+describe("separaGite — la porta da cui passa tutta l'app", () => {
+  it("divide i due mucchi tenendo l'ordine", () => {
+    const g1 = v("2026-05-10", "2026-05-10");
+    const t1 = v("2026-06-01", "2026-06-05");
+    const g2 = v("2026-05-17", "2026-05-17");
+    const t2 = v("2026-07-01", null);
+    const { viaggi, gite } = separaGite([g1, t1, g2, t2]);
+    expect(viaggi).toEqual([t1, t2]);
+    expect(gite).toEqual([g1, g2]);
+  });
+
+  it("i due mucchi insieme fanno sempre il totale, e non si sovrappongono", () => {
+    const trips = [
+      v("2026-05-10", "2026-05-10"), v("2026-06-01", "2026-06-05"),
+      v("2026-07-01", null), v("2026-08-02", "2026-08-02"),
+    ];
+    const { viaggi, gite } = separaGite(trips);
+    expect(viaggi.length + gite.length).toBe(trips.length);
+    expect(viaggi.some(t => gite.includes(t))).toBe(false);
+  });
+
+  it("dice la stessa cosa di contaViaggiEGite: una definizione sola", () => {
+    const trips = [
+      v("2026-05-10", "2026-05-10"), v("2026-06-01", "2026-06-05"), v("2026-07-01", null),
+    ];
+    const { viaggi, gite } = separaGite(trips);
+    expect({ viaggi: viaggi.length, gite: gite.length }).toEqual(contaViaggiEGite(trips));
+  });
+
+  it("archivio vuoto: due mucchi vuoti", () => {
+    expect(separaGite([])).toEqual({ viaggi: [], gite: [] });
   });
 });
