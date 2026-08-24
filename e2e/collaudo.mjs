@@ -59,16 +59,48 @@ const esito = {};
 // I budget nel seed sono VOLUTI: l'app li cancella all'avvio (dropBudgetData),
 // quindi qui si verifica che nessun importo sopravviva a schermo.
 
+/**
+ * Aspetta che una condizione diventi vera, non che passi del tempo.
+ *
+ * ⚠️ Perché esiste: prima ogni pagina aspettava 2600 ms fissi e POI leggeva il
+ * testo. Su una macchina occupata quel tempo a volte non bastava e lo script
+ * diceva `DA GUARDARE: miei-viaggi, statistiche` su un'app perfettamente sana
+ * (visto il 2026-08-24; rilanciato sullo stesso codice: tutto verde). Un
+ * collaudo che grida al lupo insegna a ignorarlo, che è il modo in cui un
+ * allarme vero passa inosservato.
+ *
+ * Ritorna l'ultimo valore letto: se scade, quello è il valore da registrare —
+ * cioè il difetto vero, non un timeout mascherato.
+ */
+const attendi = async (leggi, ok, msMax = 12000, passo = 200) => {
+  const scadenza = Date.now() + msMax;
+  let ultimo = await leggi();
+  while (!ok(ultimo) && Date.now() < scadenza) {
+    await page.waitForTimeout(passo);
+    ultimo = await leggi();
+  }
+  return ultimo;
+};
+
+const tutteVere = (o) => Object.values(o).every(Boolean);
+
 const visita = async (nome, hash, attese) => {
   errori = [];
   await page.goto("http://localhost:8080/" + hash, { waitUntil: "load" });
-  await page.waitForTimeout(nome === "home" ? 6000 : 2600);
-  const testo = await page.evaluate(() => document.body.innerText);
+  // Il pavimento resta: la Home deve caricare il globo, e gli errori di console
+  // arrivano DOPO che il testo è a schermo (una fetch che parte al mount).
+  // Senza questa attesa minima il collaudo diventa più veloce e più cieco.
+  await page.waitForTimeout(nome === "home" ? 6000 : 900);
+  const mostra = await attendi(
+    async () => {
+      const testo = await page.evaluate(() => document.body.innerText.toLowerCase());
+      return Object.fromEntries(attese.map(a => [a, testo.includes(a.toLowerCase())]));
+    },
+    tutteVere,
+  );
+  await page.waitForTimeout(500);   // grazia per gli errori che arrivano in coda
   await page.screenshot({ path: `${OUT}/${nome}.png`, fullPage: nome !== "home" });
-  esito[nome] = {
-    mostra: Object.fromEntries(attese.map(a => [a, testo.toLowerCase().includes(a.toLowerCase())])),
-    errori: puliti(),
-  };
+  esito[nome] = { mostra, errori: puliti() };
 };
 
 await visita("home", "#/", ["NAV·TA"]);
@@ -89,8 +121,9 @@ await page.waitForTimeout(2600);
 
 const prova = async (nome, apri, verifica) => {
   await apri();
-  await page.waitForTimeout(1100);
-  esito[nome] = { ...(await verifica()), errori: puliti() };
+  // Come sopra: si aspetta che il pannello ci sia, non 1100 ms sperando.
+  const esitoProva = await attendi(verifica, tutteVere, 8000);
+  esito[nome] = { ...esitoProva, errori: puliti() };
   await page.keyboard.press("Escape");
   await page.waitForTimeout(700);
 };
@@ -133,9 +166,19 @@ fs.writeFileSync(`${OUT}/collaudo.json`, JSON.stringify(esito, null, 2));
 // elencate a mano solo `mostra`/`pannello`/`aperta`, quindi ogni verifica
 // nuova (la spunta, i budget cancellati) veniva raccolta e poi ignorata: lo
 // script diceva "tutto a posto" anche con la spunta rotta.
-const problemi = Object.entries(esito).filter(([, v]) =>
-  (v.errori?.length ?? 0) > 0 ||
-  Object.entries(v).some(([k, x]) => k !== "errori" && x === false) ||
-  Object.values(v.mostra ?? {}).some(x => x === false));
+// ...e la riga finale dice COSA è falso, non solo dove. Prima nominava solo la
+// pagina, quindi per sapere quale controllo fosse caduto bisognava rilanciare —
+// e il rilancio SOVRASCRIVE questo JSON, cioè si finiva a esaminare un giro
+// diverso da quello che aveva segnalato (mi è costato una diagnosi buttata).
+const guasti = (v) => [
+  ...Object.entries(v).filter(([k, x]) => k !== "errori" && x === false).map(([k]) => k),
+  ...Object.entries(v.mostra ?? {}).filter(([, x]) => x === false).map(([k]) => `manca "${k}"`),
+  ...(v.errori ?? []).map(e => `errore: ${e.slice(0, 60)}`),
+];
+const problemi = Object.entries(esito)
+  .map(([nome, v]) => [nome, guasti(v)])
+  .filter(([, g]) => g.length > 0);
 console.log(JSON.stringify(esito, null, 2));
-console.log(problemi.length ? "\n⚠️  DA GUARDARE: " + problemi.map(p => p[0]).join(", ") : "\n✅ tutto a posto");
+console.log(problemi.length
+  ? "\n⚠️  DA GUARDARE:\n" + problemi.map(([n, g]) => `   ${n}: ${g.join(" · ")}`).join("\n")
+  : "\n✅ tutto a posto");
