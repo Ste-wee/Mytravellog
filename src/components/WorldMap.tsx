@@ -506,17 +506,45 @@ export function WorldMap({
   }, []);
 
   // ── Auto-rotate ────────────────────────────────────────────────────────────
+  /**
+   * Il globo gira di 6° al secondo: un giro al minuto.
+   *
+   * ⚠️ Era `+0.1` gradi **per FRAME**, che vuol dire 6°/s solo se il telefono
+   * tiene i 60 fps. Misurato con la CPU frenata 6×: **5,3°/s invece di 6** —
+   * il globo rallenta proprio dove si nota, sui dispositivi lenti. Ora il passo
+   * è proporzionale al tempo trascorso: gira sempre alla stessa velocità, con
+   * più o meno frame secondo quel che la macchina riesce a fare.
+   *
+   * ⚠️ E `setCenter` RESTA: avevo provato a farla guidare da MapLibre con un
+   * `easeTo` lineare da un secondo, convinto di risparmiare i tre eventi
+   * (`movestart`/`move`/`moveend`) che `setCenter` emette per frame. Misurato
+   * a 6×, mediana di tre finestre da 4s: **52,8 fps con setCenter, 36,8 con
+   * easeTo**. Anche `easeTo` emette `move` a ogni frame, e ci aggiunge i conti
+   * dell'interpolazione: due eventi risparmiati, lavoro nuovo comprato. Se
+   * l'idea torna in mente, è già stata provata e buttata.
+   */
+  const GRADI_AL_SECONDO = 6;
+  /** Tetto al passo singolo: con la scheda in secondo piano `requestAnimationFrame`
+   *  si ferma, e al ritorno un `dt` di secondi farebbe SALTARE il globo di
+   *  decine di gradi. 100ms = 0,6° al massimo per frame. */
+  const PASSO_MAX_MS = 100;
+
   function startRotation() {
     if (rotTimerRef.current) return;
     // Rispetta "riduci movimento" del sistema: niente rotazione automatica
     // passiva del globo (le animazioni CSS sono già gestite in index.css).
     // Guardia in un solo punto → copre tutti i punti che chiamano startRotation.
     if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const rotate = () => {
+    let ultimo: number | null = null;
+    const rotate = (ora: number) => {
       const map = mapRef.current;
       if (!map) return;
-      const center = map.getCenter();
-      map.setCenter([center.lng + 0.1, center.lat]);
+      const dt = ultimo == null ? 0 : Math.min(ora - ultimo, PASSO_MAX_MS);
+      ultimo = ora;
+      if (dt > 0) {
+        const center = map.getCenter();
+        map.setCenter([center.lng + GRADI_AL_SECONDO * (dt / 1000), center.lat]);
+      }
       rotTimerRef.current = requestAnimationFrame(rotate) as unknown as number;
     };
     rotTimerRef.current = requestAnimationFrame(rotate) as unknown as number;
