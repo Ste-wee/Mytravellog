@@ -1,4 +1,6 @@
 import { haversineKm } from "./haversine";
+import { hasCoords } from "./coords";
+import type { Trip } from "./storage";
 
 /**
  * Riconoscimento della "base" di un viaggio: il posto dove si dorme e da cui
@@ -44,9 +46,39 @@ export interface RiconoscimentoBase {
   destinazioneEBase: boolean;
 }
 
+/**
+ * Un posto NOTO, cioè con coordinate vere.
+ *
+ * ⚠️ (0, 0) non conta: è l'isola nulla nel Golfo di Guinea, e in quest'app è il
+ * segnaposto che il form scrive per una tappa senza coordinate
+ * (`lat: w.lat ?? 0` in ModificaViaggio). Senza questa guardia due tappe
+ * "sconosciute" risultavano nello STESSO posto e si inventavano una base mai
+ * esistita — visibile sul biglietto e nel conteggio delle forme. Trovato
+ * revisionando la tenda: toccarla su una tappa senza coordinate vestiva il
+ * viaggio da "tappa fissa".
+ */
+export const postoNoto = (f: FermataConCoordinate): boolean =>
+  hasCoords(f.lat, f.lon) && !(f.lat === 0 && f.lon === 0);
+
 const stessoPosto = (a: FermataConCoordinate, b: FermataConCoordinate): boolean =>
-  a.lat != null && a.lon != null && b.lat != null && b.lon != null &&
-  haversineKm(a.lat, a.lon, b.lat, b.lon) < STESSO_POSTO_KM;
+  postoNoto(a) && postoNoto(b) &&
+  haversineKm(a.lat as number, a.lon as number, b.lat as number, b.lon as number) < STESSO_POSTO_KM;
+
+/**
+ * Le fermate di un viaggio SALVATO, in ordine: casa → tappe → destinazione.
+ *
+ * Una sola definizione, perché la sequenza serve a tre posti diversi (la forma
+ * del viaggio, il racconto sul biglietto, il riconoscimento della base) e
+ * tenerne tre copie è il modo in cui due schermate finiscono per raccontare
+ * itinerari diversi.
+ */
+export function fermateDiViaggio(t: Pick<Trip, "home_latitude" | "home_longitude" | "waypoints" | "latitude" | "longitude">): FermataConCoordinate[] {
+  return [
+    { lat: t.home_latitude, lon: t.home_longitude },
+    ...(t.waypoints ?? []).map(w => ({ lat: w.lat, lon: w.lon })),
+    { lat: t.latitude, lon: t.longitude },
+  ];
+}
 
 /**
  * Segna la tappa `baseIdx` come base: dopo ogni tappa che viene dopo di lei
@@ -73,7 +105,7 @@ export function inserisciRientri<T extends FermataConCoordinate>(
 ): T[] {
   if (baseIdx < 0 || baseIdx >= tappe.length - 1) return tappe;   // ultima o fuori: niente da appendere
   const base = tappe[baseIdx];
-  if (base.lat == null || base.lon == null) return tappe;          // senza coordinate non si riconosce
+  if (!postoNoto(base)) return tappe;   // senza coordinate vere non si riconosce
   const out = tappe.slice(0, baseIdx + 1);
   for (let i = baseIdx + 1; i < tappe.length; i++) {
     const tappa = tappe[i];
@@ -104,7 +136,7 @@ export function riconosciBase(stops: FermataConCoordinate[]): RiconoscimentoBase
   const capofila: number[] = [];
   for (let i = 1; i < stops.length; i++) {
     let capo = i;
-    if (stops[i].lat != null && stops[i].lon != null) {
+    if (postoNoto(stops[i])) {
       for (let j = 1; j < i; j++) {
         if (stessoPosto(stops[j], stops[i])) { capo = capofila[j - 1]; break; }
       }

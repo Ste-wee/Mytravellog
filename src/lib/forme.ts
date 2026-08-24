@@ -1,6 +1,6 @@
 import { Trip } from "./storage";
 import { eGitaInGiornata } from "./gite";
-import { riconosciBase } from "./base";
+import { riconosciBase, fermateDiViaggio } from "./base";
 import { hasCoords } from "./coords";
 
 /**
@@ -21,15 +21,6 @@ import { hasCoords } from "./coords";
  * forma di viaggio a sé.
  */
 export type Forma = "giornata" | "fissa" | "itinerante";
-
-/** Le fermate di un viaggio SALVATO: casa → tappe → destinazione. */
-function fermate(t: Trip): { lat?: number | null; lon?: number | null }[] {
-  return [
-    { lat: t.home_latitude, lon: t.home_longitude },
-    ...(t.waypoints ?? []).map(w => ({ lat: w.lat, lon: w.lon })),
-    { lat: t.latitude, lon: t.longitude },
-  ];
-}
 
 /**
  * In quale casella finisce questo viaggio.
@@ -52,7 +43,7 @@ export function formaDiViaggio(t: Trip): Forma {
  */
 function conForma(t: Trip): { forma: Forma; base: ReturnType<typeof riconosciBase> } {
   if (eGitaInGiornata(t)) return { forma: "giornata", base: null };
-  const base = hasCoords(t.home_latitude, t.home_longitude) ? riconosciBase(fermate(t)) : null;
+  const base = hasCoords(t.home_latitude, t.home_longitude) ? riconosciBase(fermateDiViaggio(t)) : null;
   if (base) return { forma: "fissa", base };   // una meta, con gite che ne partono
   const tappe = (t.waypoints ?? []).filter(w => hasCoords(w.lat, w.lon));
   // Nessuna tappa intermedia = una meta e basta: sempre "fissa", ci hai

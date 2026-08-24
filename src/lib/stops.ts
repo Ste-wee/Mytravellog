@@ -1,5 +1,5 @@
 import { Trip } from "@/lib/storage";
-import { riconosciBase } from "@/lib/base";
+import { riconosciBase, fermateDiViaggio } from "@/lib/base";
 
 export interface FermateBiglietto {
   /** I nomi da raccontare, in ordine: casa, poi le tappe — con la base una
@@ -28,11 +28,7 @@ export function fermateDelBiglietto(t: Trip): FermateBiglietto {
   // Della città di partenza si prende solo il nome: home_label è "Milano, Italia".
   const casa = t.home_label?.split(",")[0]?.trim() || "Casa";
   const pieno = [casa, ...tappe.map(w => w.city), t.city];
-  const base = riconosciBase([
-    { lat: t.home_latitude, lon: t.home_longitude },
-    ...tappe.map(w => ({ lat: w.lat, lon: w.lon })),
-    { lat: t.latitude, lon: t.longitude },
-  ]);
+  const base = riconosciBase(fermateDiViaggio(t));
   if (!base) return { nomi: pieno.filter(Boolean), baseIdx: null };
 
   const daTogliere = new Set(base.occorrenze.slice(1));   // la prima visita resta

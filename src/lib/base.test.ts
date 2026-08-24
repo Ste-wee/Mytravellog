@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { riconosciBase, inserisciRientri } from "./base";
+import { riconosciBase, inserisciRientri, postoNoto, fermateDiViaggio } from "./base";
 
 // La sequenza è quella del form: indice 0 = casa, l'ultima fermata = destinazione.
 const MILANO = { lat: 45.4642, lon: 9.19 };
@@ -147,5 +147,59 @@ describe("inserisciRientri — il ponte fra un itinerario e la sua base", () => 
     expect(b).not.toBeNull();
     expect(b!.gite).toHaveLength(2);            // Rila e Plovdiv
     expect(b!.destinazioneEBase).toBe(true);    // si finisce alla base
+  });
+});
+
+describe("l'isola nulla: (0,0) non è un posto", () => {
+  // Il form scrive `lat: w.lat ?? 0` per una tappa senza coordinate, quindi
+  // due tappe sconosciute finiscono entrambe a (0,0) — nel Golfo di Guinea.
+  // Prima si riconoscevano come "lo stesso posto" e inventavano una base che
+  // non è mai esistita: il viaggio si vestiva da "tappa fissa" e il biglietto
+  // collassava fermate vere. Trovato revisionando la tenda.
+  it("postoNoto rifiuta (0,0), il nulla e i non-numeri", () => {
+    expect(postoNoto({ lat: 45.46, lon: 9.19 })).toBe(true);
+    expect(postoNoto({ lat: 0, lon: 0 })).toBe(false);
+    expect(postoNoto({ lat: null, lon: null })).toBe(false);
+    expect(postoNoto({})).toBe(false);
+    expect(postoNoto({ lat: NaN, lon: NaN })).toBe(false);
+    // ma una vera coordinata a zero su UN solo asse resta valida
+    expect(postoNoto({ lat: 0, lon: 9.19 })).toBe(true);
+    expect(postoNoto({ lat: 51.48, lon: 0 })).toBe(true);
+  });
+
+  it("due tappe sconosciute NON inventano una base", () => {
+    // casa → ignota(0,0) → Rila → ignota(0,0): senza la guardia le due ignote
+    // erano "la stessa" e bastavano a far scattare la base.
+    expect(riconosciBase([
+      { lat: 45.46, lon: 9.19 },
+      { lat: 0, lon: 0 },
+      { lat: 42.13, lon: 23.34 },
+      { lat: 0, lon: 0 },
+    ])).toBeNull();
+  });
+
+  it("e la tenda su una tappa senza coordinate non fa niente", () => {
+    const tappe = [{ lat: 0, lon: 0 }, { lat: 42.13, lon: 23.34 }, { lat: 42.14, lon: 24.75 }];
+    expect(inserisciRientri(tappe, 0, b => ({ ...b }))).toBe(tappe);
+  });
+});
+
+describe("fermateDiViaggio — una sola definizione della sequenza", () => {
+  it("casa, tappe, destinazione in quest'ordine", () => {
+    expect(fermateDiViaggio({
+      home_latitude: 45.46, home_longitude: 9.19,
+      waypoints: [{ city: "Rila", country: "BG", transport_mode: "car", lat: 42.13, lon: 23.34 }],
+      latitude: 42.14, longitude: 24.75,
+    } as never)).toEqual([
+      { lat: 45.46, lon: 9.19 },
+      { lat: 42.13, lon: 23.34 },
+      { lat: 42.14, lon: 24.75 },
+    ]);
+  });
+
+  it("senza il campo tappe non si inciampa", () => {
+    expect(fermateDiViaggio({
+      home_latitude: null, home_longitude: null, latitude: 1, longitude: 2,
+    } as never)).toHaveLength(2);
   });
 });

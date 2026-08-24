@@ -10,7 +10,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { GeoResult, PlaceKind, distanceKm, placeSubtitle } from "@/lib/geo";
 import { hasCoords } from "@/lib/coords";
-import { riconosciBase, RiconoscimentoBase } from "@/lib/base";
+import { riconosciBase, postoNoto, RiconoscimentoBase } from "@/lib/base";
 import { fmtDistance, useSettings } from "@/lib/settings";
 import { parseLocalDate } from "@/lib/storage";
 import { Loader2, MapPin, Plane, Route, Search, AlertCircle, X } from "lucide-react";
@@ -463,7 +463,10 @@ function RouteHero({
   const homeLabel = home?.label?.split(",")[0] ?? "Casa";
   const stops = [
     { label: homeLabel, countryCode: null as string | null, isHome: true, transport: null as TransportMode | null },
-    ...waypoints.map(w => ({ label: w.city, countryCode: w.country_code as string | null, isHome: false, transport: w.transport_mode as TransportMode | null })),
+    // `noto`: ha coordinate vere? Serve alla tenda, che senza di esse non
+    // puo` riconoscere nessuna base — e un bottone che non fa niente e`
+    // peggio di un bottone che non c'e`.
+    ...waypoints.map(w => ({ label: w.city, countryCode: w.country_code as string | null, isHome: false, transport: w.transport_mode as TransportMode | null, noto: postoNoto({ lat: w.lat, lon: w.lon }) })),
   ];
 
   // La base del viaggio (Firenze in "Milano→Firenze→Siena→Firenze→…"):
@@ -651,6 +654,8 @@ function RouteHero({
                 // sulla tappa in mano l'etichetta finirebbe sopra il cerchio.
                 const leftCol = x === xL;
                 const labelX = leftCol ? x + r + 9 : x - r - 9;
+                // La tenda sta dalla parte opposta al nome (vedi sotto).
+                const xTenda = leftCol ? x - r + 3 : x + r - 3;
                 const trascinabile = !stop.isHome && n > 2;
                 return (
                   <g key={i} style={{ opacity: trascinando && !inMano ? 0.75 : 1 }}>
@@ -690,14 +695,23 @@ function RouteHero({
                         (dopo di lei non c'è niente da far tornare). Il
                         riconoscimento della base vuole almeno una gita, quindi
                         sotto le due tappe non ha senso proporla. */}
-                    {!stop.isHome && !isLast && waypoints.length >= 2 && (
+                    {!stop.isHome && !isLast && waypoints.length >= 2 && "noto" in stop && stop.noto && (
                       <g style={{cursor:"pointer"}} onClick={() => onSegnaBase(i-1)}
                         {...svgButton(`Segna ${stop.label} come base: le tappe dopo diventano gite che tornano qui`,
                           () => onSegnaBase(i-1))}>
-                        <circle cx={x-r+3} cy={y+r-3} r="20" fill="transparent"/>
-                        <circle cx={x-r+3} cy={y+r-3} r="9" fill="#060e1e"
+                        {/* Sul lato OPPOSTO al nome: la sua area sensibile (40px, per
+                            il dito) si sovrapponeva alla coda dell'etichetta, e chi
+                            toccava la fine di "Sofia" si ritrovava una base. */}
+                        <circle cx={xTenda} cy={y+r-3} r="20" fill="transparent"/>
+                        <circle cx={xTenda} cy={y+r-3} r="9" fill="#060e1e"
                           stroke="#5dcaa5" strokeWidth="1.5"/>
-                        <text x={x-r+3} y={y+r+1} fontSize="9" textAnchor="middle" fill="#5dcaa5">⌂</text>
+                        {/* Una TENDA, non una casetta: il glifo ⌂ che avevo messo
+                            somigliava alla 🏠 della partenza, a due nodi di distanza.
+                            Triangolo con il palo, come l'icona di "Tappa fissa"
+                            in Statistiche. */}
+                        <path d={`M ${xTenda-4} ${y+r+1} L ${xTenda} ${y+r-8} L ${xTenda+4} ${y+r+1}`}
+                          fill="none" stroke="#5dcaa5" strokeWidth="1.3" strokeLinejoin="round"/>
+                        <line x1={xTenda} y1={y+r-5} x2={xTenda} y2={y+r+1} stroke="#5dcaa5" strokeWidth="1.1"/>
                       </g>
                     )}
                     <text x={labelX} y={y+4} fontSize="12" textAnchor={leftCol ? "start" : "end"}
