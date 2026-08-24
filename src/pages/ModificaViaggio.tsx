@@ -88,7 +88,13 @@ const ModificaViaggio = () => {
         // country_code VA conservato: con "" hardcoded bastava aprire e salvare
         // per azzerare i codici delle intermedie (bandiere sparite per sempre).
         city: w.city, country: w.country, country_code: w.country_code ?? "",
-        lat: w.lat ?? 0, lon: w.lon ?? 0, transport_mode: w.transport_mode as TransportMode,
+        // Una tappa senza coordinate resta SENZA. Prima diventava (0,0), che
+        // non è "non lo so" ma un punto nel Golfo di Guinea: da lì nascevano
+        // basi inventate (due tappe ignote sembravano lo stesso posto, vedi
+        // `postoNoto`) e puntine in mezzo all'oceano. NaN attraversa i
+        // controlli `hasCoords` come il nulla che è — e il salvataggio lo
+        // scrive `null`, che è il dato onesto.
+        lat: w.lat ?? NaN, lon: w.lon ?? NaN, transport_mode: w.transport_mode as TransportMode,
       })),
       { id: crypto.randomUUID(), city: trip.city, country: trip.country, country_code: trip.country_code ?? "",
         lat: trip.latitude, lon: trip.longitude,
