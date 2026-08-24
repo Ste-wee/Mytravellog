@@ -474,7 +474,13 @@ function HomeInner() {
             padding:"0 12px 8px", fontSize:11.5, color:"rgba(255,255,255,0.5)" }}>
             <Sun className="w-[12px] h-[12px]" style={{ color:"#fbbf24" }} aria-hidden/>
             <span>
-              e inoltre {stats.gite} {stats.gite === 1 ? "gita" : "gite"} in giornata
+              {/* «e inoltre» presuppone qualcosa PRIMA: con soli viaggi in
+                  giornata la riga dei quattro numeri non c'è (sarebbero quattro
+                  zeri) e il connettivo restava appeso al nulla — visto in
+                  revisione, a schermo diceva «e inoltre 2 gite» come prima
+                  cosa della pagina. */}
+              {stats.trips > 0 ? "e inoltre " : ""}
+              {stats.gite} {stats.gite === 1 ? "gita" : "gite"} in giornata
               {stats.giteCitta > 0 && ` · ${stats.giteCitta} ${stats.giteCitta === 1 ? "città" : "città"}`}
               {stats.giteKm >= 1 && ` · ${fmtDistance(stats.giteKm, distanceUnit)}`}
             </span>
