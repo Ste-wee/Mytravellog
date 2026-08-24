@@ -46,6 +46,23 @@ describe("AppHeader", () => {
     expect(screen.getByRole("menuitem", { name: /Importa da GPX/i })).toHaveAttribute("href", "/importa-gpx");
   });
 
+  it("«Rivedi il tutorial» non naviga: lancia l'evento che AppTour raccoglie", () => {
+    mount();
+    openMenu();
+    const voce = screen.getByRole("menuitem", { name: /Rivedi il tutorial/i });
+    expect(voce).not.toHaveAttribute("href");
+    let lanciato = 0;
+    const conta = () => lanciato++;
+    window.addEventListener("navta:tour-replay", conta);
+    try {
+      // Radix attiva le voci via tastiera in jsdom, come per l'apertura.
+      fireEvent.keyDown(voce, { key: "Enter" });
+      expect(lanciato).toBe(1);
+    } finally {
+      window.removeEventListener("navta:tour-replay", conta);
+    }
+  });
+
   it("logo linka alla home", () => {
     mount();
     const homeLinks = screen.getAllByRole("link").filter(a => a.getAttribute("href") === "/");

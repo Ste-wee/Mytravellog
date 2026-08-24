@@ -108,7 +108,9 @@ async function run(viewport, tag) {
   await page.evaluate(t => {
     localStorage.setItem("atlas.trips.v1", JSON.stringify(t));
     localStorage.setItem("navta.welcome.dismissed", "1");
-    ["home", "trips", "plans", "stats"].forEach(k => localStorage.setItem(`navta.tour.${k}.v1`, "1"));
+    // Versioni allineate a SECTIONS in AppTour.tsx (come in collaudo.mjs).
+    [["home", 2], ["trips", 1], ["plans", 1], ["stats", 2], ["form", 1]]
+      .forEach(([k, v]) => localStorage.setItem(`navta.tour.${k}.v${v}`, "1"));
     localStorage.setItem("navta.globe_hint_seen", "1");
     // Rotazione ferma: altrimenti il bersaglio si sposta tra il calcolo e il tap.
     // Anche la città di casa: è obbligatoria, e senza il gate coprirebbe la

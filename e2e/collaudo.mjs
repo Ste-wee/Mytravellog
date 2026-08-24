@@ -46,7 +46,10 @@ await page.evaluate(([t, p]) => {
   localStorage.setItem("atlas.trips.v1", JSON.stringify(t));
   localStorage.setItem("atlas.plans.v1", JSON.stringify(p));
   localStorage.setItem("navta.welcome.dismissed", "1");
-  ["home", "trips", "plans", "stats"].forEach(k => localStorage.setItem(`navta.tour.${k}.v1`, "1"));
+  // Le VERSIONI devono combaciare con SECTIONS in AppTour.tsx: a ogni bump lì
+  // va aggiornata la coppia qui (e in verify-home), o la scheda copre i click.
+  [["home", 2], ["trips", 1], ["plans", 1], ["stats", 2], ["form", 1]]
+    .forEach(([k, v]) => localStorage.setItem(`navta.tour.${k}.v${v}`, "1"));
   localStorage.setItem("navta.globe_hint_seen", "1");
   // La citta' di casa e' obbligatoria: senza, il gate sbarra tutto (ed e'
   // giusto cosi') e il collaudo non arriverebbe da nessuna parte.

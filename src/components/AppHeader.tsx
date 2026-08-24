@@ -1,6 +1,6 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
 import { Link } from "react-router-dom";
-import { Plane, PieChart, Settings, Plus, Menu, Upload, CalendarClock } from "lucide-react";
+import { Plane, PieChart, Settings, Plus, Menu, Upload, CalendarClock, HelpCircle } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   DropdownMenuLabel,
@@ -84,6 +84,16 @@ export function AppHeader({ onTripsClick }: Props) {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator/>
+            {/* Rivedi il tutorial: un evento window, non una rotta — lo
+                raccoglie AppTour (che è montato una volta sola in main) e
+                riapre tutti i capitoli in fila. Il menu Radix si chiude da
+                solo su onSelect, quindi la scheda appare sopra la pagina
+                corrente, qualunque essa sia. */}
+            <DropdownMenuItem
+              className="flex items-center gap-2 cursor-pointer"
+              onSelect={() => window.dispatchEvent(new Event("navta:tour-replay"))}>
+              <HelpCircle className="w-4 h-4 text-muted-foreground"/> Rivedi il tutorial
+            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link to="/impostazioni" className="flex items-center gap-2 cursor-pointer">
                 <Settings className="w-4 h-4 text-muted-foreground"/> Impostazioni
