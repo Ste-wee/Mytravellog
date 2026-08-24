@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import { shouldShowWelcome } from "@/components/WelcomeGate";
@@ -92,6 +92,18 @@ export function AppTour() {
   // anche come interruttore grafico: la riga «capitolo · N di M» compare solo
   // qui — alla prima visita la scheda resta pulita come sempre.
   const [replay, setReplay] = useState(false);
+
+  // Il focus va PRESO, non solo chiesto: quando il tour parte dal menu, Radix
+  // alla chiusura ridà il focus al bottone hamburger — e vince lui, perché il
+  // suo ripristino arriva dopo il nostro autoFocus. Risultato misurato: Invio
+  // riapriva il menu SOPRA la scheda. Il timeout scavalca quel ripristino;
+  // innocuo alla prima visita, dove competitori non ce ne sono.
+  const bottoneRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!active) return;
+    const t = setTimeout(() => bottoneRef.current?.focus(), 120);
+    return () => clearTimeout(t);
+  }, [active]);
 
   // Il tour aspetta solo che la welcome NON sia visibile ORA. Il vecchio gate
   // (`navta.welcome.dismissed === "1"`) era rotto in entrambe le direzioni:
@@ -235,7 +247,7 @@ export function AppTour() {
             {!last && (
               <button type="button" onClick={fineSezione} style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.6)", fontSize: 12, cursor: "pointer" }}>Salta</button>
             )}
-            <button type="button" onClick={next} autoFocus
+            <button type="button" onClick={next} autoFocus ref={bottoneRef}
               style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#60a5fa", border: "none", borderRadius: 9, padding: "8px 14px", fontSize: 13, fontWeight: 700, color: "#04203f", cursor: "pointer" }}>
               {ultimaDelTour ? "Ho capito" : "Avanti"}{!ultimaDelTour && <ArrowRight style={{ width: 14, height: 14 }} />}
             </button>

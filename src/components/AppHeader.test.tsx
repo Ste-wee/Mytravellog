@@ -46,7 +46,7 @@ describe("AppHeader", () => {
     expect(screen.getByRole("menuitem", { name: /Importa da GPX/i })).toHaveAttribute("href", "/importa-gpx");
   });
 
-  it("«Rivedi il tutorial» non naviga: lancia l'evento che AppTour raccoglie", () => {
+  it("«Rivedi il tutorial» non naviga: lancia l'evento che AppTour raccoglie", async () => {
     mount();
     openMenu();
     const voce = screen.getByRole("menuitem", { name: /Rivedi il tutorial/i });
@@ -58,6 +58,12 @@ describe("AppHeader", () => {
       // Radix attiva le voci via tastiera in jsdom, come per l'apertura.
       fireEvent.keyDown(voce, { key: "Enter" });
       expect(lanciato).toBe(1);
+      // ...e il menu NON si riprende il focus: il suo ripristino (a fine
+      // animazione) vincerebbe sul focus della scheda del tour, e l'Invio
+      // successivo riaprirebbe il menu sopra il tutorial — misurato dal vivo.
+      // Il ripristino di Radix è asincrono: gli si lascia il tempo di provarci.
+      await new Promise(r => setTimeout(r, 150));
+      expect(document.activeElement).not.toBe(screen.getByRole("button", { name: "Menu" }));
     } finally {
       window.removeEventListener("navta:tour-replay", conta);
     }

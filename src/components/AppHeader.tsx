@@ -1,4 +1,5 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
+import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { Plane, PieChart, Settings, Plus, Menu, Upload, CalendarClock, HelpCircle } from "lucide-react";
 import {
@@ -11,6 +12,12 @@ interface Props {
 }
 
 export function AppHeader({ onTripsClick }: Props) {
+  // Scegliendo «Rivedi il tutorial», il menu NON deve ridarsi il focus alla
+  // chiusura: il suo ripristino (che arriva a fine animazione) vincerebbe sul
+  // focus della scheda del tour, e l'Invio successivo riaprirebbe il menu
+  // sopra il tutorial — misurato dal vivo. Per i link normali il ripristino
+  // resta: si sta navigando, è il comportamento giusto.
+  const zittisciRitornoFocus = useRef(false);
   return (
     <header className="border-b border-border bg-background/80 backdrop-blur-xl sticky top-0 z-20">
       <div className="container mx-auto px-6 py-3 flex items-center justify-between">
@@ -50,7 +57,10 @@ export function AppHeader({ onTripsClick }: Props) {
               cosa aggiungi → configurazione. Prima Impostazioni stava in mezzo
               alla navigazione, sopra il separatore: la voce che si apre una
               volta ogni tanto precedeva l'azione principale dell'app. */}
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end"
+            onCloseAutoFocus={(e) => {
+              if (zittisciRitornoFocus.current) { zittisciRitornoFocus.current = false; e.preventDefault(); }
+            }}>
             <DropdownMenuLabel style={{ fontSize: 11, letterSpacing: "0.08em", color: "rgba(255,255,255,0.45)", paddingBottom: 2 }}>
               I tuoi viaggi
             </DropdownMenuLabel>
@@ -91,7 +101,10 @@ export function AppHeader({ onTripsClick }: Props) {
                 corrente, qualunque essa sia. */}
             <DropdownMenuItem
               className="flex items-center gap-2 cursor-pointer"
-              onSelect={() => window.dispatchEvent(new Event("navta:tour-replay"))}>
+              onSelect={() => {
+                zittisciRitornoFocus.current = true;
+                window.dispatchEvent(new Event("navta:tour-replay"));
+              }}>
               <HelpCircle className="w-4 h-4 text-muted-foreground"/> Rivedi il tutorial
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
