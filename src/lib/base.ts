@@ -49,13 +49,18 @@ export interface RiconoscimentoBase {
 /**
  * Un posto NOTO, cioè con coordinate vere.
  *
- * ⚠️ (0, 0) non conta: è l'isola nulla nel Golfo di Guinea, e in quest'app è il
- * segnaposto che il form scrive per una tappa senza coordinate
- * (`lat: w.lat ?? 0` in ModificaViaggio). Senza questa guardia due tappe
- * "sconosciute" risultavano nello STESSO posto e si inventavano una base mai
- * esistita — visibile sul biglietto e nel conteggio delle forme. Trovato
- * revisionando la tenda: toccarla su una tappa senza coordinate vestiva il
- * viaggio da "tappa fissa".
+ * ⚠️ (0, 0) non conta: è l'isola nulla nel Golfo di Guinea, non un "non lo so".
+ * Senza questa guardia due tappe "sconosciute" risultavano nello STESSO posto e
+ * si inventavano una base mai esistita — visibile sul biglietto e nel conteggio
+ * delle forme. Trovato revisionando la tenda: toccarla su una tappa senza
+ * coordinate vestiva il viaggio da "tappa fissa".
+ *
+ * Chi scriveva quello zero era il `?? 0` dei form (ModificaViaggio, il pannello
+ * dei piani, il passaggio viaggio→piano): **ora scrivono `?? NaN`**, che
+ * `hasCoords` rifiuta e il salvataggio riduce a `null`. La guardia resta perché
+ * i dati salvati PRIMA di quel fix possono avere lo zero in pancia: questa
+ * funzione è la rete, il `?? NaN` è il rubinetto chiuso. Regola del progetto:
+ * in quest'app (0,0) è un segnaposto di "non lo so", mai un luogo.
  */
 export const postoNoto = (f: FermataConCoordinate): boolean =>
   hasCoords(f.lat, f.lon) && !(f.lat === 0 && f.lon === 0);

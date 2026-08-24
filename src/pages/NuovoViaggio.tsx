@@ -49,8 +49,12 @@ const NuovoViaggio = () => {
         city: city.name,
         country: city.country,
         country_code: city.country_code ?? "",
-        lat: city.latitude ?? 0,
-        lon: city.longitude ?? 0,
+        // `?? NaN`, mai `?? 0`: oggi CityInfo ha sempre le coordinate, quindi
+        // questo ramo non spara — ma (0,0) è un punto nel Golfo di Guinea, non
+        // un "non lo so" (vedi `postoNoto` in lib/base.ts), e una difensività
+        // che scrive un luogo falso è peggio di nessuna difensività.
+        lat: city.latitude ?? NaN,
+        lon: city.longitude ?? NaN,
         transport_mode: "plane" as TransportMode,
       }];
     } catch { return []; }

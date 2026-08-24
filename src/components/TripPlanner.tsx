@@ -49,16 +49,25 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
   // dai campi destinazione del Trip; alla chiusura si ri-scompone allo stesso modo.
   // A differenza di Nuovo viaggio, QUI non si calcola nulla (percorsi/meteo/km):
   // il piano è intenzione, le misure arrivano alla promozione in Modifica.
+  // ⚠️ `?? NaN` e non `?? 0`: una tappa senza coordinate resta senza. Con lo
+  // zero diventava (0,0) — l'isola nulla nel Golfo di Guinea — e siccome qui
+  // sotto (`persist`) l'itinerario si RISCRIVE nel piano, bastava aprire questo
+  // pannello, toccare qualcosa (una voce della checklist) e chiuderlo per
+  // stampare quel punto nei dati. Da lì nascono
+  // basi inventate (due tappe ignote sembrano lo stesso posto, vedi
+  // `postoNoto` in lib/base.ts) e puntine in mezzo all'oceano. `NaN`
+  // attraversa i controlli `hasCoords` come il nulla che è, e il salvataggio
+  // lo scrive `null`, che è il dato onesto.
   const [waypoints, setWaypoints] = useState<Waypoint[]>(() => {
     const mid: Waypoint[] = (plan.waypoints ?? []).map(w => ({
       id: w.id ?? crypto.randomUUID(), city: w.city, country: w.country,
-      country_code: w.country_code ?? "", lat: w.lat ?? 0, lon: w.lon ?? 0,
+      country_code: w.country_code ?? "", lat: w.lat ?? NaN, lon: w.lon ?? NaN,
       transport_mode: w.transport_mode,
     }));
     if (!plan.city) return mid;
     return [...mid, {
       id: "dest-" + plan.id, city: plan.city, country: plan.country,
-      country_code: plan.country_code ?? "", lat: plan.latitude ?? 0, lon: plan.longitude ?? 0,
+      country_code: plan.country_code ?? "", lat: plan.latitude ?? NaN, lon: plan.longitude ?? NaN,
       transport_mode: (plan.transport_mode ?? "plane") as TransportMode,
     }];
   });

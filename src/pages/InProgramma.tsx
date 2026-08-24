@@ -64,7 +64,9 @@ const InProgramma = () => {
       // tappe intermedie, ciascuno col suo mezzo). Retro-compat: p.dest singolo.
       if (Array.isArray(p.waypoints) && p.waypoints.length > 0) {
         const last = p.waypoints[p.waypoints.length - 1];
-        setDest({ name: last.city, country: last.country, country_code: last.country_code ?? "", latitude: last.lat ?? 0, longitude: last.lon ?? 0 } as GeoResult);
+        // `?? NaN`, mai `?? 0`: (0,0) non è "non lo so", è un punto nel Golfo
+        // di Guinea (vedi `postoNoto` in lib/base.ts).
+        setDest({ name: last.city, country: last.country, country_code: last.country_code ?? "", latitude: last.lat ?? NaN, longitude: last.lon ?? NaN } as GeoResult);
         setDestMode(last.transport_mode ?? "plane");
         setPrefillWps(p.waypoints.slice(0, -1).map((w: PlanWaypoint) => ({ ...w, route_geometry: null })));
       } else if (p.dest?.name) {

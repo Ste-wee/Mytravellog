@@ -20,7 +20,12 @@ export type Trip = {
   checklist?: { text: string; done: boolean }[];               // "da organizzare" prima di partire
   booked?: boolean;                                            // viaggio in programma: prenotato o ancora da prenotare
   transport_mode: TransportMode | null;
-  waypoints: { id?: string; city: string; country: string; country_code?: string; transport_mode: TransportMode; lat?: number; lon?: number; route_geometry?: [number, number][] | null; route_km?: number | null }[];
+  // `lat`/`lon` possono essere `null`, non solo assenti: una tappa senza
+  // coordinate viene salvata come NaN (vedi il `?? NaN` dei form) e
+  // JSON.stringify la riduce a `null`. Il tipo lo dice, così nessuno scrive
+  // `w.lat === undefined` credendo di aver coperto il caso: il controllo giusto
+  // è sempre `hasCoords` (lib/coords.ts).
+  waypoints: { id?: string; city: string; country: string; country_code?: string; transport_mode: TransportMode; lat?: number | null; lon?: number | null; route_geometry?: [number, number][] | null; route_km?: number | null }[];
   latitude: number;
   longitude: number;
   home_latitude: number | null;
