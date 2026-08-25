@@ -294,6 +294,13 @@ for (const [nome, hash, stato, atteso] of STATI_NASCOSTI) {
   }, [TRIPS, PLANS, stato]);
 
   await page.goto(BASE + "/" + hash, { waitUntil: "load" });
+  // ⚠️ Il reload NON è di troppo: cambiare solo la parte dopo il `#` non
+  // ricarica il documento, quindi l'app resterebbe quella montata PRIMA di
+  // seminare — e gli stati che dipendono dallo storage al mount (il cancello di
+  // benvenuto, il gate della città) non si presentano. In locale passava per
+  // caso; sul sito deployato no, ed è così che l'ho scoperto. Le altre due
+  // scansioni di questo file il reload lo fanno già.
+  await page.reload({ waitUntil: "load" });
   await page.waitForTimeout(hash === "#/" ? 4200 : 2200);
   const trovate = await page.evaluate(cerca, { spie: SPIE, chiaviItaliane: CHIAVI_ITALIANE });
   const ceProva = await page.evaluate(a => document.body.innerText.includes(a), atteso);
