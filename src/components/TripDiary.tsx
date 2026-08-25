@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useT } from "@/lib/settings";
 import { localeAttivo } from "@/lib/settings";
 import { createPortal } from "react-dom";
 import { Trip, updateTrip, parseLocalDate, isValidDateISO } from "@/lib/storage";
@@ -79,6 +80,7 @@ const BRAND = '"Space Grotesk", system-ui, sans-serif';
  * cambiano). Scroll della pagina bloccato con il pattern iOS-proof.
  */
 export function TripDiary({ trip, entries, onClose, onSaved }: Props) {
+  const t = useT();
   // Il pannello dichiara aria-modal: il focus deve restarci dentro e tornare
   // al pulsante "Diario" alla chiusura.
   const modalRef = useModalFocus<HTMLDivElement>();
@@ -208,7 +210,7 @@ export function TripDiary({ trip, entries, onClose, onSaved }: Props) {
           ref={growRef}
           value={texts[iso] ?? ""}
           onChange={e => { dirtyRef.current = true; autoGrow(e.target); setTexts(t => ({ ...t, [iso]: e.target.value })); }}
-          placeholder="Cosa hai fatto questo giorno?"
+          placeholder={t("Cosa hai fatto questo giorno?")}
           rows={2}
           style={{
             flex: 1, background: "rgba(255,255,255,0.04)", border: "0.5px solid #1a2d4a", borderRadius: 8,
@@ -297,7 +299,7 @@ export function TripDiary({ trip, entries, onClose, onSaved }: Props) {
             📖 Diario — {trip.title || trip.city}
           </div>
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>
-            {mode === "read" ? "Il tuo racconto, giorno per giorno" : "Scrivi il racconto giorno per giorno · si salva da solo"}
+            {mode === "read" ? t("Il tuo racconto, giorno per giorno") : t("Scrivi il racconto giorno per giorno · si salva da solo")}
           </div>
         </div>
         <div role="group" aria-label="Leggi o scrivi il diario" style={{ flexShrink: 0, display: "flex", background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: 2 }}>
@@ -313,7 +315,7 @@ export function TripDiary({ trip, entries, onClose, onSaved }: Props) {
             </button>
           ))}
         </div>
-        <button type="button" onClick={close} aria-label="Chiudi il diario"
+        <button type="button" onClick={close} aria-label={t("Chiudi il diario")}
           style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.18)", color: "rgba(255,255,255,0.8)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <X style={{ width: 18, height: 18 }} />
         </button>

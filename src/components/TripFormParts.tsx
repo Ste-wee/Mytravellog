@@ -318,7 +318,7 @@ function SerpentinaConBase({ VBW, stops, base, notti, onRemoveWaypoint, onEditHo
                 </g>
               ) : !eBase && (
                 <g style={{ cursor: "pointer" }} onClick={() => onRemoveWaypoint(idx - 1)}
-                  {...svgButton(`Rimuovi la tappa ${stop.label}`, () => onRemoveWaypoint(idx - 1))}>
+                  {...svgButton(t("Rimuovi la tappa {tappa}", { tappa: stop.label }), () => onRemoveWaypoint(idx - 1))}>
                   <circle cx={p.x + r - 3} cy={p.y - r + 3} r="20" fill="transparent"/>
                   <circle cx={p.x + r - 3} cy={p.y - r + 3} r="9" fill="#060e1e"
                     stroke={eUltima ? bordo : "#1a2d4a"} strokeWidth="1.5"/>
@@ -684,7 +684,7 @@ function RouteHero({
                       </g>
                     ) : (
                       <g style={{cursor:"pointer"}} onClick={() => onRemoveWaypoint(i-1)}
-                        {...svgButton(`Rimuovi la tappa ${stop.label}`, () => onRemoveWaypoint(i-1))}>
+                        {...svgButton(t("Rimuovi la tappa {tappa}", { tappa: stop.label }), () => onRemoveWaypoint(i-1))}>
                         <circle cx={x+r-3} cy={y-r+3} r="20" fill="transparent"/>
                         <circle cx={x+r-3} cy={y-r+3} r="9" fill="#060e1e"
                           stroke={isLast ? borderColor : "#1a2d4a"} strokeWidth="1.5"/>
@@ -958,19 +958,19 @@ function RouteHero({
               }
               <input autoFocus style={{ background:"transparent", border:"none", outline:"none",
                 color:"#f0f4ff", fontSize:13, flex:1 }}
-                value={wpQuery} onChange={e => setWpQuery(e.target.value)} placeholder="Cerca città, lago, monumento…"/>
+                value={wpQuery} onChange={e => setWpQuery(e.target.value)} placeholder={t("Cerca città, lago, monumento…")}/>
               {/* Il globo come alternativa alla scrittura: sta qui perché è
                   qui che si cerca la tappa — e certi posti è più facile
                   indicarli che nominarli. */}
               <button type="button" onClick={() => setGloboAperto(true)}
-                aria-label="Scegli la tappa sul globo"
+                aria-label={t("Scegli la tappa sul globo")}
                 style={{ background:"rgba(96,165,250,0.15)", border:"1px solid rgba(96,165,250,0.45)",
                   borderRadius:8, width:28, height:28, cursor:"pointer", display:"flex",
                   alignItems:"center", justifyContent:"center", flexShrink:0, padding:0, fontSize:14 }}>
                 🌍
               </button>
               <button type="button" onClick={() => { setWpQuery(""); setWpOpen(false); }}
-                aria-label="Chiudi ricerca tappa"
+                aria-label={t("Chiudi ricerca tappa")}
                 style={{ background:"none", border:"none", cursor:"pointer", color:"rgba(255,255,255,0.6)", display:"flex", alignItems:"center", flexShrink:0 }}>
                 <X className="w-4 h-4"/>
               </button>

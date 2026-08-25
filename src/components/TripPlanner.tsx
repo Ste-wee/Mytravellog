@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/settings";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Trip, updatePlan, deletePlan, promotePlanToTrip } from "@/lib/storage";
@@ -39,6 +40,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
   const modalRef = useModalFocus<HTMLDivElement>();
   const navigate = useNavigate();
   const s = useSettings();
+  const t = useT();
   // "dirty": l'utente ha toccato qualcosa. Senza questo flag, aprire e chiudere
   // il pannello salvava le categorie/voci di default precompilate (dati mai
   // inseriti dall'utente) e la card mostrava "0/3 fatte" dal nulla.
@@ -220,10 +222,10 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
             🧭 Pianifica — {plan.title || plan.city}
           </div>
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>
-            Cose da organizzare · si salva da solo
+            {t("Cose da organizzare · si salva da solo")}
           </div>
         </div>
-        <button type="button" onClick={close} aria-label="Chiudi la pianificazione"
+        <button type="button" onClick={close} aria-label={t("Chiudi la pianificazione")}
           style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.18)", color: "rgba(255,255,255,0.8)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <X style={{ width: 18, height: 18 }} />
         </button>
@@ -262,7 +264,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
 
           {/* CHECKLIST */}
           <div style={{ ...sectionTitle, marginTop: 28 }}>
-            Da organizzare {checklist.length > 0 && <span style={{ color: "#60a5fa" }}>· {doneCount}/{checklist.length}</span>}
+            {t("Da organizzare")} {checklist.length > 0 && <span style={{ color: "#60a5fa" }}>· {doneCount}/{checklist.length}</span>}
           </div>
           {checklist.map((c, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
@@ -272,9 +274,9 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
                 {c.done && <Check style={{ width: 14, height: 14 }} />}
               </button>
               <input value={c.text} onChange={e => mutChecklist(rows => rows.map((r, idx) => idx === i ? { ...r, text: e.target.value } : r))}
-                placeholder="Cosa c'è da fare?" aria-label="Voce da organizzare"
+                placeholder={t("Cosa c'è da fare?")} aria-label={t("Voce da organizzare")}
                 style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", borderBottom: "0.5px solid #1a2d4a", padding: "5px 2px", fontSize: 13, color: c.done ? "rgba(255,255,255,0.4)" : "#f0f4ff", textDecoration: c.done ? "line-through" : "none", outline: "none", fontFamily: "inherit" }} />
-              <button type="button" onClick={() => mutChecklist(rows => rows.filter((_, idx) => idx !== i))} aria-label="Rimuovi voce"
+              <button type="button" onClick={() => mutChecklist(rows => rows.filter((_, idx) => idx !== i))} aria-label={t("Rimuovi voce")}
                 style={{ flexShrink: 0, background: "transparent", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", padding: 4 }}>
                 <Trash2 style={{ width: 15, height: 15 }} />
               </button>
@@ -282,7 +284,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
           ))}
           <button type="button" onClick={() => mutChecklist(rows => [...rows, { text: "", done: false }])}
             style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "transparent", border: "none", color: "#60a5fa", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "2px 0", marginTop: 2 }}>
-            <Plus style={{ width: 14, height: 14 }} /> aggiungi cosa da fare
+            <Plus style={{ width: 14, height: 14 }} /> {t("aggiungi cosa da fare")}
           </button>
 
           {/* Azioni */}

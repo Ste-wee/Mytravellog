@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, createElement } from "react";
+import { useT } from "@/lib/settings";
 import type { ElementType } from "react";
 // SOLO i tipi: `import type` sparisce alla compilazione — maplibre-gl resta
 // caricato dinamicamente (loadMapLibre) e fuori dal bundle iniziale.
@@ -250,6 +251,7 @@ interface Props {
  * dal tag git `flyover-animato-v1`): più leggero, robusto e condivisibile ovunque.
  */
 export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
+  const t = useT();
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -931,7 +933,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         <div style={{ position: "absolute", inset: 0 }} ref={containerRef} />
 
         {/* Chiudi in alto a sinistra (la card dati sta in alto a destra). */}
-        <button onClick={onClose} aria-label="Chiudi"
+        <button onClick={onClose} aria-label={t("Chiudi")}
           style={{
             position: "absolute", top: 16, left: 16, width: 34, height: 34, borderRadius: 10, zIndex: 30,
             background: "rgba(10,22,40,0.8)", border: "0.5px solid #1a2d4a", cursor: "pointer",
@@ -1122,7 +1124,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                   border: (tripsCount === 1 && !lifeMap) ? "0.5px solid #1a2d4a" : "1px solid #60a5fa",
                   color: (tripsCount === 1 && !lifeMap) ? "rgba(255,255,255,0.8)" : "#60a5fa",
                 }}>
-                <Share2 className="w-3.5 h-3.5" /> Condividi
+                <Share2 className="w-3.5 h-3.5" /> {t("Condividi")}
               </button>
             </div>
           </>

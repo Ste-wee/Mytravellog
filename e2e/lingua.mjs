@@ -29,7 +29,7 @@ const SPIE = [
   "tappa", "tappe", "aggiungi", "cerca", "chiudi", "rimuovi", "apri", "salva",
   "nessun", "nessuna", "ancora", "adesso", "oppure", "anche", "quando",
   "della", "delle", "degli", "nella", "sulla", "dalla", "questo", "questa",
-  "tuoi", "tuo", "tua", "tue", "sono", "essere", "perché", "più", "già",
+  "tuoi", "tuo", "tua", "sono", "essere", "perché", "più", "già",
   "programma", "organizzare", "prenotato", "prenotare", "condividi", "scegli",
   "impostazioni", "misura", "globo", "rotazione", "residenza", "viaggiatore",
 ];
@@ -90,11 +90,10 @@ const PAGINE = [
 ];
 
 const esito = {};
-for (const [nome, hash] of PAGINE) {
-  await page.goto(BASE + "/" + hash, { waitUntil: "load" });
-  await page.reload({ waitUntil: "load" });
-  await page.waitForTimeout(nome === "home" ? 5000 : 2200);
-  const trovate = await page.evaluate((spie) => {
+
+/** Cerca l'italiano rimasto: nel testo a schermo E nelle etichette invisibili
+ *  (un aria-label italiano è un difetto per chi usa lo screen reader). */
+const cerca = (spie) => {
     const testo = document.body.innerText;
     const righe = testo.split("\n").map(r => r.trim()).filter(Boolean);
     const sospette = [];
@@ -111,9 +110,66 @@ for (const [nome, hash] of PAGINE) {
       if (spie.some(p => basso.includes(" " + p + " "))) sospette.push("[etichetta] " + e.slice(0, 80));
     }
     return [...new Set(sospette)];
-  }, SPIE);
+};
+
+for (const [nome, hash] of PAGINE) {
+  await page.goto(BASE + "/" + hash, { waitUntil: "load" });
+  await page.reload({ waitUntil: "load" });
+  await page.waitForTimeout(nome === "home" ? 5000 : 2200);
+  esito[nome] = await page.evaluate(cerca, SPIE);
   await page.screenshot({ path: `${OUT}/${nome}.png`, fullPage: nome !== "home" });
-  esito[nome] = trovate;
+}
+
+/**
+ * Le schermate che si aprono SOLO con un'interazione: diario, pannello del
+ * piano, tutorial, menu del biglietto, ricerca delle tappe, poster 3D, stories.
+ * Il collaudo delle pagine non le vedeva, ed è lì che si nasconde l'italiano
+ * dimenticato — ogni pannello ha le sue scritte.
+ *
+ * ⚠️ I bersagli si cercano con le etichette INGLESI (l'app è in inglese in
+ * questo collaudo): se una traduzione manca, il passo non trova il bottone e
+ * lo dice, invece di passare in silenzio. È un secondo controllo gratuito.
+ */
+const INTERAZIONI = [
+  ["diario", "#/miei-viaggi", async () => {
+    await page.getByRole("button", { name: /Open the diary|Open the trip diary/i }).first().click();
+  }],
+  ["pannello_del_piano", "#/in-programma", async () => {
+    await page.getByText("Madrid", { exact: false }).first().click();
+  }],
+  ["menu_del_biglietto", "#/miei-viaggi", async () => {
+    await page.getByRole("button", { name: /Trip actions/i }).first().click();
+  }],
+  ["aggiungi_tappa", "#/nuovo-viaggio", async () => {
+    await page.getByRole("button", { name: /\+ Add stop/i }).first().click();
+  }],
+  ["tutorial", "#/", async () => {
+    await page.evaluate(() => window.dispatchEvent(new Event("navta:tour-replay")));
+  }],
+  ["poster_3d", "#/miei-viaggi", async () => {
+    await page.getByRole("button", { name: /The map of my life/i }).first().click();
+  }],
+  ["stories", "#/recap", async () => {
+    await page.getByRole("button", { name: /Play as stories/i }).first().click();
+  }],
+];
+
+for (const [nome, hash, azione] of INTERAZIONI) {
+  await page.goto(BASE + "/" + hash, { waitUntil: "load" });
+  await page.reload({ waitUntil: "load" });
+  await page.waitForTimeout(2500);
+  try {
+    await azione();
+  } catch (e) {
+    // Bersaglio non raggiunto: quasi sempre vuol dire che l'etichetta inglese
+    // NON esiste (traduzione mancante) o che il flusso è cambiato. Va detto,
+    // non ingoiato: un passo saltato in silenzio è un collaudo che mente.
+    esito[nome] = [`⚠️ passo non eseguito: ${String(e).slice(0, 110)}`];
+    continue;
+  }
+  await page.waitForTimeout(2200);
+  esito[nome] = await page.evaluate(cerca, SPIE);
+  await page.screenshot({ path: `${OUT}/int-${nome}.png` });
 }
 
 await browser.close();

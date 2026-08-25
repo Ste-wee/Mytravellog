@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, ReactNode } from "react";
+import { useT } from "@/lib/settings";
 import { localeAttivo } from "@/lib/settings";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
@@ -19,6 +20,7 @@ const big = (size: number, color = "#f0f4ff"): React.CSSProperties => ({ fontFam
 const sub: React.CSSProperties = { fontSize: 15, color: "rgba(255,255,255,0.55)", lineHeight: 1.5 };
 
 export function RecapStories({ recap: r, fmt, flagUrl, onClose }: { recap: YearRecap; fmt: Fmt; flagUrl: string | null; onClose: () => void }) {
+  const t = useT();
   // Costruisce le slide in base ai dati (salta quelle senza contenuto).
   const usedModes = Object.entries(r.byMode).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   const aroundWorld = r.km / EARTH_KM;
@@ -26,7 +28,7 @@ export function RecapStories({ recap: r, fmt, flagUrl, onClose }: { recap: YearR
 
   slides.push(
     <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%" }}>
-      <div style={kicker}>Il tuo anno di viaggi</div>
+      <div style={kicker}>{t("Il tuo anno di viaggi")}</div>
       <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 800, fontSize: 96, lineHeight: 1, marginTop: 12, backgroundImage: "linear-gradient(120deg,#60a5fa,#34d399)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>{r.year}</div>
       <div style={{ ...sub, marginTop: 18 }}>Ripercorriamolo insieme →</div>
     </div>
@@ -58,7 +60,7 @@ export function RecapStories({ recap: r, fmt, flagUrl, onClose }: { recap: YearR
     const total = usedModes.reduce((s, [, v]) => s + v, 0);
     slides.push(
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%" }}>
-        <div style={kicker}>Come ti sei mosso</div>
+        <div style={kicker}>{t("Come ti sei mosso")}</div>
         <div style={{ display: "flex", height: 14, borderRadius: 8, overflow: "hidden", marginTop: 20, background: "rgba(255,255,255,0.06)" }}>
           {usedModes.map(([m, v]) => <div key={m} style={{ flexGrow: v, background: MODE_COLOR(m) }} />)}
         </div>
@@ -84,7 +86,7 @@ export function RecapStories({ recap: r, fmt, flagUrl, onClose }: { recap: YearR
   if (records.length > 0) {
     slides.push(
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 22 }}>
-        <div style={kicker}>I tuoi record</div>
+        <div style={kicker}>{t("I tuoi record")}</div>
         {records.map(([lab, val, city]) => (
           <div key={lab}>
             <div style={{ fontSize: 11, letterSpacing: 1, color: "rgba(255,255,255,0.6)", textTransform: "uppercase" }}>{lab}</div>
@@ -105,7 +107,7 @@ export function RecapStories({ recap: r, fmt, flagUrl, onClose }: { recap: YearR
   if (r.topCountry) {
     slides.push(
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%" }}>
-        <div style={kicker}>Il tuo paese dell'anno</div>
+        <div style={kicker}>{t("Il tuo paese dell'anno")}</div>
         {flagUrl && <img src={flagUrl} alt="" width="120" height="80" style={{ borderRadius: 8, objectFit: "cover", border: "2px solid rgba(255,255,255,0.85)", marginTop: 22, marginBottom: 16 }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />}
         <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 800, fontSize: 48, color: "#f0f4ff" }}>{r.topCountry.name}</div>
         {!r.moment && farewell}
@@ -123,7 +125,7 @@ export function RecapStories({ recap: r, fmt, flagUrl, onClose }: { recap: YearR
     slides.push(
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", height: "100%", textAlign: "center" }}>
         <div style={{ fontSize: 34, color: "#fbbf24", marginBottom: 14 }}>★</div>
-        <div style={kicker}>Il momento dell'anno</div>
+        <div style={kicker}>{t("Il momento dell'anno")}</div>
         <div style={{
           fontFamily: "'Space Grotesk', sans-serif", fontStyle: "italic", fontSize: 22, lineHeight: 1.6,
           color: "#f0f4ff", marginTop: 20, maxWidth: 340,
@@ -169,7 +171,7 @@ export function RecapStories({ recap: r, fmt, flagUrl, onClose }: { recap: YearR
           ))}
         </div>
 
-        <button onClick={onClose} aria-label="Chiudi"
+        <button onClick={onClose} aria-label={t("Chiudi")}
           style={{ position: "absolute", top: 30, right: 24, width: 34, height: 34, borderRadius: 10, zIndex: 3, background: "rgba(255,255,255,0.08)", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <X className="w-4 h-4" />
         </button>

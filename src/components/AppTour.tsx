@@ -2,13 +2,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import { shouldShowWelcome } from "@/components/WelcomeGate";
+import { useT } from "@/lib/settings";
+import type { Chiave } from "@/lib/i18n";
 import {
   Compass, Hand, Cloud, Plane, BookOpen, Globe2, CalendarClock, ListChecks,
   PieChart, Shapes, Share2, Route, Tent, X, ArrowRight,
 } from "lucide-react";
 
-interface Step { Icon: React.ElementType; title: string; body: string }
-interface Section { key: string; version: number; label: string; steps: Step[] }
+// Titolo, corpo ed etichetta sono CHIAVI di traduzione, non stringhe: così
+// TypeScript pretende l'inglese di ogni scheda (vedi lib/i18n). Una scheda
+// nuova senza traduzione non compila.
+interface Step { Icon: React.ElementType; title: Chiave; body: Chiave }
+interface Section { key: string; version: number; label: Chiave; steps: Step[] }
 
 // Un "mini tutorial" per sezione: schede esplicative alla PRIMA visita. Scelta
 // deliberata rispetto allo spotlight sugli elementi reali: nessun bersaglio che
@@ -85,6 +90,7 @@ const PATH_TO_SECTION: Record<string, string> = {
 const flagKey = (s: Section) => `navta.tour.${s.key}.v${s.version}`;
 
 export function AppTour() {
+  const t = useT();
   const location = useLocation();
   const [active, setActive] = useState<Section | null>(null);
   const [i, setI] = useState(0);
@@ -204,7 +210,7 @@ export function AppTour() {
   const next = () => { if (last) fineSezione(); else setI(n => n + 1); };
 
   return createPortal(
-    <div role="dialog" aria-modal="true" aria-label={`Tutorial — ${step.title}`}
+    <div role="dialog" aria-modal="true" aria-label={t("Tutorial — {titolo}", { titolo: t(step.title) })}
       style={{
         position: "fixed", inset: 0, zIndex: 250, background: "rgba(2,8,20,0.74)",
         display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
@@ -216,7 +222,7 @@ export function AppTour() {
         border: "0.5px solid #2a3f5f", borderRadius: 16, padding: "22px 20px 16px",
         boxShadow: "0 20px 60px rgba(0,0,0,0.5)", color: "#f0f4ff",
       }}>
-        <button type="button" onClick={abbandona} aria-label="Salta il tutorial"
+        <button type="button" onClick={abbandona} aria-label={t("Salta il tutorial")}
           style={{ position: "absolute", top: 12, right: 12, width: 28, height: 28, borderRadius: 8, background: "transparent", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <X style={{ width: 16, height: 16 }} />
         </button>
@@ -225,15 +231,15 @@ export function AppTour() {
             capitoli in fila serve sapere di QUALE pagina parla la scheda. */}
         {replay && (
           <div style={{ fontSize: 10.5, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)", marginBottom: 10 }}>
-            {active.label} · {i + 1} di {active.steps.length}
+            {t("{capitolo} · {n} di {tot}", { capitolo: t(active.label), n: i + 1, tot: active.steps.length })}
           </div>
         )}
 
         <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(96,165,250,0.14)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
           <step.Icon style={{ width: 23, height: 23, color: "#60a5fa" }} />
         </div>
-        <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 7 }}>{step.title}</div>
-        <div style={{ fontSize: 13, lineHeight: 1.55, color: "rgba(255,255,255,0.62)" }}>{step.body}</div>
+        <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 7 }}>{t(step.title)}</div>
+        <div style={{ fontSize: 13, lineHeight: 1.55, color: "rgba(255,255,255,0.62)" }}>{t(step.body)}</div>
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 20 }}>
           <div style={{ display: "flex", gap: 6 }}>
@@ -245,11 +251,11 @@ export function AppTour() {
             {/* "Salta" = fine sezione: alla prima visita chiude (com'era),
                 nel replay salta al capitolo dopo — X ed Esc restano l'uscita. */}
             {!last && (
-              <button type="button" onClick={fineSezione} style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.6)", fontSize: 12, cursor: "pointer" }}>Salta</button>
+              <button type="button" onClick={fineSezione} style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.6)", fontSize: 12, cursor: "pointer" }}>{t("Salta")}</button>
             )}
             <button type="button" onClick={next} autoFocus ref={bottoneRef}
               style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#60a5fa", border: "none", borderRadius: 9, padding: "8px 14px", fontSize: 13, fontWeight: 700, color: "#04203f", cursor: "pointer" }}>
-              {ultimaDelTour ? "Ho capito" : "Avanti"}{!ultimaDelTour && <ArrowRight style={{ width: 14, height: 14 }} />}
+              {ultimaDelTour ? t("Ho capito") : t("Avanti")}{!ultimaDelTour && <ArrowRight style={{ width: 14, height: 14 }} />}
             </button>
           </div>
         </div>

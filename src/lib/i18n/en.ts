@@ -236,4 +236,77 @@ export const en = {
   "{quante} stella su 5": "{quante} star out of 5",
   "{quante} stelle su 5": "{quante} stars out of 5",
 
+  // ── Tutorial (AppTour) ────────────────────────────────────────────────────
+  "Benvenuto in NAV·TA": "Welcome to NAV·TA",
+  "La tua Home": "Your home",
+  "Ruota il mondo": "Spin the world",
+  "Trascina il globo per girarlo. I tuoi viaggi appaiono come archi luminosi tra le città.":
+    "Drag the globe to spin it. Your trips show up as glowing arcs between cities.",
+  "Il tuo atlante di viaggio: segna dove sei stato e guardalo prendere forma sul globo.":
+    "Your travel atlas: record where you have been and watch it take shape on the globe.",
+  "I viaggi ti seguono": "Your trips follow you",
+  "Accedi con Google dalle Impostazioni: i viaggi si salvano nel cloud e li ritrovi su ogni dispositivo.":
+    "Sign in with Google from Settings: your trips are saved to the cloud and you find them on every device.",
+  "Ogni viaggio è un biglietto. Aggiungine uno con tappe, mezzi e date dal pulsante «Nuovo viaggio» nel menu.":
+    "Every trip is a ticket. Add one with stops, transport and dates from «New trip» in the menu.",
+  "Diario e ricordi": "Diary and memories",
+  "Apri un biglietto per scrivere il diario giorno per giorno e rivedere il rilievo 3D del percorso.":
+    "Open a ticket to write the diary day by day and see the 3D relief of the route.",
+  "La mappa della vita": "The map of your life",
+  "Con l'icona del globo in alto trasformi tutti i viaggi in un'unica costellazione, pronta da stampare.":
+    "The globe icon at the top turns every trip into a single constellation, ready to print.",
+  "I viaggi che devi ancora fare. Programma destinazione, tappe e date del tuo prossimo itinerario.":
+    "The trips you have not taken yet. Plan the destination, stops and dates of your next itinerary.",
+  "Cose da fare": "Things to do",
+  "Segna cosa resta da organizzare e se hai già prenotato. Al ritorno tocca «Segna come fatto» e il viaggio entra nel diario.":
+    "Note what is left to sort out and whether you have booked. When you get back, tap «Mark as done» and the trip joins your diary.",
+  "Le tue statistiche": "Your stats",
+  "Km percorsi, paesi e città visitati e i tuoi record di viaggio, in un colpo d'occhio.":
+    "Distance travelled, countries and cities visited and your travel records, at a glance.",
+  "Come e quando viaggi": "How and when you travel",
+  "Le tue forme di viaggio — in giornata, tappa fissa, itineranti — e i mesi in cui parti di più, anno per anno.":
+    "Your travel shapes — day trips, one base, roaming — and the months you leave most, year by year.",
+  "Il recap dell'anno": "The year recap",
+  "Genera «Il tuo anno di viaggi» e condividilo come immagine o come stories.":
+    "Generate «Your year in trips» and share it as an image or as stories.",
+  "L'itinerario prende forma": "The itinerary takes shape",
+  "Aggiungi le tappe col loro mezzo: il percorso si disegna da solo, coi km veri strada per strada. Trascina una tappa per riordinarla.":
+    "Add the stops with their transport: the route draws itself, with the real distance road by road. Drag a stop to reorder it.",
+  "Dormi sempre nello stesso posto?": "Sleeping in the same place every night?",
+  "Tocca la tenda su una tappa per segnarla come base: le tappe dopo diventano gite che tornano lì, e il disegno mostra le notti.":
+    "Tap the tent on a stop to mark it as your base: the stops after it become day trips that return there, and the drawing shows the nights.",
+  "Tutorial — {titolo}": "Tutorial — {titolo}",
+  "{capitolo} · {n} di {tot}": "{capitolo} · {n} of {tot}",
+  "Salta il tutorial": "Skip the tutorial",
+  "Salta": "Skip",
+  "Avanti": "Next",
+  "Ho capito": "Got it",
+
+  // ── Diario, pannello del piano, ricerca tappe, poster ─────────────────────
+  "Scrivi il racconto giorno per giorno · si salva da solo": "Write the story day by day · saves itself",
+  "Chiudi il diario": "Close the diary",
+  "Cosa hai fatto questo giorno?": "What did you do that day?",
+  "Cose da organizzare · si salva da solo": "Things to sort out · saves itself",
+  "aggiungi cosa da fare": "add something to do",
+  "Chiudi la pianificazione": "Close the planning",
+  "Rimuovi la tappa {tappa}": "Remove the stop {tappa}",
+  "Voce da organizzare": "Thing to sort out",
+  "Rimuovi voce": "Remove item",
+  "Cerca città, lago, monumento…": "Search city, lake, landmark…",
+  "Scegli la tappa sul globo": "Pick the stop on the globe",
+  "Chiudi ricerca tappa": "Close stop search",
+
+  "Il tuo racconto, giorno per giorno": "Your story, day by day",
+  "Cosa c'è da fare?": "What needs doing?",
+  "DA ORGANIZZARE · {fatte}/{tutte}": "TO SORT OUT · {fatte}/{tutte}",
+
+  "Da organizzare": "To sort out",
+  "IL TUO ANNO DI VIAGGI": "YOUR YEAR IN TRIPS",
+
+  "Condividi": "Share",
+  "Come ti sei mosso": "How you got around",
+  "I tuoi record": "Your records",
+  "Il tuo paese dell'anno": "Your country of the year",
+  "Il momento dell'anno": "The moment of the year",
+
 } as const;

@@ -4,7 +4,7 @@ import { ArrowLeft, Share2, Download, Play } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { loadTrips, parseLocalDate } from "@/lib/storage";
 import { transportColor, transportLabel } from "@/lib/transport";
-import { useSettings, useT, formatDistanceKm, formatAltitudeM, formatTemperatureC, localeAttivo } from "@/lib/settings";
+import { useSettings, useT, tr, formatDistanceKm, formatAltitudeM, formatTemperatureC, localeAttivo } from "@/lib/settings";
 import { computeYearRecap, availableYears, anniDiSoleGite, YearRecap } from "@/lib/recap";
 import { canShareFile, shareOrDownload } from "@/lib/share";
 import { RecapStories } from "@/components/RecapStories";
@@ -66,7 +66,7 @@ function drawRecap(ctx: CanvasRenderingContext2D, r: YearRecap, fmt: Fmt, flag: 
   // Kicker
   ls("4px");
   ctx.fillStyle = "#fbbf24"; ctx.font = '700 26px "Space Grotesk", sans-serif';
-  ctx.fillText("IL TUO ANNO DI VIAGGI", P, 118);
+  ctx.fillText(tr("IL TUO ANNO DI VIAGGI"), P, 118);
   ls("0px");
 
   // Anno (gradiente blu → verde)
@@ -338,7 +338,7 @@ const Recap = () => {
                 padding: "12px", borderRadius: 999, background: "transparent", color: "rgba(255,255,255,0.8)",
                 border: "0.5px solid #1a2d4a", fontSize: 14, fontWeight: 600, cursor: "pointer",
               }}>
-              <Play className="w-4 h-4" /> Riproduci come stories
+              <Play className="w-4 h-4" /> {t("Riproduci come stories")}
             </button>
           </>
         )}
