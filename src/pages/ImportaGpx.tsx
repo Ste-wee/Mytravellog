@@ -13,9 +13,11 @@ import { TRANSPORT, TransportMode } from "@/lib/transport";
 type Mode = TransportMode;
 // Etichette dalla fonte unica (@/lib/transport); l'ORDINE resta quello di
 // questa pagina: chi importa una traccia GPX di solito ha pedalato o guidato.
+// ⚠️ `l` è un getter: come in TripFormParts, questa const sta a livello di
+// modulo e una stringa copiata qui resterebbe nella lingua dell'import.
 const MODES: { v: Mode; l: string }[] =
   (["bici", "moto", "car", "bus", "walk", "train", "ship", "plane"] as Mode[])
-    .map(v => ({ v, l: TRANSPORT[v].label }));
+    .map(v => ({ v, get l() { return TRANSPORT[v].label; } }));
 
 const field: React.CSSProperties = {
   width: "100%", background: "#0a1628", border: "0.5px solid #1a2d4a", borderRadius: 8,
@@ -60,7 +62,7 @@ const ImportaGpx = () => {
       const text = await file.text();
       const data = parseGpx(text);
       if (gen !== genRef.current) return; // è già stato caricato un altro file
-      if (data.coords.length < 2) { setError("Il GPX non contiene un percorso (servono almeno 2 punti)."); setParsing(false); return; }
+      if (data.coords.length < 2) { setError(t("Il GPX non contiene un percorso (servono almeno 2 punti).")); setParsing(false); return; }
       const s = summarizeGpx(data);
       const geo = downsample(data.coords);
       setCoords(geo);
@@ -184,7 +186,7 @@ const ImportaGpx = () => {
                 background: canCreate ? "#60a5fa" : "rgba(96,165,250,0.3)", color: "#0a1628", border: "none",
                 cursor: canCreate ? "pointer" : "default",
               }}>
-              {creating ? "Creo…" : "Crea viaggio"}
+              {creating ? t("Creo…") : t("Crea viaggio")}
             </button>
           </>
         )}

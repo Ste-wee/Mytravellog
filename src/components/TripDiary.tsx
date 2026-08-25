@@ -240,7 +240,7 @@ export function TripDiary({ trip, entries, onClose, onSaved }: Props) {
         <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "4px", color: "rgba(255,255,255,0.6)", textTransform: "uppercase" }}>{t("diario di bordo")}</div>
         <div style={{ color: "#f0f4ff", fontFamily: BRAND, fontSize: 26, fontWeight: 700, lineHeight: 1.1, margin: "9px 0 5px" }}>{trip.title || trip.city}</div>
         <div style={{ fontFamily: MONO, fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 22 }}>
-          {coverRange(trip)} · {readEntries.length} {readEntries.length === 1 ? "giorno scritto" : "giorni scritti"}
+          {coverRange(trip)} · {t(readEntries.length === 1 ? "{quanti} giorno scritto" : "{quanti} giorni scritti", { quanti: readEntries.length })}
         </div>
         <div style={{ position: "relative", paddingLeft: 26, borderLeft: "1px solid rgba(96,165,250,0.22)", marginLeft: 5 }}>
           {readEntries.map((e, i) => {
@@ -257,7 +257,7 @@ export function TripDiary({ trip, entries, onClose, onSaved }: Props) {
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 500, letterSpacing: "1px", color: "#fbbf24" }}>{stampLabel(e.date)}</span>
                   <button type="button" onClick={() => toggleHighlight(e.date)} aria-pressed={marked}
-                    aria-label={marked ? "Rimuovi il momento del viaggio" : "Segna come il momento del viaggio"}
+                    aria-label={marked ? t("Rimuovi il momento del viaggio") : t("Segna come il momento del viaggio")}
                     title={marked ? "Il momento del viaggio (tocca per rimuovere)" : "Segna come il momento del viaggio"}
                     style={{
                       // padding/corpo generosi: è l'interazione primaria della
@@ -283,7 +283,7 @@ export function TripDiary({ trip, entries, onClose, onSaved }: Props) {
   };
 
   return createPortal(
-    <div ref={modalRef} role="dialog" aria-modal="true" aria-label={`Diario — ${trip.title || trip.city}`}
+    <div ref={modalRef} role="dialog" aria-modal="true" aria-label={t("Diario — {viaggio}", { viaggio: trip.title || trip.city })}
       style={{
         position: "fixed", inset: 0, zIndex: 200, background: "#060e1e",
         display: "flex", flexDirection: "column",
@@ -310,7 +310,7 @@ export function TripDiary({ trip, entries, onClose, onSaved }: Props) {
                 color: mode === m ? "#93c5fd" : "rgba(255,255,255,0.5)",
                 fontWeight: mode === m ? 500 : 400,
               }}>
-              {m === "read" ? "Leggi" : "Scrivi"}
+              {m === "read" ? t("Leggi") : t("Scrivi")}
             </button>
           ))}
         </div>

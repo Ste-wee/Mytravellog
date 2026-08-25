@@ -99,7 +99,7 @@ export function TripPurposeCompanions({ purpose, setPurpose, companions, setComp
               }}>
                 {c}
                 <button type="button" onClick={() => setCompanions(companions.filter(x => x !== c))}
-                  aria-label={`Rimuovi ${c}`}
+                  aria-label={t("Rimuovi {chi}", { chi: c })}
                   style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", display: "flex", opacity: 0.7 }}>
                   <X style={{ width: 12, height: 12 }} />
                 </button>

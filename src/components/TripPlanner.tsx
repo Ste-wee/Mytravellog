@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useT, useSettings } from "@/lib/settings";
+import { useT, useSettings, tr } from "@/lib/settings";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Trip, updatePlan, deletePlan, promotePlanToTrip } from "@/lib/storage";
@@ -21,10 +21,15 @@ interface Props {
   onChanged: () => void;
 }
 
-const DEFAULT_CHECKLIST: ChecklistRow[] = [
-  { text: "Prenota volo", done: false },
-  { text: "Prenota alloggio", done: false },
-  { text: "Documenti / passaporto", done: false },
+/**
+ * La checklist di partenza. È una FUNZIONE, non una const: le sue righe finiscono
+ * SCRITTE nel piano dell'utente, quindi devono nascere nella lingua attiva in
+ * quel momento — e da lì in poi sono testo suo, che può cambiare come vuole.
+ */
+const defaultChecklist = (): ChecklistRow[] => [
+  { text: tr("Prenota volo"), done: false },
+  { text: tr("Prenota alloggio"), done: false },
+  { text: tr("Documenti / passaporto"), done: false },
 ];
 
 /**
@@ -120,7 +125,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
   };
 
   const [checklist, setChecklist] = useState<ChecklistRow[]>(() =>
-    plan.checklist && plan.checklist.length ? plan.checklist.map(r => ({ ...r })) : DEFAULT_CHECKLIST.map(r => ({ ...r })),
+    plan.checklist && plan.checklist.length ? plan.checklist.map(r => ({ ...r })) : defaultChecklist(),
   );
 
   const doneCount = checklist.filter(c => c.done).length;
@@ -212,7 +217,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
   };
 
   return createPortal(
-    <div ref={modalRef} role="dialog" aria-modal="true" aria-label={`Pianifica — ${plan.title || plan.city}`}
+    <div ref={modalRef} role="dialog" aria-modal="true" aria-label={t("Pianifica — {viaggio}", { viaggio: plan.title || plan.city })}
       style={{ position: "fixed", inset: 0, zIndex: 200, background: "#060e1e", display: "flex", flexDirection: "column" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderBottom: "0.5px solid rgba(255,255,255,0.1)", background: "rgba(6,14,30,0.95)" }}>
@@ -268,7 +273,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
           {checklist.map((c, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
               <button type="button" onClick={() => mutChecklist(rows => rows.map((r, idx) => idx === i ? { ...r, done: !r.done } : r))}
-                aria-label={c.done ? "Segna da fare" : "Segna fatto"} role="checkbox" aria-checked={c.done}
+                aria-label={c.done ? t("Segna da fare") : t("Segna fatto")} role="checkbox" aria-checked={c.done}
                 style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 6, border: "1.5px solid " + (c.done ? "#34d399" : "#2a3f5f"), background: c.done ? "rgba(52,211,153,0.18)" : "transparent", color: "#34d399", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
                 {c.done && <Check style={{ width: 14, height: 14 }} />}
               </button>

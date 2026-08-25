@@ -4,6 +4,7 @@ import { deletePhotosForTrip } from "@/lib/photoStorage";
 import { BACKUP_VERSION, mergeTrips } from "@/lib/backup";
 import { onAuth, accedi, esci, leggiArchivio, scriviArchivio, UtenteCloud } from "@/lib/firebaseSync";
 import { cloudConfigurato } from "@/lib/firebaseConfig";
+import { tr } from "@/lib/settings";
 
 /**
  * `corrotto` è uno stato a sé, non un errore qualunque: il documento nel cloud
@@ -174,8 +175,8 @@ export function CloudProvider({ children }: { children: ReactNode }) {
     }
     setStatus("error");
     setErrorMsg(causa === "archivio_troppo_grande"
-      ? "L'archivio ha superato il tetto di un documento nel cloud. I dati sul dispositivo sono al sicuro."
-      : "Sincronizzazione non riuscita: si riprova da sola.");
+      ? tr("L'archivio ha superato il tetto di un documento nel cloud. I dati sul dispositivo sono al sicuro.")
+      : tr("Sincronizzazione non riuscita: si riprova da sola."));
     daRiprovareRef.current = true;
   };
 
@@ -231,7 +232,7 @@ export function CloudProvider({ children }: { children: ReactNode }) {
       if (mountedRef.current) {
         setStatus("guest");
         setErrorMsg(causa.includes("popup-closed") || causa.includes("cancelled")
-          ? "Accesso annullato." : "Accesso non riuscito.");
+          ? tr("Accesso annullato.") : tr("Accesso non riuscito."));
       }
       return false;
     } finally {

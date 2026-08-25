@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Trip, formatTripDate, parseLocalDate, isValidDateISO, updateTrip } from "@/lib/storage";
-import { fmtDistance, fmtTemp, localeAttivo, useSettings, useT } from "@/lib/settings";
+import { fmtDistance, fmtTemp, localeAttivo, tr, useSettings, useT } from "@/lib/settings";
 import { Plane, Pencil, Trash2, Video, X, MoreVertical } from "lucide-react";
 import { TRANSPORT, isTransportMode, transportBg } from "@/lib/transport";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -16,7 +16,9 @@ import { fermateDelBiglietto } from "@/lib/stops";
 // Colori/icone/etichette vengono da @/lib/transport (fonte unica). Qui resta
 // solo il ripiego per un viaggio senza mezzo indicato, che è specifico del
 // biglietto: "Viaggio" con l'icona dell'aereo.
-const DEFAULT_TRANSPORT = { color: "#60a5fa", bg: "rgba(96,165,250,0.12)", label: "Viaggio", Icon: Plane };
+// `label` è un getter come in lib/transport: questa const vive a livello di
+// modulo, e una stringa copiata qui resterebbe nella lingua dell'import.
+const DEFAULT_TRANSPORT = { color: "#60a5fa", bg: "rgba(96,165,250,0.12)", get label() { return tr("Viaggio"); }, Icon: Plane };
 const styleOf = (mode: string | null | undefined) => {
   if (!isTransportMode(mode)) return DEFAULT_TRANSPORT;
   const t = TRANSPORT[mode];
@@ -312,7 +314,7 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
             <span style={{fontSize:11,color:"rgba(255,255,255,0.75)"}}> → {formatTripDate(trip.date_end)}</span>
           )}
           {days && days > 0 && (
-            <span style={{fontSize:11,color:ts.color,fontWeight:600}}> · {days}g</span>
+            <span style={{fontSize:11,color:ts.color,fontWeight:600}}> · {t("{quanti}g", { quanti: days })}</span>
           )}
         </div>
         {/* Mezzo, km e temperatura viaggiano INSIEME (blocco nowrap): con
@@ -353,7 +355,7 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
                       border:"0.5px solid #60a5fa", borderRadius:6, padding:"2px 6px", outline:"none" }}/>
                 ) : (
                   <button type="button" onClick={() => setEditTemp(true)}
-                    aria-label={`Temperatura ${fmtTemp(tempCorrente, temperatureUnit)}: tocca per correggerla`}
+                    aria-label={t("Temperatura {gradi}: tocca per correggerla", { gradi: fmtTemp(tempCorrente, temperatureUnit) })}
                     style={{ fontSize:11, color:"rgba(255,255,255,0.75)", background:"none", border:"none",
                       cursor:"pointer", padding:0, fontFamily:"inherit",
                       borderBottom:"1px dashed rgba(96,165,250,0.45)" }}>
@@ -376,7 +378,7 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
             tabIndex={notesAreLong ? 0 : undefined}
             role={notesAreLong ? "button" : undefined}
             aria-expanded={notesAreLong ? notesExpanded : undefined}
-            aria-label={notesAreLong ? (notesExpanded ? "Comprimi le note" : "Espandi le note") : undefined}
+            aria-label={notesAreLong ? (notesExpanded ? t("Comprimi le note") : t("Espandi le note")) : undefined}
             style={{
               borderLeft:"2px solid #1a2d4a", paddingLeft:10,
               cursor: notesAreLong ? "pointer" : "default",
@@ -392,7 +394,7 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
             </div>
             {notesAreLong && (
               <div style={{fontSize:10,color:"#60a5fa",fontWeight:600,marginTop:3}}>
-                {notesExpanded ? "Mostra meno" : "Mostra tutto"}
+                {notesExpanded ? t("Mostra meno") : t("Mostra tutto")}
               </div>
             )}
           </div>
@@ -436,7 +438,9 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
             border:"0.5px solid " + (diary.length ? "rgba(96,165,250,0.35)" : "#1a2d4a"),
             color: diary.length ? "#93c5fd" : "rgba(255,255,255,0.55)", cursor:"pointer",
           }}>
-          📖 {diary.length ? `Diario · ${diary.length} ${diary.length === 1 ? "giorno" : "giorni"}` : "Diario"}
+          📖 {diary.length
+            ? t(diary.length === 1 ? "Diario · {quanti} giorno" : "Diario · {quanti} giorni", { quanti: diary.length })
+            : t("Diario")}
         </button>
       </div>
 
@@ -501,7 +505,7 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
           position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,0.85)", backdropFilter:"blur(4px)",
           display:"flex", alignItems:"center", justifyContent:"center", padding:24,
         }}>
-        <img src={reliefUrl} alt={`Rilievo 3D di ${displayTitle}`} onClick={e => e.stopPropagation()}
+        <img src={reliefUrl} alt={t("Rilievo 3D di {viaggio}", { viaggio: displayTitle })} onClick={e => e.stopPropagation()}
           style={{maxWidth:"92vw",maxHeight:"88vh",objectFit:"contain",borderRadius:12,boxShadow:"0 20px 60px rgba(0,0,0,0.6)"}}/>
         <button onClick={() => setReliefOpen(false)} aria-label={t("Chiudi anteprima rilievo")}
           style={{

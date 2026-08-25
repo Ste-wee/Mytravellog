@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useT } from "@/lib/settings";
+import { useT, tr } from "@/lib/settings";
 import { createPortal } from "react-dom";
 import { Trip } from "@/lib/storage";
 import { polygonsOf } from "@/lib/worldAtlas";
@@ -578,7 +578,7 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
         if (!features) {
           features = await fetchCountryRegions(countryCode);
           if (cancelled) return; // modal chiuso o paese cambiato durante il fetch
-          if (!features) throw new Error("Nessuna suddivisione disponibile");
+          if (!features) throw new Error(tr("Nessuna suddivisione disponibile"));
           geoCache[countryCode] = features;
           // Qui arrivano SOLO i confini di rete (il pacchetto locale è stato
           // tentato sopra): questi sì che vale la pena persisterli.
@@ -642,7 +642,7 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
   // dei discendenti `position:fixed`. Così il pannello si ancorava alla card e
   // si sovrapponeva alla sezione sotto invece di coprire lo schermo.
   return createPortal(
-    <div role="dialog" aria-modal="true" aria-label={`Mappa di ${countryName}`} style={{
+    <div role="dialog" aria-modal="true" aria-label={t("Mappa di {paese}", { paese: countryName })} style={{
       position: "fixed", inset: 0, zIndex: 100,
       background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
       display: "flex", alignItems: "center", justifyContent: "center",

@@ -122,7 +122,7 @@ export function WelcomeGate() {
     // vera parte dopo, in sottofondo, e non c'è motivo di trattenere qui chi
     // è appena entrato.
     if (await connect()) dismiss();
-    else { setBusy(false); setError("Accesso non riuscito. Riprova, o entra come ospite."); }
+    else { setBusy(false); setError(t("Accesso non riuscito. Riprova, o entra come ospite.")); }
   };
 
   return (

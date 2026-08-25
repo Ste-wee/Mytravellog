@@ -44,7 +44,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 // suggerisce l'unica via d'uscita utile (liberare spazio / backup su Drive).
 setStorageErrorHandler(() => {
   toast.error(tr("Spazio del browser esaurito: il viaggio NON è stato salvato."), {
-    description: "Libera spazio eliminando qualche viaggio o foto; se hai il backup su Drive i dati restano lì.",
+    description: tr("Libera spazio eliminando qualche viaggio; se il cloud è attivo i dati restano lì."),
     duration: Infinity,
   });
 });

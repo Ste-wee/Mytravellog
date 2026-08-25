@@ -86,10 +86,13 @@ function drawRecap(ctx: CanvasRenderingContext2D, r: YearRecap, fmt: Fmt, flag: 
   ctx.fillStyle = "#fbbf24"; ctx.font = '700 44px "Space Grotesk", sans-serif';
   ctx.fillText(kmUnit, P + kmW + 18, 372);
   ctx.fillStyle = "rgba(255,255,255,0.45)"; ctx.font = '400 28px "Space Grotesk", sans-serif';
-  ctx.fillText("percorsi in totale", P, 414);
+  ctx.fillText(tr("percorsi in totale"), P, 414);
 
   // Statistiche su filetti (niente scatolette)
-  const stats: [string, string][] = [[String(r.trips), "viaggi"], [String(r.countries), "paesi"], [String(r.cities), "città"], [String(r.days), "giorni"]];
+  const stats: [string, string][] = [
+    [String(r.trips), tr("viaggi")], [String(r.countries), tr("paesi")],
+    [String(r.cities), tr("città")], [String(r.days), tr("giorni")],
+  ];
   const sTop = 462, sBot = 600, colW = (W - 2 * P) / 4;
   ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(P, sTop); ctx.lineTo(W - P, sTop); ctx.moveTo(P, sBot); ctx.lineTo(W - P, sBot); ctx.stroke();
@@ -107,7 +110,7 @@ function drawRecap(ctx: CanvasRenderingContext2D, r: YearRecap, fmt: Fmt, flag: 
   ctx.textAlign = "left";
   const barY = 690, barX = P, barW = W - 2 * P, barH = 24;
   ls("1px"); ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = '700 22px "Space Grotesk", sans-serif';
-  ctx.fillText("COME TI SEI MOSSO", P, barY - 20); ls("0px");
+  ctx.fillText(tr("COME TI SEI MOSSO"), P, barY - 20); ls("0px");
   roundRect(ctx, barX, barY, barW, barH, 12); ctx.fillStyle = "rgba(255,255,255,0.06)"; ctx.fill();
   const total = Object.values(r.byMode).reduce((a, b) => a + b, 0);
   if (total > 0) {
@@ -159,7 +162,7 @@ function drawRecap(ctx: CanvasRenderingContext2D, r: YearRecap, fmt: Fmt, flag: 
     ctx.fillStyle = "#f0f4ff"; ctx.font = '700 40px "Space Grotesk", sans-serif';
     ctx.fillText(r.topCountry.name, tx, cTop + 30);
     ctx.fillStyle = "rgba(255,255,255,0.45)"; ctx.font = '400 24px "Space Grotesk", sans-serif';
-    ctx.fillText("paese dell'anno", tx, cTop + 64);
+    ctx.fillText(tr("paese dell'anno"), tx, cTop + 64);
   }
 
   // ★ Il momento dell'anno: la voce di diario marcata dall'utente — le SUE
@@ -172,7 +175,7 @@ function drawRecap(ctx: CanvasRenderingContext2D, r: YearRecap, fmt: Fmt, flag: 
     ls("2px");
     ctx.textAlign = "left";
     ctx.fillStyle = "#fbbf24"; ctx.font = '700 20px "Space Grotesk", sans-serif';
-    ctx.fillText("★ IL MOMENTO DELL'ANNO", P, mTop + 36);
+    ctx.fillText(tr("★ IL MOMENTO DELL'ANNO"), P, mTop + 36);
     ls("0px");
     const md = parseLocalDate(r.moment.date);
     // Data di diario malformata → "· NaN Invalid Date" sul PNG condiviso:
@@ -202,7 +205,8 @@ function drawRecap(ctx: CanvasRenderingContext2D, r: YearRecap, fmt: Fmt, flag: 
   ctx.fillText("NAV·TA", P, H - 58);
   ctx.textAlign = "right";
   ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = '400 26px "Space Grotesk", sans-serif';
-  ctx.fillText(`${r.monthsActive} ${r.monthsActive === 1 ? "mese" : "mesi"} in viaggio`, W - P, H - 58);
+  ctx.fillText(tr(r.monthsActive === 1 ? "{quanti} mese in viaggio" : "{quanti} mesi in viaggio",
+    { quanti: r.monthsActive }), W - P, H - 58);
   ctx.textAlign = "left";
 }
 
@@ -290,8 +294,9 @@ const Recap = () => {
                 lib/gite.ts), e un poster vuoto senza spiegazione sembrerebbe
                 un dato perso. */}
             {annoSoleGite.length > 0
-              ? `Nel ${annoSoleGite.length === 1 ? annoSoleGite[0] : "tuo archivio"} ci sono solo gite in giornata: sono contate a parte e non entrano nel recap. Serve un viaggio con almeno una notte fuori.`
-              : "Ancora nessun viaggio: il recap si popola man mano che aggiungi i tuoi viaggi."}
+              ? t("Nel {anno} ci sono solo gite in giornata: sono contate a parte e non entrano nel recap. Serve un viaggio con almeno una notte fuori.",
+                  { anno: annoSoleGite.length === 1 ? annoSoleGite[0] : t("tuo archivio") })
+              : t("Ancora nessun viaggio: il recap si popola man mano che aggiungi i tuoi viaggi.")}
           </p>
         ) : annoRichiestoSoleGite ? (
           /* L'anno chiesto nell'URL esiste nell'archivio ma ha solo gite: un

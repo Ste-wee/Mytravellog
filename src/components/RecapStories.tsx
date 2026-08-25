@@ -49,9 +49,9 @@ export function RecapStories({ recap: r, fmt, flagUrl, onClose }: { recap: YearR
   slides.push(
     <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 18 }}>
       <div style={sub}>{t("Sei stato in")}</div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}><span style={big(56, "#34d399")}>{r.countries}</span><span style={{ fontSize: 18, color: "rgba(255,255,255,0.7)" }}>{r.countries === 1 ? "paese" : "paesi"}</span></div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}><span style={big(56, "#34d399")}>{r.countries}</span><span style={{ fontSize: 18, color: "rgba(255,255,255,0.7)" }}>{t(r.countries === 1 ? "paese" : "paesi")}</span></div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}><span style={big(56, "#60a5fa")}>{r.cities}</span><span style={{ fontSize: 18, color: "rgba(255,255,255,0.7)" }}>{r.cities === 1 ? "città" : "città"}</span></div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}><span style={big(56, "#fbbf24")}>{r.days}</span><span style={{ fontSize: 18, color: "rgba(255,255,255,0.7)" }}>{r.days === 1 ? "giorno in viaggio" : "giorni in viaggio"}</span></div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}><span style={big(56, "#fbbf24")}>{r.days}</span><span style={{ fontSize: 18, color: "rgba(255,255,255,0.7)" }}>{t(r.days === 1 ? "giorno in viaggio" : "giorni in viaggio")}</span></div>
     </div>
   );
 

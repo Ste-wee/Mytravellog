@@ -117,9 +117,46 @@ const nonVisitate = rotteDelRouter.filter(r => !visitate.includes(r));
 
 const esito = {};
 
+/**
+ * Le CHIAVI del dizionario. Sono italiane per costruzione, quindi con l'app in
+ * inglese **nessuna di esse deve comparire a schermo**: se c'è, da qualche parte
+ * manca un `t()`.
+ *
+ * ⚠️ Questo controllo è nato da uno screenshot. Le spie qui sopra sono una
+ * lista di PAROLE, e la lista non conteneva né «aereo» né «diario»: la pillola
+ * del mezzo e il bottone del diario erano in italiano su ogni biglietto, e la
+ * rete diceva `miei-viaggi: 0`. Questo invece non indovina niente — vale per
+ * tutte le chiavi, comprese quelle che nasceranno domani.
+ *
+ * Cosa NON copre, dichiarato: le chiavi corte o ambigue (sotto i 5 caratteri, o
+ * uguali in inglese) sono escluse per non dare falsi positivi sui nomi di
+ * luogo; e il testo disegnato su CANVAS (il poster del recap) non sta in
+ * `innerText`, quindi qui non si vede — quello lo guarda solo la rete
+ * strutturale.
+ */
+const CHIAVI_ITALIANE = (() => {
+  const righe = fs.readFileSync("src/lib/i18n/en.ts", "utf8").split(/\r?\n/);
+  const fuori = [];
+  for (let i = 0; i < righe.length; i++) {
+    const m = righe[i].match(/^ {2}"((?:[^"\\]|\\.)*)":\s*(.*)$/);
+    if (!m) continue;
+    const chiave = JSON.parse('"' + m[1] + '"');
+    const grezzo = m[2].trim() || (righe[i + 1] || "").trim();
+    const v = grezzo.match(/^("(?:[^"\\]|\\.)*")/);
+    if (!v) continue;
+    const inglese = JSON.parse(v[1]);
+    // Fuori le corte, quelle con segnaposto (a schermo arrivano riempite) e
+    // quelle IDENTICHE in inglese (Africa, Asia, Bus…): non provano niente.
+    if (chiave.length < 5 || chiave.includes("{") || chiave === inglese) continue;
+    fuori.push(chiave);
+  }
+  return fuori;
+})();
+
 /** Cerca l'italiano rimasto: nel testo a schermo E nelle etichette invisibili
  *  (un aria-label italiano è un difetto per chi usa lo screen reader). */
-const cerca = (spie) => {
+// ⚠️ Un argomento solo: page.evaluate non ne accetta due.
+const cerca = ({ spie, chiaviItaliane }) => {
     const testo = document.body.innerText;
     const righe = testo.split("\n").map(r => r.trim()).filter(Boolean);
     const sospette = [];
@@ -135,6 +172,16 @@ const cerca = (spie) => {
       const basso = " " + e.toLowerCase().replace(/[^\p{L}\s]/gu, " ") + " ";
       if (spie.some(p => basso.includes(" " + p + " "))) sospette.push("[etichetta] " + e.slice(0, 80));
     }
+    // Le chiavi italiane a schermo: niente euristica, confronto esatto.
+    // ⚠️ A PAROLA INTERA. Con un `includes` nudo la chiave «automatica» risultava
+    // a schermo perché la traduzione inglese di un'altra riga dice
+    // «automatically» — dentro quella parola ci sta tutta. Il primo falso
+    // positivo di questo controllo, trovato al primo giro.
+    const tutto = testo + "\n" + etichette.join("\n");
+    for (const k of chiaviItaliane) {
+      const re = new RegExp("(?<![\\p{L}\\p{N}])" + k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![\\p{L}\\p{N}])", "u");
+      if (re.test(tutto)) sospette.push("[chiave italiana a schermo] " + k.slice(0, 70));
+    }
     return [...new Set(sospette)];
 };
 
@@ -142,7 +189,7 @@ for (const [nome, hash] of PAGINE) {
   await page.goto(BASE + "/" + hash, { waitUntil: "load" });
   await page.reload({ waitUntil: "load" });
   await page.waitForTimeout(nome === "home" ? 5000 : 2200);
-  esito[nome] = await page.evaluate(cerca, SPIE);
+  esito[nome] = await page.evaluate(cerca, { spie: SPIE, chiaviItaliane: CHIAVI_ITALIANE });
   await page.screenshot({ path: `${OUT}/${nome}.png`, fullPage: nome !== "home" });
 }
 
@@ -194,7 +241,7 @@ for (const [nome, hash, azione] of INTERAZIONI) {
     continue;
   }
   await page.waitForTimeout(2200);
-  esito[nome] = await page.evaluate(cerca, SPIE);
+  esito[nome] = await page.evaluate(cerca, { spie: SPIE, chiaviItaliane: CHIAVI_ITALIANE });
   await page.screenshot({ path: `${OUT}/int-${nome}.png` });
 }
 
@@ -248,7 +295,7 @@ for (const [nome, hash, stato, atteso] of STATI_NASCOSTI) {
 
   await page.goto(BASE + "/" + hash, { waitUntil: "load" });
   await page.waitForTimeout(hash === "#/" ? 4200 : 2200);
-  const trovate = await page.evaluate(cerca, SPIE);
+  const trovate = await page.evaluate(cerca, { spie: SPIE, chiaviItaliane: CHIAVI_ITALIANE });
   const ceProva = await page.evaluate(a => document.body.innerText.includes(a), atteso);
   esito[nome] = ceProva ? trovate : [`⚠️ stato non raggiunto: manca «${atteso}» a schermo`, ...trovate];
   await page.screenshot({ path: `${OUT}/stato-${nome}.png`, fullPage: hash !== "#/" });

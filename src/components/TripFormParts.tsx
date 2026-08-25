@@ -26,8 +26,14 @@ export type { TransportMode };
 export type Waypoint = { id: string; city: string; country: string; country_code: string; lat: number; lon: number; transport_mode: TransportMode };
 
 // Elenco per il selettore del mezzo, dalla fonte unica (@/lib/transport).
+// ⚠️ `label` è un getter e non un valore: questa const vive a livello di
+// modulo, quindi copiare la stringa qui la congelerebbe nella lingua che era
+// attiva all'import (cambiare lingua ri-renderizza, non ricarica).
 const TRANSPORT: { value: TransportMode; label: string; color: string; bg: string }[] =
-  TRANSPORT_LIST.map(t => ({ value: t.value, label: t.label, color: t.color, bg: transportBg(t.value) }));
+  TRANSPORT_LIST.map(t => ({
+    value: t.value, color: t.color, bg: transportBg(t.value),
+    get label() { return t.label; },
+  }));
 
 // Tinte delle etichette di categoria nei risultati di ricerca. Restano fuori
 // dalla scala blu/ambra dell'app (che significa conteggi/km) perché qui il
@@ -37,8 +43,12 @@ const PLACE_KIND_COLOR: Record<PlaceKind, string> = {
   parco: "#4ade80", spiaggia: "#fcd34d", luogo: "#94a3b8",
 };
 
+// Getter come le etichette dei mezzi: la const sta a livello di modulo e una
+// stringa copiata resterebbe nella lingua dell'import.
 const RATING_LABELS: Record<number, string> = {
-  1: "Non memorabile", 2: "Nella media", 3: "Bello", 4: "Fantastico", 5: "Indimenticabile"
+  get 1() { return tr("Non memorabile"); }, get 2() { return tr("Nella media"); },
+  get 3() { return tr("Bello"); }, get 4() { return tr("Fantastico"); },
+  get 5() { return tr("Indimenticabile"); },
 };
 
 // Inclusivo (1-5 giugno = 5 giorni): stessa convenzione della heatmap in
@@ -267,12 +277,13 @@ function SerpentinaConBase({ VBW, stops, base, notti, onRemoveWaypoint, onEditHo
   // annuncia col sole, la stessa lingua dei conteggi in Home.
   const etichettaNotti = notti != null && notti > 0
     ? `🌙 ${notti} ${notti === 1 ? "notte" : "notti"}`
-    : notti === 0 ? "☀ in giornata" : "🌙 base";
+    : notti === 0 ? tr("☀ in giornata") : tr("🌙 base");
 
   return (
     <div style={{ position: "relative", width: "100%" }}>
       <svg width="100%" height={H} viewBox={`0 0 ${VBW} ${H}`} style={{ display: "block", overflow: "visible" }}
-        role="img" aria-label={`Itinerario con base a ${stops[base.baseIdx]?.label}: ${base.gite.length} ${base.gite.length === 1 ? "gita" : "gite"}`}>
+        role="img" aria-label={tr(base.gite.length === 1 ? "Itinerario con base a {base}: {quante} gita" : "Itinerario con base a {base}: {quante} gite",
+                    { base: stops[base.baseIdx]?.label ?? "", quante: base.gite.length })}>
         <defs>
           {TRANSPORT.map(t => (
             <marker key={t.value} id={`tfb-arr-${t.value}`} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
@@ -755,7 +766,7 @@ function RouteHero({
                       fill="#0d1f3c" stroke="#1a2d4a" strokeWidth="0.5"/>
                     <text x={midX} y={py+18} fontSize="9" textAnchor="middle" fill="rgba(255,255,255,0.4)">
                       {kmTratta != null
-                        ? `Cambia mezzo · ~${fmtDistance(Math.round(kmTratta), distanceUnit)}`
+                        ? tr("Cambia mezzo · ~{quanto}", { quanto: fmtDistance(Math.round(kmTratta), distanceUnit) })
                         : "Cambia mezzo"}
                     </text>
                     {TRANSPORT.map((opt, j) => {
@@ -900,7 +911,7 @@ function RouteHero({
                 background: riordino ? "rgba(93,202,165,0.14)" : "rgba(255,255,255,0.05)",
                 border: riordino ? "1px solid #5dcaa5" : "1px solid #1a2d4a",
                 color: riordino ? "#5dcaa5" : "rgba(255,255,255,0.65)" }}>
-              {riordino ? "✓ Fine: torna alla vista con la base" : "Riordina o cambia mezzo"}
+              {riordino ? t("✓ Fine: torna alla vista con la base") : t("Riordina o cambia mezzo")}
             </button>
           </div>
         )}

@@ -1,4 +1,5 @@
 import { Plane, Train, Car, Ship, Footprints, Bike, Bus } from "lucide-react";
+import { tr } from "@/lib/settings";
 import { Motorcycle } from "@/components/icons/Motorcycle";
 import type { ElementType } from "react";
 
@@ -32,15 +33,30 @@ interface TransportInfo {
   emoji: string;
 }
 
+/**
+ * ⚠️ Le etichette sono **getter**, non stringhe: restituiscono la traduzione
+ * nella lingua attiva al momento in cui le si legge.
+ *
+ * Perché così e non tradotte al punto d'uso: `TRANSPORT[m].label` si legge in
+ * sette posti, due dei quali sono file FROZEN (Index e TravelHighlights). Con i
+ * getter quei sette posti non cambiano di una virgola, e la pillola del mezzo
+ * sul biglietto — che era rimasta «Aereo» anche in inglese — si traduce da sé.
+ *
+ * ⚠️ E perché **getter** e non valori tradotti una volta: cambiare lingua nelle
+ * Impostazioni ri-renderizza, NON ricarica la pagina. Un valore calcolato
+ * all'import resterebbe nella lingua di allora. Per lo stesso motivo qui sotto
+ * `TRANSPORT_LIST` non fa lo spread delle etichette (lo spread le valuterebbe
+ * subito, congelandole).
+ */
 export const TRANSPORT: Record<TransportMode, TransportInfo> = {
-  plane: { color: "#378ADD", label: "Aereo",   labelWith: "In aereo", labelShort: "Aereo", Icon: Plane,      emoji: "✈️" },
-  train: { color: "#BA7517", label: "Treno",   labelWith: "In treno", labelShort: "Treno", Icon: Train,      emoji: "🚆" },
-  car:   { color: "#A855F7", label: "Auto",    labelWith: "In auto",  labelShort: "Auto",  Icon: Car,        emoji: "🚗" },
-  ship:  { color: "#0F6E56", label: "Nave",    labelWith: "In nave",  labelShort: "Nave",  Icon: Ship,       emoji: "🚢" },
-  walk:  { color: "#D85A30", label: "A piedi", labelWith: "A piedi",  labelShort: "Piedi", Icon: Footprints, emoji: "🚶" },
-  bici:  { color: "#22C55E", label: "Bici",    labelWith: "In bici",  labelShort: "Bici",  Icon: Bike,       emoji: "🚲" },
-  moto:  { color: "#EAB308", label: "Moto",    labelWith: "In moto",  labelShort: "Moto",  Icon: Motorcycle, emoji: "🏍️" },
-  bus:   { color: "#06B6D4", label: "Bus",     labelWith: "In bus",   labelShort: "Bus",   Icon: Bus,        emoji: "🚌" },
+  plane: { color: "#378ADD", get label() { return tr("Aereo"); },   get labelWith() { return tr("In aereo"); }, get labelShort() { return tr("Aereo"); }, Icon: Plane,      emoji: "✈️" },
+  train: { color: "#BA7517", get label() { return tr("Treno"); },   get labelWith() { return tr("In treno"); }, get labelShort() { return tr("Treno"); }, Icon: Train,      emoji: "🚆" },
+  car:   { color: "#A855F7", get label() { return tr("Auto"); },    get labelWith() { return tr("In auto"); },  get labelShort() { return tr("Auto"); },  Icon: Car,        emoji: "🚗" },
+  ship:  { color: "#0F6E56", get label() { return tr("Nave"); },    get labelWith() { return tr("In nave"); },  get labelShort() { return tr("Nave"); },  Icon: Ship,       emoji: "🚢" },
+  walk:  { color: "#D85A30", get label() { return tr("A piedi"); }, get labelWith() { return tr("A piedi"); },  get labelShort() { return tr("Piedi"); }, Icon: Footprints, emoji: "🚶" },
+  bici:  { color: "#22C55E", get label() { return tr("Bici"); },    get labelWith() { return tr("In bici"); },  get labelShort() { return tr("Bici"); },  Icon: Bike,       emoji: "🚲" },
+  moto:  { color: "#EAB308", get label() { return tr("Moto"); },    get labelWith() { return tr("In moto"); },  get labelShort() { return tr("Moto"); },  Icon: Motorcycle, emoji: "🏍️" },
+  bus:   { color: "#06B6D4", get label() { return tr("Bus"); },     get labelWith() { return tr("In bus"); },   get labelShort() { return tr("Bus"); },   Icon: Bus,        emoji: "🚌" },
 };
 
 /**
@@ -79,5 +95,17 @@ export function transportBg(m: string | null | undefined, alpha = 0.12): string 
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
 }
 
-/** Elenco ordinato, per i selettori del mezzo nei form. */
-export const TRANSPORT_LIST = TRANSPORT_MODES.map(value => ({ value, ...TRANSPORT[value] }));
+/**
+ * Elenco ordinato, per i selettori del mezzo nei form.
+ * ⚠️ Niente spread delle etichette: `{...TRANSPORT[value]}` **valuterebbe i
+ * getter subito**, congelando la lingua all'import del modulo.
+ */
+export const TRANSPORT_LIST = TRANSPORT_MODES.map(value => ({
+  value,
+  color: TRANSPORT[value].color,
+  Icon: TRANSPORT[value].Icon,
+  emoji: TRANSPORT[value].emoji,
+  get label() { return TRANSPORT[value].label; },
+  get labelWith() { return TRANSPORT[value].labelWith; },
+  get labelShort() { return TRANSPORT[value].labelShort; },
+}));

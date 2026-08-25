@@ -1089,7 +1089,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                     padding: "8px 16px", borderRadius: 999, background: "rgba(255,255,255,0.08)",
                     border: "0.5px solid rgba(255,255,255,0.35)", color: "rgba(255,255,255,0.85)",
                   }}>
-                  <Download className="w-3.5 h-3.5" /> {exportingSvg ? "Esporto…" : "Esporta SVG"}
+                  <Download className="w-3.5 h-3.5" /> {exportingSvg ? t("Esporto…") : t("Esporta SVG")}
                 </button>
               )}
               {lifeMap && (
@@ -1112,7 +1112,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                     border: "1px solid #60a5fa", color: "#60a5fa", fontSize: 12, fontWeight: 600,
                     cursor: savingRelief ? "default" : "pointer",
                   }}>
-                  {savingRelief ? "Salvo…" : "Salva"}
+                  {savingRelief ? t("Salvo…") : t("Salva")}
                 </button>
               )}
               <button onClick={handleSharePoster}

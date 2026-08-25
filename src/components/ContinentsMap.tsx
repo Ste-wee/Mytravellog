@@ -305,7 +305,11 @@ export function ContinentsMap({ trips }: Props) {
                   : "bg-muted/20 border-border text-muted-foreground"
               }`}
             >
-              <span>{c}</span>
+              {/* ⚠️ Il nome del continente È l'identificatore: la stessa
+                  stringa sta in `visitedContinents` e in ISO_A2_CONTINENTE.
+                  Si traduce QUI, dove si mostra, e non alla fonte: tradurre il
+                  valore romperebbe `visitedContinents.has(c)`. */}
+              <span>{t(c)}</span>
               {/* La ✓ resta sui visitati; la × sui non visitati sembrava un
                   bottone per rimuoverli — il chip spento dice già tutto. */}
               {v && <Check className="w-3.5 h-3.5" aria-hidden />}

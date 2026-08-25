@@ -47,7 +47,10 @@ const RADICE = "src";
 
 /** Dove le stringhe a mano sono legittime: il dizionario (le chiavi SONO
  *  italiane) e i test (asseriscono l'italiano di proposito). */
-const ESCLUSI = (f) => f.includes("i18n") || /\.test\.[tj]sx?$/.test(f);
+const ESCLUSI = (f) => f.includes("i18n")
+  || /\.test\.[tj]sx?$/.test(f)
+  // L'impalcatura dei test (mock del canvas, stub del browser): non è l'app.
+  || /[\\/]test[\\/]/.test(f);
 
 /**
  * Il rumore: stringhe che finiscono nei posti giusti ma non sono scritte per
@@ -85,7 +88,97 @@ const RUMORE = [
   // buco: sta qui, si legge, e se un domani non va più bene si toglie.
   /^Runtime Error:?$/,
 ];
-const eRumore = (s) => RUMORE.some(r => r.test(s.trim()));
+/**
+ * Rumore delle POSIZIONI fuori dal JSX (vedi `candidatiDelFile`): lì passa
+ * anche il CSS scritto a mano, che nel testo fra tag non arrivava mai.
+ * Come sopra: eccezioni DICHIARATE, non parole indovinate.
+ */
+const RUMORE_CSS = [
+  /^rgba?\(/, /^#[0-9a-fA-F]{3,8}$/, /^(scale|translate|rotate|matrix|blur|calc|var|url)\(/,
+  /^(sans-serif|serif|monospace|inherit|transparent|currentColor)$/,
+  // ⚠️ Un valore CSS si riconosce guardando OGNI pezzo, non il prefisso. La
+  // prima versione di queste due regole diceva «comincia con un numero» e
+  // «tutte parole minuscole», e ha reso la rete CIECA su «12 tappe in tre
+  // paesi» e su «non hai viaggiato» — cinque casi finti su cinque non trovati.
+  // Il prefisso non distingue un colore da una frase; il token sì.
+  (s) => {
+    const pezzi = s.split(/\s+/).map(p => p.replace(/,$/, "")).filter(Boolean);
+    const eCss = (p) => /^-?[\d.]+(px|rem|em|%|vh|vw|s|ms|deg|fr)?$/.test(p)
+      || /^#[0-9a-fA-F]{3,8}$/.test(p) || /^rgba?\([^)]*\)$/.test(p)
+      || /^(solid|dashed|dotted|inset|none|auto|infinite|alternate|forwards|both|ease|linear|ease-in|ease-out|ease-in-out)$/.test(p);
+    return pezzi.length > 0 && pezzi.every(eCss);
+  },
+  // Le classi di utilità: tutte minuscole E almeno metà dei pezzi con un
+  // trattino, i due punti o lo slash. «flex items-center» sì, «e-mail non
+  // valida» no (1 pezzo su 3), «non hai viaggiato» no (0 su 3).
+  (s) => {
+    // I pezzi `{…}` sono interpolazioni svuotate (`… text-sm ${extra}`): non
+    // dicono niente sulla natura della stringa, si ignorano.
+    const pezzi = s.split(/\s+/).filter(Boolean).filter(p => p !== "{…}");
+    // Il punto serve: `gap-1.5`, `py-1.5` sono classi come le altre.
+    if (!pezzi.every(p => /^[a-z][\w:/.-]*$/.test(p))) return false;
+    const conSegno = pezzi.filter(p => /[-:/]/.test(p)).length;
+    return conSegno * 2 >= pezzi.length && conSegno > 0;
+  },
+];
+/**
+ * Errori che l'utente non vede MAI: guardie di sviluppo e messaggi di rete
+ * interni. Tradurli non aiuterebbe nessuno — chi li legge sta guardando la
+ * console. Eccezione dichiarata, con il nome di ciascuno.
+ */
+const RUMORE_ERRORI_INTERNI = [
+  /^use[A-Z]\w+ (deve|must)/,          // useCloud deve stare dentro <CloudProvider>
+  /^icon load (error|timeout)$/,
+  /^reverse geocode fallito$/,
+  /^world-atlas malformato$/,
+  /^HTTP /,
+];
+/**
+ * Solo per le POSIZIONI: lì passano anche i VALORI del codice — `"pointer"` di
+ * un cursore, `"griglia"` di uno stato, `"no_ctx"` di un errore interno, le
+ * classi di Tailwind. Nel testo fra tag non arrivavano mai, e per quello questa
+ * lista è separata: nel JSX «destinazione» e «punti» sono scritte vere, e
+ * queste regole le mangerebbero.
+ * ⚠️ Il prezzo dichiarato: un'etichetta di UNA parola minuscola, in posizione
+ * di etichetta, non si vede. Non ce ne sono (controllato a mano sulle 202
+ * candidate), e se ne nascesse una la rete viva la troverebbe a schermo.
+ */
+const RUMORE_POSIZIONI = [
+  ...RUMORE_CSS,
+  ...RUMORE_ERRORI_INTERNI,
+  /^(none|pointer|default|auto|inherit|initial|unset|hidden|visible|block|inline|flex|grid|nowrap|wrap|center|start|end|left|right|top|bottom|column|row|absolute|relative|fixed|sticky|static|bold|normal|italic|uppercase|lowercase|capitalize|ellipsis|clip|contain|cover|round|butt|square|middle|baseline|smooth|instant)$/,
+  /^[a-z][a-z0-9_]*$/,                       // un identificatore: griglia, frame, no_ctx, timeout
+  /cubic-bezier\(|\b\d+ms\b/,                // liste di transizione CSS
+  /^</,                                      // markup: i template di posterSvg e del GPX
+  /^[a-z-]+="/,                              // un pezzo di markup: ` filter="url(#brandInk)"`
+  /^\$\{|\$\{[^}]*\}[:/-]|[-_]\$\{/,         // identificatori costruiti: `unknown-${i}`, `${id}:relief`
+  /^\{…\}[:/-]|[-_]\{…\}|\{…\}[-_]/,         // gli stessi, a interpolazione svuotata
+  /^[/@]|^https?:/,                          // rotte, percorsi, indirizzi
+  /^[a-z][a-z0-9_]*:\s*\{…\}$/,              // chiavi costruite: `code:{…}`
+  /\.(png|jpe?g|svg|webp|json|geojson)$/i,   // nomi di file
+  // Le unità non si traducono: «{…} km» è un numero con la sua unità, non una
+  // frase. (La scelta fra km e miglia è un'altra cosa, e sta nelle Impostazioni.)
+  /^\{…\}\s*(km|mi|ft|m|°C|°F)$/,
+];
+/**
+ * ⚠️ Il rumore delle POSIZIONI si applica SOLO alle posizioni. La prima
+ * versione lo aveva messo nel filtro comune, e le regole del CSS hanno
+ * accecato la ricerca del testo JSX: cinque frasi finte su cinque non trovate.
+ * Il CSS non compare mai come testo fra due tag, quindi lì quelle regole non
+ * servono e possono solo fare danno.
+ */
+const eRumore = (s, extra = []) => {
+  const v = s.trim();
+  return [...RUMORE, ...extra].some(r => typeof r === "function" ? r(v) : r.test(v));
+};
+
+/** Le chiavi del dizionario: in posizione di etichetta sono volute (vedi
+ *  `candidatiDelFile`). L'italiano È la chiave. */
+const CHIAVI = new Set();
+for (const r of fs.readFileSync("src/lib/i18n/en.ts", "utf8").split(/\r?\n/)) {
+  const m = r.match(/^ {2}"((?:[^"\\]|\\.)*)":/);
+  if (m) CHIAVI.add(JSON.parse('"' + m[1] + '"'));
+}
 
 /**
  * Toglie dal sorgente quello che non è codice attivo, **senza spostare le
@@ -189,13 +282,86 @@ function candidatiDelFile(contenuto) {
   };
 
   const fuori = [];
-  const aggiungi = (s, idx) => {
+  const aggiungi = (s, idx, extra) => {
     const v = s.trim();
-    if (v.length >= 2 && !eRumore(v)) fuori.push({ riga: rigaDi(idx), testo: v });
+    if (v.length >= 2 && !eRumore(v, extra)) fuori.push({ riga: rigaDi(idx), testo: v });
   };
 
   for (const m of testo.matchAll(/(?:aria-label|title|placeholder|alt)="([^"]+)"/g)) aggiungi(m[1], m.index);
   for (const m of testo.matchAll(/(?:toast\.\w+|window\.confirm|alert)\(\s*["`]([^"`]+)/g)) aggiungi(m[1], m.index);
+
+  // ── Le POSIZIONI fuori dal JSX ────────────────────────────────────────────
+  // Fin qui la rete guardava tre posti: attributi con valore letterale, testo
+  // fra tag, toast. ⚠️ Restava fuori tutto quello che è una scritta ma non sta
+  // in nessuno dei tre — e sono ottanta:
+  //
+  //     aria-label={aperto ? "Comprimi le note" : "Espandi le note"}
+  //     TRANSPORT = { plane: { label: "Aereo", … } }
+  //     if (m < 60) return `${m} minuti fa`
+  //     ctx.fillText("COME TI SEI MOSSO", …)
+  //
+  // Il primo caso l'ha trovato una revisione, non la rete: la regola cercava
+  // `aria-label="…"` con gli apici, e un'espressione non ha apici.
+  //
+  // Ogni voce qui è una POSIZIONE sintattica dichiarata. Il buco che resta è
+  // «le posizioni che non ho elencato» — ed è un buco che si conta e si allunga,
+  // non un'euristica che indovina. Provata anche la strada opposta (chiedere di
+  // OGNI letterale «sei una chiave del dizionario?»): 1399 candidati, quasi
+  // tutti dati SVG e nomi di eventi. Impraticabile, misurato.
+  const POSIZIONI = [
+    /(?:aria-label|title|placeholder|alt)=\{([^{}]*)\}/g,        // attributo con espressione
+    /\b(?:label|labelWith|labelShort|desc|description|text|messaggio|msg|caption)\s*:\s*("(?:[^"\\]|\\.)*")/g,
+    /(?:new Error|setError|setErrore|setMsg|setMessaggio)\(\s*("(?:[^"\\]|\\.)*")/g,
+    /\breturn\s+("(?:[^"\\]|\\.)*"|`[^`]*`)/g,                   // una funzione che restituisce una scritta
+    /fillText\(\s*("(?:[^"\\]|\\.)*"|`[^`]*`)/g,                 // testo disegnato sul canvas
+    // mappa numero → etichetta. ⚠️ NON ancorata a inizio riga: le cinque
+    // etichette del voto stanno tutte sulla stessa riga
+    // (`1: "Non memorabile", 2: "Nella media", …`) e con l'ancora se ne vedeva
+    // UNA. Un falso negativo che si contava da sé: cinque etichette, una trovata.
+    /(?:^|[,{[(\s])\d+\s*:\s*("(?:[^"\\]|\\.)*")/gm,
+    // Ternario con due letterali. ⚠️ Anche i template: sul biglietto c'era
+    // `{n ? \`Diario · ${n} …\` : "Diario"}` e pretendendo due stringhe fra
+    // apici non si vedeva NIENTE dei due rami — «Diario» è rimasto a schermo in
+    // inglese, e l'ho visto in uno screenshot.
+    /\?\s*("(?:[^"\\]|\\.)*"|`[^`]*`)\s*:\s*("(?:[^"\\]|\\.)*"|`[^`]*`)/g,
+    // Template dentro un'espressione JSX: `{\`Diario · ${n} giorni\`}`. Il
+    // rumore (markup, identificatori costruiti, classi, CSS) lo togliono le
+    // liste dichiarate qui sopra — misurato: senza di loro erano 222 candidati,
+    // con loro sono una manciata.
+    /\{\s*(`[^`]*\$\{[^`]*`)\s*\}/g,
+  ];
+  for (const re of POSIZIONI) {
+    for (const m of testo.matchAll(re)) {
+      for (const pezzo of m.slice(1).filter(Boolean)) {
+        for (const l of pezzo.match(/"(?:[^"\\]|\\.)*"|`[^`]*`/g) || []) {
+          // ⚠️ Nei template l'interpolazione si SVUOTA prima di giudicare.
+          // `Diario · ${n} ${n === 1 ? "giorno" : "giorni"}` conteneva `===`, e
+          // la regola «frammenti di codice» buttava via tutta la frase: «Diario»
+          // è rimasto in italiano a schermo. Svuotata, la frase si legge —
+          // e i dati SVG (`M ${x} ${y} Q …`) restano senza due lettere di
+          // seguito, quindi cadono da soli.
+          let s = l.slice(1, -1);
+          if (l.startsWith("`")) {
+            let prima;
+            do { prima = s; s = s.replace(/\$\{[^{}]*\}/g, "{…}"); } while (s !== prima);
+          }
+          // Servono almeno due lettere di seguito: `12px`, `#fff` e `%s` non
+          // sono scritte. Il resto del rumore lo dice RUMORE, che si legge.
+          if (!/\p{L}{2}/u.test(s)) continue;
+          // ⚠️ In QUESTE posizioni un letterale che è una CHIAVE del dizionario
+          // è voluto: l'italiano È la chiave, e per le etichette dei mezzi e i
+          // nomi dei continenti la stringa italiana resta nel codice come
+          // identificatore («visitedContinents.has("Europa")») e si traduce solo
+          // dove si mostra. Tradurre il valore romperebbe la logica.
+          // Il buco che questo lascia — una chiave in posizione di etichetta a
+          // cui manca il `t()` al punto di visualizzazione — lo copre la rete
+          // viva: quelle parole sono nelle sue spie.
+          if (CHIAVI.has(s)) continue;
+          aggiungi(s, m.index, RUMORE_POSIZIONI);
+        }
+      }
+    }
+  }
 
   // Il testo fra tag: tutto quello che sta fra un `>` e il `<` successivo, a
   // cavallo degli a-capo e **con le espressioni svuotate**. Ogni riga del pezzo
@@ -222,7 +388,12 @@ function candidatiDelFile(contenuto) {
       dentro += riga.length + 1;
     }
   }
-  return fuori.sort((a, b) => a.riga - b.riga);
+  // Una stessa scritta può cadere in DUE posizioni (un ternario dentro un
+  // attributo, per esempio): si conta una volta.
+  const viste = new Set();
+  return fuori
+    .filter(c => { const k = c.riga + " " + c.testo; if (viste.has(k)) return false; viste.add(k); return true; })
+    .sort((a, b) => a.riga - b.riga);
 }
 
 // ── Autoprova: la rete deve saper fallire ──────────────────────────────────
@@ -250,6 +421,35 @@ if (process.argv.includes("--autoprova")) {
     [`<p>`, `  Non è stato possibile caricare la mappa. Riprova più`, `  tardi.`, `</p>`],
     // testo che comincia dopo una GRAFFA chiusa: il caso «Accedi con Google»
     [`{busy ? <Loader2 /> : <GoogleG size={16} />}`, `Accedi con Google`, `</button>`],
+
+    // ⚠️ I CINQUE CASI CHE MI HANNO FREGATO. Aggiungendo il rumore per le
+    // posizioni l'avevo messo nel filtro comune, e le regole del CSS hanno
+    // accecato la ricerca del testo JSX: «tutte parole minuscole» è la forma di
+    // una classe Tailwind ED è la forma di «non hai viaggiato»; «comincia con un
+    // numero» è la forma di `1.5px solid #60a5fa` ED è la forma di «12 tappe in
+    // tre paesi». Cinque su cinque non trovate, e l'autoprova taceva perché
+    // questi casi non c'erano. Ora ci sono.
+    [`<p>non hai viaggiato</p>`],
+    [`<p>hai fatto solo gite</p>`],
+    [`<div>2026 e stato un bell'anno</div>`],
+    [`<span>12 tappe in tre paesi</span>`],
+    [`<p>tuo archivio</p>`],
+
+    // Le POSIZIONI fuori dal JSX: la famiglia che la revisione ha aggiunto.
+    // Senza questi casi la rete potrebbe perderle tutte in silenzio.
+    //
+    // ⚠️ Le frasi qui sono INVENTATE di proposito. La prima versione usava le
+    // scritte vere («Comprimi le note», «Aereo»…) e dopo averle tradotte
+    // l'autoprova ha cominciato a fallire: diventate chiavi del dizionario,
+    // in posizione di etichetta vengono saltate — che è il comportamento
+    // giusto. Una prova che usa il dato vero smette di provare la REGOLA.
+    [`<button aria-label={aperto ? "Chiudi lo sportellino" : "Apri lo sportellino"}>`],
+    [`  barca: { color: "#378ADD", label: "Zattera", Icon: Raft },`],
+    [`  if (m < 60) return "qualche istante fa";`],
+    [`  ctx.fillText("DOVE SEI ANDATO", P, 300);`],
+    [`  1: "Da dimenticare", 2: "Discreto",`],
+    [`  throw new Error("Nessuna provincia disponibile");`],
+    [`<span>{modo === "frame" ? "Ritaglia" : "Ordina"}</span>`],
   ];
   const daIgnorare = [
     [`<div className="flex items-center">`],
@@ -273,6 +473,13 @@ if (process.argv.includes("--autoprova")) {
     [`<p>`, `  {t("Aggiungi il tuo primo viaggio.")}`, `</p>`],
     // un indirizzo: le due barre non sono un commento
     [`const u = "https://flagcdn.com/w80/it.png";`],
+    // il CSS e le classi nelle POSIZIONI: rumore, ma solo lì
+    [`  style={{ border: aperto ? "1.5px solid #60a5fa" : "none" }}>`],
+    [`  boxShadow: x ? "0 0 0 2px #60a5fa, 0 0 24px rgba(96,165,250,0.35)" : "none",`],
+    [`  className={v ? "bg-primary/10 border-primary/40 text-primary" : "bg-muted/20 border-border"}>`],
+    [`  const vista = salvata === "griglia" ? "griglia" : "lista";`],
+    [`  transition: "cx 190ms cubic-bezier(.2,.8,.25,1)",`],
+    [`  if (!ctx) throw new Error("useCloud deve stare dentro <CloudProvider>");`],
     // fra un `}` di fine funzione e il primo `<` di un generico c'è codice
     [`}`, ``, `export function paeseDelPunto(lat: number): Map<string, number> {`],
     [`  }`, `  return (`, `    <div>{t("Ciao")}</div>`],

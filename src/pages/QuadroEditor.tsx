@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, memo } from "react";
-import { useT } from "@/lib/settings";
+import { useT, tr } from "@/lib/settings";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, ZoomIn, ZoomOut, Download, Hand, Move, RotateCcw, Undo2, Redo2, Loader2 } from "lucide-react";
 import { loadTrips } from "@/lib/storage";
@@ -41,20 +41,20 @@ const MIN_SIZE = 120;      // lato minimo di una tela (px canvas)
 // proporzione √2, cambia la risoluzione; long-edge tenuto ≤4000 per non
 // saturare la memoria del canvas su mobile.
 const PRINT_FORMATS = [
-  { id: "a3v",  label: "A3 verticale", w: 2480, h: 3508 },
-  { id: "a2v",  label: "A2 verticale", w: 2828, h: 4000 },
-  { id: "sq",   label: "Quadrato",     w: 3000, h: 3000 },
-  { id: "land", label: "Orizzontale",  w: 3508, h: 2480 },
+  { id: "a3v",  get label() { return tr("A3 verticale"); }, w: 2480, h: 3508 },
+  { id: "a2v",  get label() { return tr("A2 verticale"); }, w: 2828, h: 4000 },
+  { id: "sq",   get label() { return tr("Quadrato"); },     w: 3000, h: 3000 },
+  { id: "land", get label() { return tr("Orizzontale"); },  w: 3508, h: 2480 },
 ];
 
 // Palette di stampa. bg = fondo pagina/tele, ink = terre/confini/linee/stelle.
 // "Carta" ha fondo chiaro: in export la firma "By" diventa scura + logo invertito
 // (gestito in posterSvg via isLightColor).
 const PALETTES = [
-  { id: "notte", label: "Notte", bg: "#05080f", ink: "#ffffff" },
-  { id: "oro",   label: "Oro",   bg: "#0a0700", ink: "#fbbf24" },
-  { id: "blu",   label: "Blu",   bg: "#02122a", ink: "#7dd3fc" },
-  { id: "carta", label: "Carta", bg: "#faf7f0", ink: "#1a1a1a" },
+  { id: "notte", get label() { return tr("Notte"); }, bg: "#05080f", ink: "#ffffff" },
+  { id: "oro",   get label() { return tr("Oro"); },   bg: "#0a0700", ink: "#fbbf24" },
+  { id: "blu",   get label() { return tr("Blu"); },   bg: "#02122a", ink: "#7dd3fc" },
+  { id: "carta", get label() { return tr("Carta"); }, bg: "#faf7f0", ink: "#1a1a1a" },
 ];
 
 /** Rasterizza una stringa SVG in un PNG (Blob) alle dimensioni date. L'SVG è
@@ -655,9 +655,9 @@ export default function QuadroEditor() {
 
         <button type="button" onClick={() => setMode(m => (m === "arrange" ? "frame" : "arrange"))}
           style={btn(mode === "frame" ? { background: "rgba(96,165,250,0.16)", borderColor: "#60a5fa", color: "#60a5fa" } : undefined)}
-          title={mode === "frame" ? "Modalità: Inquadra (trascina = pan del contenuto)" : "Modalità: Disponi (trascina = sposta la tela)"}>
+          title={mode === "frame" ? t("Modalità: Inquadra (trascina = pan del contenuto)") : t("Modalità: Disponi (trascina = sposta la tela)")}>
           {mode === "frame" ? <Hand style={{ width: 15, height: 15 }} /> : <Move style={{ width: 15, height: 15 }} />}
-          {mode === "frame" ? "Inquadra" : "Disponi"}
+          {mode === "frame" ? t("Inquadra") : t("Disponi")}
         </button>
 
         <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.12)", margin: "0 2px" }} />
@@ -731,7 +731,7 @@ export default function QuadroEditor() {
               <div style={{ display: "flex", gap: 8 }}>
                 <button type="button" onClick={downloadPng} disabled={exporting}
                   style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, background: "#60a5fa", border: "none", borderRadius: 9, padding: "9px", fontSize: 13, fontWeight: 700, color: "#04203f", cursor: exporting ? "default" : "pointer" }}>
-                  <Download style={{ width: 14, height: 14 }} /> {exporting ? "Creazione…" : "PNG"}
+                  <Download style={{ width: 14, height: 14 }} /> {exporting ? t("Creazione…") : "PNG"}
                 </button>
                 <button type="button" onClick={downloadSvg}
                   style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, background: "transparent", border: "0.5px solid #2a3f5f", borderRadius: 9, padding: "9px", fontSize: 13, fontWeight: 600, color: "#f0f4ff", cursor: "pointer" }}>
@@ -749,8 +749,8 @@ export default function QuadroEditor() {
       {/* Suggerimento */}
       <div style={{ padding: "6px 14px", fontSize: 11.5, color: "rgba(255,255,255,0.6)", borderBottom: "0.5px solid rgba(255,255,255,0.06)" }}>
         {mode === "frame"
-          ? "Trascina dentro una tela per inquadrare · rotellina, pizzico o ＋− per lo zoom · «Disponi» per spostare e ridimensionare"
-          : "Trascina una tela per spostarla · angoli per ridimensionare · rotellina, pizzico o ＋− per lo zoom · «Inquadra» per il pan del contenuto"}
+          ? t("Trascina dentro una tela per inquadrare · rotellina, pizzico o ＋− per lo zoom · «Disponi» per spostare e ridimensionare")
+          : t("Trascina una tela per spostarla · angoli per ridimensionare · rotellina, pizzico o ＋− per lo zoom · «Inquadra» per il pan del contenuto")}
       </div>
 
       {/* Canvas */}

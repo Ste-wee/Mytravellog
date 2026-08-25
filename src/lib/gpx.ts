@@ -1,4 +1,5 @@
 import { distanceKm } from "@/lib/geo";
+import { tr } from "@/lib/settings";
 import { haversineKm } from "@/lib/haversine";
 
 /**
@@ -18,7 +19,7 @@ export interface GpxData {
 /** Estrae i punti da un GPX (trkpt → rtept → wpt come fallback). */
 export function parseGpx(xml: string): GpxData {
   const doc = new DOMParser().parseFromString(xml, "application/xml");
-  if (doc.getElementsByTagName("parsererror").length > 0) throw new Error("File GPX non valido");
+  if (doc.getElementsByTagName("parsererror").length > 0) throw new Error(tr("File GPX non valido"));
   let nodes = Array.from(doc.getElementsByTagName("trkpt"));
   if (nodes.length === 0) nodes = Array.from(doc.getElementsByTagName("rtept"));
   if (nodes.length === 0) nodes = Array.from(doc.getElementsByTagName("wpt"));
