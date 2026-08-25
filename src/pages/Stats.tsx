@@ -28,7 +28,7 @@ const Stats = () => {
    * L'unica sezione che riceve TUTTO è `ComeViaggi`: separa lei i due mucchi,
    * perché è il posto dove le gite vengono nominate e spiegate.
    */
-  const { viaggi } = separaGite(trips);
+  const { viaggi, gite } = separaGite(trips);
   const t = useT();
 
 
@@ -96,7 +96,7 @@ const Stats = () => {
 
           <TravelHighlights trips={viaggi} />
 
-          <TravelHeatmap trips={viaggi} />
+          <TravelHeatmap trips={viaggi} gite={gite} />
         </div>
       )}
     </main>

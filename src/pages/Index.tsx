@@ -475,15 +475,12 @@ function HomeInner() {
             padding:"0 12px 8px", fontSize:11.5, color:"rgba(255,255,255,0.5)" }}>
             <Sun className="w-[12px] h-[12px]" style={{ color:"#fbbf24" }} aria-hidden/>
             <span>
-              {/* «e inoltre» presuppone qualcosa PRIMA: con soli viaggi in
-                  giornata la riga dei quattro numeri non c'è (sarebbero quattro
-                  zeri) e il connettivo restava appeso al nulla — visto in
-                  revisione, a schermo diceva «e inoltre 2 gite» come prima
-                  cosa della pagina. */}
-              {(() => {
-                const quante = t(stats.gite === 1 ? "{quante} gita in giornata" : "{quante} gite in giornata", { quante: stats.gite });
-                return stats.trips > 0 ? t("e inoltre {gite}", { gite: quante }) : quante;
-              })()}
+              {/* NB: qui c'era «e inoltre», un connettivo verso la riga dei
+                  numeri qui sopra. Rimosso su richiesta di Stefano: la riga si
+                  legge meglio asciutta, e non deve più appoggiarsi a qualcosa
+                  che potrebbe non esserci (con sole gite quei numeri sono
+                  quattro zeri e la riga non viene disegnata affatto). */}
+              {t(stats.gite === 1 ? "{quante} gita in giornata" : "{quante} gite in giornata", { quante: stats.gite })}
               {stats.giteCitta > 0 && " · " + t("{quante} città", { quante: stats.giteCitta })}
               {stats.giteKm >= 1 && ` · ${fmtDistance(stats.giteKm, distanceUnit)}`}
             </span>

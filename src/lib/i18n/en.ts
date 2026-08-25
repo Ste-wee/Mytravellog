@@ -37,7 +37,6 @@ export const en = {
     "Your stats: {voce}. Show the countries you have visited on the globe",
   "Le tue statistiche: {voce}. Torna ai pallini dei viaggi sul globo":
     "Your stats: {voce}. Back to the trip dots on the globe",
-  "e inoltre": "plus",
   "gita": "day trip",
   "gite": "day trips",
   "in giornata": "same day",
@@ -210,7 +209,6 @@ export const en = {
   "{quanti} paesi": "{quanti} countries",
   "{quanti} città": "{quanti} cities",
   "{quanti} percorsi": "{quanti} travelled",
-  "e inoltre {gite}": "plus {gite}",
   "{quante} città": "{quante} cities",
 
   "🔒 Solo tu puoi leggerli: nel database ogni archivio è legato al suo account, e nessun altro account può aprirlo.":
@@ -432,5 +430,18 @@ export const en = {
   "Ripeti (Ctrl/⌘+Shift+Z)": "Redo (Ctrl/⌘+Shift+Z)",
   "Formato": "Format",
   "Colore": "Colour",
+
+  "GITE IN GIORNATA": "DAY TRIPS",
+
+  "{mese}: nessun giorno di viaggio, {gite}": "{mese}: no travel days, {gite}",
+  "{mese}: {quanti} giorno di viaggio, {gite}": "{mese}: {quanti} travel day, {gite}",
+  "{mese}: {quanti} giorni di viaggio, {gite}": "{mese}: {quanti} travel days, {gite}",
+  "{quante} gita": "{quante} day trip",
+  "{quante} gite": "{quante} day trips",
+  "una gita": "a day trip",
+
+  "{mese} — {quante} gita": "{mese} — {quante} day trip",
+  "{mese} — {quante} gite": "{mese} — {quante} day trips",
+  "Gite in questo mese": "Day trips this month",
 
 } as const;
