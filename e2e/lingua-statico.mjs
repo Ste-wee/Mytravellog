@@ -33,10 +33,21 @@ const SEGNI = [
   /[àèéìòù]/,
   /\b(che|non|più|già|anche|come|quando|dove|perché|questo|questa|quello|tuo|tua|tuoi)\b/i,
 ];
+/**
+ * Le etichette di UNA parola sola.
+ *
+ * ⚠️ Prima venivano scartate in blocco, per non inciampare nei nomi propri e
+ * nelle sigle ("Menu", "NAV·TA", "GPX"). Costo di quella scorciatoia: **sei
+ * scritte italiane rimaste a schermo** — «Itinerario» (l'intestazione del form!),
+ * «Riprova», «Mezzo», «Partenza», «Tela» — con la rete che diceva zero.
+ * Ora si guardano, ma solo contro un elenco chiuso di parole che nell'interfaccia
+ * di quest'app significano qualcosa: nessun falso positivo sui nomi di città.
+ */
+const SINGOLE = /^(annulla|elimina|salva|chiudi|avanti|indietro|tela|tele|partenza|arrivo|titolo|periodo|itinerario|valutazione|motivo|conferma|riprova|aggiungi|rimuovi|apri|modifica|cancella|fatto|oggi|domani|ieri|note|diario|viaggio|viaggi|paese|paesi|città|giorni|notti|tappa|tappe|mezzo|mezzi|casa|globo|misure|lingua|sistema|prenotato|prenotare|gita|gite)$/i;
+
 const sembraItaliano = (s) => {
   const parole = s.trim().split(/\s+/);
-  // Una parola sola non basta a giudicare (nomi propri, sigle, "Menu").
-  if (parole.length < 2) return false;
+  if (parole.length === 1) return SINGOLE.test(parole[0]);
   return SEGNI.some(r => r.test(s));
 };
 
@@ -58,18 +69,27 @@ for (const f of file) {
     const senzaCommento = riga.replace(/\/\/.*$/, "").replace(/\/\*.*?\*\//g, "");
     if (/^\s*[*/]/.test(riga)) return;
 
+    /**
+     * ⚠️ Le chiamate a `t()`/`tr()` si TOLGONO dalla riga prima di cercare, non
+     * si usa la loro presenza per saltare la riga intera: così una riga con una
+     * stringa tradotta E una dimenticata (`aria-label={t("X")} title="Titolo"`)
+     * non passa più liscia. Provato: oggi non ce n'è nessuna, ma la vecchia
+     * versione non l'avrebbe saputo.
+     */
+    const ripulita = senzaCommento
+      .replace(/\b(?:t|tr)\(\s*"[^"]*"[^)]*\)/g, "T()")
+      .replace(/\b(?:t|tr)\(\s*'[^']*'[^)]*\)/g, "T()");
+
     const candidati = [];
     // 1. attributi che finiscono a schermo
-    for (const m of senzaCommento.matchAll(/(?:aria-label|title|placeholder|alt)="([^"]{4,})"/g)) candidati.push(m[1]);
+    for (const m of ripulita.matchAll(/(?:aria-label|title|placeholder|alt)="([^"]{3,})"/g)) candidati.push(m[1]);
     // 2. testo JSX fra tag, sulla stessa riga
-    for (const m of senzaCommento.matchAll(/>([^<>{}\n]{4,})</g)) candidati.push(m[1]);
+    for (const m of ripulita.matchAll(/>([^<>{}\n]{3,})</g)) candidati.push(m[1]);
     // 3. stringhe passate a toast/confirm/alert
-    for (const m of senzaCommento.matchAll(/(?:toast\.\w+|window\.confirm|alert)\(\s*["`]([^"`]{4,})/g)) candidati.push(m[1]);
+    for (const m of ripulita.matchAll(/(?:toast\.\w+|window\.confirm|alert)\(\s*["`]([^"`]{3,})/g)) candidati.push(m[1]);
 
     for (const c of candidati) {
       if (!sembraItaliano(c)) continue;
-      // già tradotta? la riga la passa a t()/tr()
-      if (/\b(t|tr)\(\s*["'`]/.test(senzaCommento)) continue;
       sospette.push({ file: f.replace(/\\/g, "/"), riga: i + 1, testo: c.trim().slice(0, 78) });
     }
   });

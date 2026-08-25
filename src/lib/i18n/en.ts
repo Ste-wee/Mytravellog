@@ -389,4 +389,11 @@ export const en = {
   "non compaiono sul globo né sui poster: senza un punto di partenza non si può disegnare la linea.":
     "do not show on the globe or on the posters: without a starting point the line cannot be drawn.",
 
+  // Etichette di UNA parola: la rete statica non le guardava (pretendeva due
+  // parole per non inciampare nei nomi propri). Sei erano rimaste italiane.
+  "Riprova": "Retry",
+  "Mezzo": "Transport",
+  "Itinerario": "Itinerary",
+  "Tela": "Canvas",
+
 } as const;

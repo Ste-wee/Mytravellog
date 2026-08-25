@@ -700,7 +700,7 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
                   marginTop: 12, padding: "6px 14px", borderRadius: 8,
                   border: "1px solid rgba(96,165,250,0.45)", background: "rgba(96,165,250,0.12)",
                   color: "rgba(191,219,254,0.95)", fontSize: 12, cursor: "pointer",
-                }}>Riprova</button>
+                }}>{t("Riprova")}</button>
               )}
               {visitedList.length > 0 && (
                 <div style={{ marginTop: 8, fontSize: 11 }}>

@@ -171,7 +171,7 @@ const ImportaGpx = () => {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 24 }}>
               <div><label style={label}>Data inizio</label><input type="date" style={field} value={dateStart} onChange={e => setDateStart(e.target.value)} /></div>
               <div><label style={label}>Data fine</label><input type="date" style={field} value={dateEnd} onChange={e => setDateEnd(e.target.value)} /></div>
-              <div><label style={label}>Mezzo</label>
+              <div><label style={label}>{t("Mezzo")}</label>
                 <select style={field} value={mode} onChange={e => setMode(e.target.value as Mode)}>
                   {MODES.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
                 </select>

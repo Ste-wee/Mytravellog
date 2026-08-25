@@ -662,7 +662,7 @@ export default function QuadroEditor() {
 
         <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.12)", margin: "0 2px" }} />
 
-        <button type="button" onClick={addPanel} style={btn()} title={t("Aggiungi una tela")}><Plus style={{ width: 15, height: 15 }} /> Tela</button>
+        <button type="button" onClick={addPanel} style={btn()} title={t("Aggiungi una tela")}><Plus style={{ width: 15, height: 15 }} /> {t("Tela")}</button>
         <button type="button" onClick={deleteSelected} disabled={!selectedId || panels.length <= 1}
           style={btn(!selectedId || panels.length <= 1 ? { opacity: 0.4, cursor: "default" } : undefined)}
           title={panels.length <= 1 ? t("L'ultima tela non si può eliminare") : t("Elimina la tela selezionata")}>

@@ -937,7 +937,7 @@ function RouteHero({
             <div style={{ padding:"10px 14px 8px", borderBottom:"0.5px solid #1a2d4a",
               display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
               <span style={{ fontSize:9, color:"rgba(255,255,255,0.6)", letterSpacing:"1px",
-                textTransform:"uppercase", marginRight:4 }}>Mezzo</span>
+                textTransform:"uppercase", marginRight:4 }}>{t("Mezzo")}</span>
               {TRANSPORT.map(t => (
                 <button key={t.value} type="button" onClick={() => setWpTransport(t.value)}
                   style={{ fontSize:10, padding:"7px 10px", minHeight:30, borderRadius:99, cursor:"pointer",
@@ -1053,7 +1053,7 @@ export function ItineraryPanel(props: RouteHeroProps) {
           <Route className="w-4 h-4" style={{color:"#60a5fa"}}/>
         </div>
         <div>
-          <div className="font-display" style={{ fontSize:15, fontWeight:700, color:"#f0f4ff" }}>Itinerario</div>
+          <div className="font-display" style={{ fontSize:15, fontWeight:700, color:"#f0f4ff" }}>{t("Itinerario")}</div>
           <div style={{ fontSize:11, color:"rgba(255,255,255,0.6)", marginTop:1 }}>
             {/* L'indizio del trascinamento compare solo quando il riordino
                 esiste (≥2 tappe): prima la funzione era invisibile — nulla
@@ -1147,7 +1147,7 @@ export function TripFormFields({
 
           {/* PARTENZA */}
           <div style={{ display:"flex", flexDirection:"column", flex:1, minWidth:0, marginLeft:4 }}>
-            <span style={{ fontSize:9, color:"rgba(255,255,255,0.6)", textTransform:"uppercase", letterSpacing:1 }}>Partenza</span>
+            <span style={{ fontSize:9, color:"rgba(255,255,255,0.6)", textTransform:"uppercase", letterSpacing:1 }}>{t("Partenza")}</span>
             <input type="date"
               // min/max: su desktop l'anno si digita a mano e un refuso tipo
               // "20261" produceva una data che avvelenava biglietto/timeline.
