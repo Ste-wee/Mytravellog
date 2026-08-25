@@ -1,14 +1,16 @@
 import { useCloud } from "@/lib/cloudContext";
-import { useT, localeAttivo } from "@/lib/settings";
+import { useT, tr, localeAttivo } from "@/lib/settings";
 import { GoogleG } from "@/components/GoogleG";
 import { Loader2, Check, AlertTriangle, LogOut } from "lucide-react";
 
 function relativeTime(ms: number): string {
   const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
-  if (s < 10) return "pochi secondi fa";
-  if (s < 60) return `${s} secondi fa`;
+  // `tr` e non `t`: questa è una funzione pura fuori dal componente, dove non
+  // ci sono hook. Legge la lingua attiva dal modulo, come il codice del canvas.
+  if (s < 10) return tr("pochi secondi fa");
+  if (s < 60) return tr("{quanti} secondi fa", { quanti: s });
   const m = Math.round(s / 60);
-  if (m < 60) return `${m} ${m === 1 ? "minuto" : "minuti"} fa`;
+  if (m < 60) return tr(m === 1 ? "{quanti} minuto fa" : "{quanti} minuti fa", { quanti: m });
   return new Date(ms).toLocaleString(localeAttivo(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 

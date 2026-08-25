@@ -515,4 +515,14 @@ export const en = {
   "posizione agganciata ({lat}, {lon})": "position locked ({lat}, {lon})",
   "destinazione": "destination",
 
+
+  // ⚠️ Queste quattro stanno dentro una FUNZIONE, non in un tag: la rete
+  // strutturale guarda testo JSX, attributi e toast, quindi non le vedeva —
+  // e la rete viva nemmeno, perché nel seed non c'è mai stata una
+  // sincronizzazione. In inglese si leggeva «Synced · 2 minuti fa».
+  "pochi secondi fa": "a few seconds ago",
+  "{quanti} secondi fa": "{quanti} seconds ago",
+  "{quanti} minuto fa": "{quanti} minute ago",
+  "{quanti} minuti fa": "{quanti} minutes ago",
+
 } as const;

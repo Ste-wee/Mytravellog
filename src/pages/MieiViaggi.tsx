@@ -57,7 +57,9 @@ export default function MieiViaggi() {
   // Viaggi e gite in giornata, contati a parte come in Home.
   const conteggi = contaViaggiEGite(trips);
   // Viaggi "in programma": vivono in un bucket separato (fuori da statistiche,
-  // globo e recap) ma si vedono e si aprono QUI, in cima ai ricordi.
+  // globo e recap) e si guardano nella loro pagina. Qui servono SOLO per il
+  // conteggio nell'intestazione: la striscia che li mostrava è stata rimossa
+  // perché lo stesso piano si apriva e si organizzava da due schermate.
   const [plans, setPlans] = useState<Trip[]>([]);
   const [search, setSearch] = useState("");
   const [yearFilter, setYearFilter] = useState<string | null>(null);

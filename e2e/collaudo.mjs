@@ -146,8 +146,10 @@ await prova("apre_piano",
   async () => ({ pannello: await page.evaluate(() => /organizzare/i.test(document.body.innerText)) }));
 
 // ── Di nuovo sul diario, per il resto delle interazioni ────────────────────
+// ⚠️ 2600 e non 1600: è il valore su cui questa pagina era stata TARATA quando
+// il collaudo era intermittente. Abbassarlo non fa guadagnare niente di utile.
 await page.goto("http://localhost:8080/#/miei-viaggi", { waitUntil: "load" });
-await page.waitForTimeout(1600);
+await page.waitForTimeout(2600);
 errori = [];
 
 await prova("apre_diario",
