@@ -6,11 +6,9 @@ import { AppHeader } from "@/components/AppHeader";
 import { contaViaggiEGite, separaGite } from "@/lib/gite";
 import { TripCardTicket } from "@/components/TripCardTicket";
 import { TripFlyover } from "@/components/TripFlyover";
-import { PlanCard } from "@/components/PlanCard";
-import { TripPlanner } from "@/components/TripPlanner";
 import { loadTrips, loadPlans, deleteTrip, parseLocalDate, Trip } from "@/lib/storage";
 import { deletePhotosForTrip } from "@/lib/photoStorage";
-import { Search, X, Video, Plane, Plus, Sparkles, Globe2, CalendarClock, ArrowRight, List, LayoutGrid, Sun } from "lucide-react";
+import { Search, X, Video, Plane, Plus, Sparkles, Globe2, List, LayoutGrid, Sun } from "lucide-react";
 import { transportColor } from "@/lib/transport";
 import { useT, tr } from "@/lib/settings";
 
@@ -61,7 +59,6 @@ export default function MieiViaggi() {
   // Viaggi "in programma": vivono in un bucket separato (fuori da statistiche,
   // globo e recap) ma si vedono e si aprono QUI, in cima ai ricordi.
   const [plans, setPlans] = useState<Trip[]>([]);
-  const [openPlanId, setOpenPlanId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [yearFilter, setYearFilter] = useState<string | null>(null);
   const [leavingId, setLeavingId] = useState<string | null>(null);
@@ -244,33 +241,12 @@ export default function MieiViaggi() {
           )}
         </div>
 
-        {/* Striscia-ponte verso "In programma": i piani vivono in un bucket
-            separato (non compaiono qui sotto né nelle statistiche), ma questo è
-            l'hub dell'utente — senza questo richiamo la sezione non si scopre.
-            Mostra il piano più imminente (o "sei tornato?" se già concluso). */}
-        {plans.length > 0 && (
-          <div style={{marginBottom:24}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-              <CalendarClock style={{width:15,height:15,color:"#93c5fd",flexShrink:0}}/>
-              <span style={{fontSize:11,letterSpacing:"1.5px",color:"#93c5fd",fontWeight:600}}>{t("IN PROGRAMMA")}</span>
-              <div style={{flex:1,height:1,background:"rgba(147,197,253,0.25)"}}/>
-              <Link to="/in-programma" style={{flexShrink:0,fontSize:11,fontWeight:600,color:"#93c5fd",textDecoration:"none",display:"inline-flex",alignItems:"center",gap:4}}>
-                {t("Programma")} <ArrowRight style={{width:12,height:12}}/>
-              </Link>
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:12}}>
-              {plans.map(p => <PlanCard key={p.id} plan={p} onOpen={() => setOpenPlanId(p.id)} />)}
-            </div>
-          </div>
-        )}
-
-        {/* GITE IN GIORNATA — striscia in ALTO, accanto a "In programma".
+        {/* GITE IN GIORNATA — striscia in ALTO, la prima cosa dopo il titolo.
             ⚠️ Prima stava in fondo, dopo tutti gli anni. Misurato con
             l'archivio di Stefano (28 viaggi): **8,4 schermate** di scorrimento
             in vista Lista, 2,5 in Griglia. La sezione esisteva e non l'avrebbe
             trovata nessuno — lui infatti l'ha chiesta di nuovo. Qui sta dove si
-            guarda, e usa il linguaggio che l'app ha già per "In programma":
-            titolo con filetto, poi le card. Non è dentro gli anni perché sono
+            guarda: titolo con filetto, poi le card. Non è dentro gli anni perché sono
             un'altra cosa (fuori da statistiche, recap e record).
             ⚠️ Restano FILTRATE come tutto il resto (`filtered` a monte): con
             l'anno 2017 selezionato si vede la gita del 2017, non tutte. */}
@@ -489,16 +465,6 @@ export default function MieiViaggi() {
       {companionMap && (
         <TripFlyover lifeMap onClose={() => setCompanionMap(null)}
           trips={trips.filter(t => (t.companions ?? []).some(c => c.toLowerCase() === companionMap.toLowerCase()))} />
-      )}
-      {/* Cose da organizzare del viaggio in programma, senza cambiare
-          pagina. onChanged ricarica ANCHE i viaggi: "Segna come fatto" sposta
-          il piano nel diario, e la lista qui sotto deve accorgersene. */}
-      {openPlanId && plans.some(p => p.id === openPlanId) && (
-        <TripPlanner
-          plan={plans.find(p => p.id === openPlanId)!}
-          onClose={() => setOpenPlanId(null)}
-          onChanged={() => { setPlans(loadPlans()); setTrips(loadTrips()); }}
-        />
       )}
     </main>
   );

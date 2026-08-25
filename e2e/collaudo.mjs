@@ -107,7 +107,7 @@ const visita = async (nome, hash, attese) => {
 };
 
 await visita("home", "#/", ["NAV·TA"]);
-await visita("miei-viaggi", "#/miei-viaggi", ["IN PROGRAMMA", "Barcellona", "Roma", "Diario", "Vacanza", "Da prenotare"]);
+await visita("miei-viaggi", "#/miei-viaggi", ["1 in programma", "Roma", "Diario", "Vacanza"]);
 await visita("statistiche", "#/statistiche", ["Highlights di viaggio", "Distanze", "Quando viaggi", "Come viaggi"]);
 await visita("in-programma", "#/in-programma", ["Barcellona", "DA ORGANIZZARE", "Da prenotare"]);
 await visita("nuovo-viaggio", "#/nuovo-viaggio", ["Itinerario", "Periodo", "Valutazione", "Compagni"]);
@@ -118,10 +118,6 @@ await visita("recap", "#/recap", ["Condividi il recap", "Riproduci"]);
 await visita("editor-quadro", "#/editor-quadro", ["Disponi", "Inquadra"]);
 
 // ── Interazioni chiave ──────────────────────────────────────────────────────
-errori = [];
-await page.goto("http://localhost:8080/#/miei-viaggi", { waitUntil: "load" });
-await page.waitForTimeout(2600);
-
 const prova = async (nome, apri, verifica) => {
   await apri();
   // Come sopra: si aspetta che il pannello ci sia, non 1100 ms sperando.
@@ -130,6 +126,11 @@ const prova = async (nome, apri, verifica) => {
   await page.keyboard.press("Escape");
   await page.waitForTimeout(700);
 };
+
+// ── I piani: si toccano in "In programma", non più in "I miei viaggi" ──────
+await page.goto("http://localhost:8080/#/in-programma", { waitUntil: "load" });
+await page.waitForTimeout(1600);
+errori = [];
 
 // La spunta "prenotato" ha preso il posto delle spese: un tocco cambia stato
 // e SALVA subito nel piano, senza aprire nessun pannello.
@@ -140,13 +141,18 @@ await prova("spunta_prenotato",
     salvato: await page.evaluate(() => (localStorage.getItem("atlas.plans.v1") || "").includes('"booked":true')),
   }));
 
-await prova("apre_diario",
-  () => page.getByRole("button", { name: /Apri il diario/i }).first().click(),
-  async () => ({ pannello: await page.evaluate(() => /diario di bordo|Colazione/.test(document.body.innerText)) }));
-
 await prova("apre_piano",
   () => page.getByRole("button", { name: /Barcellona/i }).first().click(),
   async () => ({ pannello: await page.evaluate(() => /organizzare/i.test(document.body.innerText)) }));
+
+// ── Di nuovo sul diario, per il resto delle interazioni ────────────────────
+await page.goto("http://localhost:8080/#/miei-viaggi", { waitUntil: "load" });
+await page.waitForTimeout(1600);
+errori = [];
+
+await prova("apre_diario",
+  () => page.getByRole("button", { name: /Apri il diario/i }).first().click(),
+  async () => ({ pannello: await page.evaluate(() => /diario di bordo|Colazione/.test(document.body.innerText)) }));
 
 await prova("mappa_della_vita",
   () => page.getByRole("button", { name: /mappa della mia vita/i }).click(),
