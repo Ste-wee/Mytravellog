@@ -176,7 +176,7 @@ export function TripPurposeCompanions({ purpose, setPurpose, companions, setComp
                   color: i === hiEff ? "#60a5fa" : "rgba(255,255,255,0.8)",
                   background: i === hiEff ? "rgba(96,165,250,0.12)" : "none",
                 }}>
-                {n} <span style={{ opacity: 0.4 }}>· già usato</span>
+                {n} <span style={{ opacity: 0.4 }}>{t("· già usato")}</span>
               </button>
             ))}
           </div>

@@ -473,7 +473,7 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
           (flyover già visto). Click sulla parte che sporge → anteprima ingrandita. */}
       {reliefUrl && (
         <button type="button" onClick={() => setReliefOpen(true)}
-          aria-label="Vedi il rilievo 3D del viaggio" title="Rilievo 3D del viaggio"
+          aria-label={t("Vedi il rilievo 3D del viaggio")} title={t("Rilievo 3D del viaggio")}
           style={{
             position:"absolute", top:-30, right:26, zIndex:0,
             width:116, padding:"5px 5px 8px", background:"#fbfbf7",

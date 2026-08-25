@@ -278,7 +278,7 @@ export default function MieiViaggi() {
               placeholder={t("Cerca città, paese, titolo…")}
             />
             {search && (
-              <button onClick={() => setSearch("")} aria-label="Cancella la ricerca" style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.6)"}}>
+              <button onClick={() => setSearch("")} aria-label={t("Cancella la ricerca")} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.6)"}}>
                 <X className="w-3.5 h-3.5"/>
               </button>
             )}
@@ -355,7 +355,7 @@ export default function MieiViaggi() {
                 <div style={{width:48, height:48, borderRadius:"50%", background:"rgba(96,165,250,0.12)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 12px"}}>
                   <Plane style={{width:22, height:22, color:"#60a5fa"}}/>
                 </div>
-                <div className="font-display" style={{fontSize:15, fontWeight:700, color:"#f0f4ff"}}>Nessun viaggio ancora</div>
+                <div className="font-display" style={{fontSize:15, fontWeight:700, color:"#f0f4ff"}}>{t("Nessun viaggio ancora")}</div>
                 <p style={{fontSize:12, color:"rgba(255,255,255,0.6)", lineHeight:1.5, margin:"6px 0 16px"}}>
                   Aggiungi il tuo primo viaggio: comparirà qui, sul globo e nelle statistiche.
                 </p>

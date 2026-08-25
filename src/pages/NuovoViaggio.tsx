@@ -1,5 +1,6 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
 import { useEffect, useRef, useState } from "react";
+import { useT, useSettings, tr } from "@/lib/settings";
 import { AppHeader } from "@/components/AppHeader";
 import { useNavigate } from "react-router-dom";
 import { fetchElevation, fetchTemperature, fetchRegion, fetchDrivingRoute, mergeRegions, distanceKm, GeoResult } from "@/lib/geo";
@@ -9,7 +10,6 @@ import { followsRoad } from "@/lib/transport";
 import { addTrip, loadTrips, formatTripDate, todayLocalISO, Trip } from "@/lib/storage";
 import { trovaDuplicato } from "@/lib/duplicati";
 import { createPortal } from "react-dom";
-import { useSettings, tr } from "@/lib/settings";
 import { sequentialMap, moveItem } from "@/lib/utils";
 import { inserisciRientri } from "@/lib/base";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ import { TripPurposeCompanions } from "@/components/TripPurposeCompanions";
 import { CalendarClock, ArrowRight } from "lucide-react";
 
 const NuovoViaggio = () => {
+  const t = useT();
   const navigate = useNavigate();
   const s = useSettings();
 
@@ -329,7 +330,7 @@ const NuovoViaggio = () => {
                 borderRadius:10, padding:"9px 12px", cursor:"pointer", color:"#f0f4ff", fontSize:12,
               }}>
               <CalendarClock style={{width:15,height:15,color:"#fbbf24",flexShrink:0}}/>
-              <span style={{flex:1,minWidth:0}}>Data futura: è un viaggio in programma?</span>
+              <span style={{flex:1,minWidth:0}}>{t("Data futura: è un viaggio in programma?")}</span>
               <span style={{flexShrink:0,display:"inline-flex",alignItems:"center",gap:4,color:"#93c5fd",fontWeight:600}}>
                 Programmalo <ArrowRight style={{width:12,height:12}}/>
               </span>
@@ -346,7 +347,7 @@ const NuovoViaggio = () => {
           un antenato con transform si ancora all'antenato, non allo schermo
           (lezione della card Home). */}
       {duplicato && createPortal(
-        <div role="alertdialog" aria-label="Esiste già un viaggio simile"
+        <div role="alertdialog" aria-label={t("Esiste già un viaggio simile")}
           style={{ position:"fixed", left:12, right:12, bottom:16, zIndex:130, background:"#0b1524",
             border:"0.5px solid #b45309", borderRadius:16, padding:16, boxShadow:"0 12px 40px rgba(0,0,0,0.5)",
             maxWidth:560, margin:"0 auto" }}>

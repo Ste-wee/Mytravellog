@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useT } from "@/lib/settings";
+import { useT, useSettings } from "@/lib/settings";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Trip, updatePlan, deletePlan, promotePlanToTrip } from "@/lib/storage";
@@ -7,7 +7,6 @@ import { moveItem } from "@/lib/utils";
 import { inserisciRientri } from "@/lib/base";
 import { GeoResult } from "@/lib/geo";
 import { usePlaceSearch } from "@/lib/usePlaceSearch";
-import { useSettings } from "@/lib/settings";
 import { ItineraryPanel, Waypoint, TransportMode } from "@/components/TripFormParts";
 import { X, Plus, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";

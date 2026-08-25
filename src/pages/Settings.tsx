@@ -1,8 +1,7 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
 import { AppHeader } from "@/components/AppHeader";
-import { useT } from "@/lib/settings";
+import { useT, useSettings, DistanceUnit, TemperatureUnit, AutoRotate, HomeCity } from "@/lib/settings";
 import { MapPin, Search, X, Ruler, RotateCw, CircleDot, UserCircle, Languages } from "lucide-react";
-import { useSettings, DistanceUnit, TemperatureUnit, AutoRotate, HomeCity } from "@/lib/settings";
 import { LINGUE, type PreferenzaLingua } from "@/lib/i18n";
 import { GeoResult } from "@/lib/geo";
 import { usePlaceSearch } from "@/lib/usePlaceSearch";

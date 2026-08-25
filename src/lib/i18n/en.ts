@@ -335,4 +335,58 @@ export const en = {
   "L'ultima tela non si può eliminare": "The last canvas cannot be deleted",
   "Elimina la tela selezionata": "Delete the selected canvas",
 
+  // ── La coda: schermate secondarie che il collaudo dal vivo non visita ─────
+  // Trovate da `npm run lingua:statico`, che legge i sorgenti invece di
+  // aspettare che qualcuno apra la schermata giusta.
+  "Mappa dei continenti visitati": "Map of the continents visited",
+  "Caricamento mappa…": "Loading map…",
+  "Troppe richieste al servizio dei confini.": "Too many requests to the borders service.",
+  "Aspetta qualche minuto.": "Wait a few minutes.",
+  "Sei senza connessione.": "You are offline.",
+  "I confini si scaricano quando torni online.": "Borders download when you are back online.",
+  "Mappa non disponibile per questo paese.": "No map available for this country.",
+  "Chiudi la scelta sul globo": "Close the globe picker",
+  "Scegli la tappa": "Pick the stop",
+  "Nome della tappa": "Stop name",
+  "Da dove parti?": "Where do you set off from?",
+  "Ogni viaggio parte da casa: da qui nascono le linee del globo e i tuoi poster.":
+    "Every trip starts from home: that is where the globe lines and your posters come from.",
+  "La tua città…": "Your city…",
+  "Cerca la tua città di partenza": "Search for your starting city",
+  "Città trovate": "Cities found",
+  "più o meno": "roughly",
+  "il giro del mondo": "around the world",
+  "Vedi il rilievo 3D del viaggio": "See the 3D relief of the trip",
+  "Rilievo 3D del viaggio": "3D relief of the trip",
+  "Il diario di bordo è ancora vuoto.": "The logbook is still empty.",
+  "IL MOMENTO": "THE MOMENT",
+  "Leggi o scrivi il diario": "Read or write the diary",
+  "Scegli il mezzo": "Pick the transport",
+  "· già usato": "· already used",
+  "Leggo il percorso…": "Reading the route…",
+  "Città di partenza": "Starting city",
+  "Città di arrivo": "Arrival city",
+  "Titolo del viaggio": "Trip title",
+  "Partenza": "Start",
+  "Arrivo": "Arrival",
+  "Titolo": "Title",
+  "Nuovo viaggio in programma": "New planned trip",
+  "Cambia destinazione": "Change destination",
+  "Dove vuoi andare?": "Where do you want to go?",
+  "Nessun viaggio in programma.": "No planned trips.",
+  "Programma la tua prossima avventura e segna le cose da fare.":
+    "Plan your next adventure and note the things to do.",
+  "Pagina non trovata": "Page not found",
+  "Data futura: è un viaggio in programma?": "Future date: is this a planned trip?",
+  "Esiste già un viaggio simile": "A similar trip already exists",
+  "Ripristina il layout iniziale": "Reset the initial layout",
+  "Qui ritagli la mappa dei tuoi viaggi in un quadro a più tele — ma non c'è ancora nessun viaggio da disegnare.":
+    "Here you crop the map of your trips into a multi-canvas picture — but there is no trip to draw yet.",
+
+  "Non l'hai mai indicata, così": "You have never set it, so",
+  "non compare sul globo né sui poster: senza un punto di partenza non si può disegnare la linea.":
+    "does not show on the globe or on the posters: without a starting point the line cannot be drawn.",
+  "non compaiono sul globo né sui poster: senza un punto di partenza non si può disegnare la linea.":
+    "do not show on the globe or on the posters: without a starting point the line cannot be drawn.",
+
 } as const;

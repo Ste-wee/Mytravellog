@@ -344,7 +344,7 @@ function HomeInner() {
                         {stopChain(selectedTrip) ?? `${selectedTrip.city}, ${selectedTrip.country}`}
                       </div>
                     </div>
-                    <button onClick={() => setSelectedId(null)} aria-label="Chiudi scheda viaggio"
+                    <button onClick={() => setSelectedId(null)} aria-label={t("Chiudi scheda viaggio")}
                       style={{width:24, height:24, background:"none", border:"none", cursor:"pointer", color:"rgba(255,255,255,0.6)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0}}>
                       <X style={{width:14, height:14}}/>
                     </button>
@@ -507,7 +507,7 @@ function HomeInner() {
                 <h2 className="font-bold text-base">{selectedCity.name}</h2>
                 <p className="text-xs text-muted-foreground">{selectedCity.country}</p>
               </div>
-              <button onClick={() => setSelectedCity(null)} aria-label="Chiudi scheda città"
+              <button onClick={() => setSelectedCity(null)} aria-label={t("Chiudi scheda città")}
                 className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
                 <X className="w-4 h-4 text-muted-foreground" />
               </button>

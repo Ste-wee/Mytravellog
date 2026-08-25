@@ -122,8 +122,8 @@ const InProgramma = () => {
         ) : (
           <div style={{ background: "#0b1a33", border: "0.5px solid #1a2d4a", borderRadius: 12, padding: 16, marginBottom: 24 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f4ff" }}>Nuovo viaggio in programma</div>
-              <button type="button" onClick={resetForm} aria-label="Annulla"
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f4ff" }}>{t("Nuovo viaggio in programma")}</div>
+              <button type="button" onClick={resetForm} aria-label={t("Annulla")}
                 style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer", padding: 2 }}>
                 <X style={{ width: 18, height: 18 }} />
               </button>
@@ -134,14 +134,14 @@ const InProgramma = () => {
               <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(96,165,250,0.12)", border: "0.5px solid rgba(96,165,250,0.35)", borderRadius: 8, padding: "8px 10px", marginBottom: 10 }}>
                 <MapPin style={{ width: 15, height: 15, color: "#93c5fd" }} />
                 <span style={{ fontSize: 13, color: "#f0f4ff", flex: 1 }}>{dest.name}, {dest.country}</span>
-                <button type="button" onClick={() => { setDest(null); setQuery(""); }} aria-label="Cambia destinazione"
+                <button type="button" onClick={() => { setDest(null); setQuery(""); }} aria-label={t("Cambia destinazione")}
                   style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer", padding: 2 }}>
                   <X style={{ width: 15, height: 15 }} />
                 </button>
               </div>
             ) : (
               <div style={{ position: "relative", marginBottom: 10 }}>
-                <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Dove vuoi andare?" autoFocus
+                <input value={query} onChange={e => setQuery(e.target.value)} placeholder={t("Dove vuoi andare?")} autoFocus
                   style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "0.5px solid #1a2d4a", borderRadius: 8, padding: "9px 11px", fontSize: 13, color: "#f0f4ff", outline: "none", fontFamily: "inherit" }} />
                 {results.length > 0 && (
                   <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 5, marginTop: 4, background: "#0d1f3d", border: "0.5px solid #1a2d4a", borderRadius: 8, overflow: "hidden" }}>
@@ -183,8 +183,8 @@ const InProgramma = () => {
         {plans.length === 0 ? (
           <div style={{ textAlign: "center", padding: "50px 20px 12px", color: "rgba(255,255,255,0.6)" }}>
             <CalendarClock style={{ width: 40, height: 40, margin: "0 auto 12px", opacity: 0.4 }} />
-            <div style={{ fontSize: 14 }}>Nessun viaggio in programma.</div>
-            <div style={{ fontSize: 12, marginTop: 4 }}>Programma la tua prossima avventura e segna le cose da fare.</div>
+            <div style={{ fontSize: 14 }}>{t("Nessun viaggio in programma.")}</div>
+            <div style={{ fontSize: 12, marginTop: 4 }}>{t("Programma la tua prossima avventura e segna le cose da fare.")}</div>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

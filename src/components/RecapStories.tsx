@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, ReactNode } from "react";
-import { useT } from "@/lib/settings";
-import { localeAttivo } from "@/lib/settings";
+import { useT, localeAttivo } from "@/lib/settings";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { YearRecap } from "@/lib/recap";
@@ -42,7 +41,7 @@ export function RecapStories({ recap: r, fmt, flagUrl, onClose }: { recap: YearR
         <span style={{ fontSize: 34, fontWeight: 700, color: "#fbbf24" }}>{/mi$/i.test(fmt.dist(r.km)) ? "mi" : "km"}</span>
       </div>
       {aroundWorld >= 0.005 && (
-        <div style={{ ...sub, marginTop: 18 }}>più o meno <b style={{ color: "#fff" }}>{aroundWorld.toFixed(2).replace(".", ",")}×</b> il giro del mondo</div>
+        <div style={{ ...sub, marginTop: 18 }}>{t("più o meno")} <b style={{ color: "#fff" }}>{aroundWorld.toFixed(2).replace(".", ",")}×</b> {t("il giro del mondo")}</div>
       )}
     </div>
   );

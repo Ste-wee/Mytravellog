@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/settings";
 import { createPortal } from "react-dom";
 import { Trip } from "@/lib/storage";
 import { polygonsOf } from "@/lib/worldAtlas";
@@ -524,6 +525,7 @@ function collectVisitedRegions(trips: Trip[], countryCode?: string): { name: str
 }
 
 export function CountryMapModal({ countryCode, countryName, trips, onClose }: Props) {
+  const t = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [loading, setLoading] = useState(true);
   // Non basta "c'è stato un errore": serve il PERCHÉ, per non dare la colpa
@@ -681,15 +683,15 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
         {/* Map */}
         <div style={{ flex: 1, padding: 16, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300 }}>
           {loading && (
-            <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>Caricamento mappa…</div>
+            <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>{t("Caricamento mappa…")}</div>
           )}
           {error && (
             <div style={{ textAlign: "center", color: "rgba(255,255,255,0.6)", fontSize: 13 }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>{error === "assente" ? "🗺️" : "⏳"}</div>
               <div>
-                {error === "limite" ? (<>Troppe richieste al servizio dei confini.<br/><span style={{ color: "rgba(255,255,255,0.5)" }}>Aspetta qualche minuto.</span></>)
-                  : error === "offline" ? (<>Sei senza connessione.<br/><span style={{ color: "rgba(255,255,255,0.5)" }}>I confini si scaricano quando torni online.</span></>)
-                  : "Mappa non disponibile per questo paese."}
+                {error === "limite" ? (<>{t("Troppe richieste al servizio dei confini.")}<br/><span style={{ color: "rgba(255,255,255,0.5)" }}>{t("Aspetta qualche minuto.")}</span></>)
+                  : error === "offline" ? (<>{t("Sei senza connessione.")}<br/><span style={{ color: "rgba(255,255,255,0.5)" }}>{t("I confini si scaricano quando torni online.")}</span></>)
+                  : t("Mappa non disponibile per questo paese.")}
               </div>
               {/* "Riprova" solo dove riprovare ha senso: se il paese non ha
                   suddivisioni, insistere darebbe sempre lo stesso esito. */}

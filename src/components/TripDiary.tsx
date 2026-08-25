@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useT } from "@/lib/settings";
-import { localeAttivo } from "@/lib/settings";
+import { useT, localeAttivo } from "@/lib/settings";
 import { createPortal } from "react-dom";
 import { Trip, updateTrip, parseLocalDate, isValidDateISO } from "@/lib/storage";
 import { X } from "lucide-react";
@@ -228,7 +227,7 @@ export function TripDiary({ trip, entries, onClose, onSaved }: Props) {
     if (readEntries.length === 0) {
       return (
         <div style={{ textAlign: "center", padding: "56px 16px", color: "rgba(255,255,255,0.55)" }}>
-          <div style={{ fontFamily: MONO, fontSize: 13, lineHeight: 1.7 }}>Il diario di bordo è ancora vuoto.</div>
+          <div style={{ fontFamily: MONO, fontSize: 13, lineHeight: 1.7 }}>{t("Il diario di bordo è ancora vuoto.")}</div>
           <button type="button" onClick={() => setMode("write")}
             style={{ marginTop: 16, padding: "9px 18px", borderRadius: 999, background: "rgba(96,165,250,0.15)", border: "0.5px solid rgba(96,165,250,0.4)", color: "#93c5fd", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
             Inizia a scrivere
@@ -269,7 +268,7 @@ export function TripDiary({ trip, entries, onClose, onSaved }: Props) {
                     }}>
                     {marked ? "★" : "☆"}
                   </button>
-                  {marked && <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "1.5px", color: "rgba(251,191,36,0.8)" }}>IL MOMENTO</span>}
+                  {marked && <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "1.5px", color: "rgba(251,191,36,0.8)" }}>{t("IL MOMENTO")}</span>}
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 13, lineHeight: 1.75, color: "#e6e0d2", marginTop: 7, letterSpacing: ".1px", whiteSpace: "pre-wrap" }}>
                   {e.text}
@@ -302,7 +301,7 @@ export function TripDiary({ trip, entries, onClose, onSaved }: Props) {
             {mode === "read" ? t("Il tuo racconto, giorno per giorno") : t("Scrivi il racconto giorno per giorno · si salva da solo")}
           </div>
         </div>
-        <div role="group" aria-label="Leggi o scrivi il diario" style={{ flexShrink: 0, display: "flex", background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: 2 }}>
+        <div role="group" aria-label={t("Leggi o scrivi il diario")} style={{ flexShrink: 0, display: "flex", background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: 2 }}>
           {(["read", "write"] as const).map(m => (
             <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}
               style={{

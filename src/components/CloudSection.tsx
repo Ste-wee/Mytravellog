@@ -1,6 +1,5 @@
 import { useCloud } from "@/lib/cloudContext";
-import { useT } from "@/lib/settings";
-import { localeAttivo } from "@/lib/settings";
+import { useT, localeAttivo } from "@/lib/settings";
 import { GoogleG } from "@/components/GoogleG";
 import { Loader2, Check, AlertTriangle, LogOut } from "lucide-react";
 

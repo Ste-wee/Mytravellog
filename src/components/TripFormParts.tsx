@@ -746,7 +746,7 @@ function RouteHero({
                   ? distanceKm(daCoord.lat, daCoord.lon, aCoord.lat, aCoord.lon)
                   : null;
                 return (
-                  <g onClick={e => e.stopPropagation()} role="group" aria-label="Scegli il mezzo">
+                  <g onClick={e => e.stopPropagation()} role="group" aria-label={t("Scegli il mezzo")}>
                     {/* Larghezza derivata dal numero di mezzi: era fissa a 238
                         (tarata su 7) e l'ottavo, il pullman, sforava dal
                         riquadro di 25px. */}
@@ -911,7 +911,7 @@ function RouteHero({
             borderRadius:8, padding:"8px 12px", display:"flex", alignItems:"center", gap:8, position:"relative" }}>
             <span style={{ fontSize:14, color:"#fbbf24" }}>🏠</span>
             <input autoFocus style={{ background:"transparent", border:"none", outline:"none", color:"#f0f4ff", fontSize:13, flex:1 }}
-              value={homeQuery} onChange={e => setHomeQuery(e.target.value)} placeholder="La tua città…"/>
+              value={homeQuery} onChange={e => setHomeQuery(e.target.value)} placeholder={t("La tua città…")}/>
             <Search className="w-4 h-4" style={{ color:"rgba(255,255,255,0.6)", flexShrink:0 }}/>
             {homeResults.length > 0 && (
               <div style={{ position:"absolute", bottom:"100%", left:0, right:0, background:"#0d1f3c",

@@ -678,7 +678,7 @@ export default function QuadroEditor() {
         </button>
         <button type="button" onClick={() => zoomSelected(1 / 1.2)} style={btn()} title={t("Zoom indietro")}><ZoomOut style={{ width: 15, height: 15 }} /></button>
         <button type="button" onClick={() => zoomSelected(1.2)} style={btn()} title={t("Zoom avanti")}><ZoomIn style={{ width: 15, height: 15 }} /></button>
-        <button type="button" onClick={resetLayout} style={btn()} title="Ripristina il layout iniziale"><RotateCcw style={{ width: 15, height: 15 }} /></button>
+        <button type="button" onClick={resetLayout} style={btn()} title={t("Ripristina il layout iniziale")}><RotateCcw style={{ width: 15, height: 15 }} /></button>
 
         <div style={{ flex: 1 }} />
 
@@ -757,7 +757,7 @@ export default function QuadroEditor() {
       <div style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, overflow: "hidden" }}>
         {trips.length === 0 ? (
           <div style={{ textAlign: "center", color: "rgba(255,255,255,0.55)", fontSize: 14, maxWidth: 360, lineHeight: 1.6 }}>
-            <p>Qui ritagli la mappa dei tuoi viaggi in un quadro a più tele — ma non c'è ancora nessun viaggio da disegnare.</p>
+            <p>{t("Qui ritagli la mappa dei tuoi viaggi in un quadro a più tele — ma non c'è ancora nessun viaggio da disegnare.")}</p>
             <button type="button" onClick={() => navigate("/nuovo-viaggio")}
               style={btn({ margin: "14px auto 0", background: "rgba(96,165,250,0.16)", borderColor: "#60a5fa", color: "#60a5fa" })}>
               <Plus style={{ width: 15, height: 15 }} /> Nuovo viaggio

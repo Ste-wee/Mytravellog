@@ -234,7 +234,7 @@ export function ContinentsMap({ trips }: Props) {
           // Dice quello che la mappa MOSTRA: da quando evidenzia i continenti e
           // non più i singoli stati, "paesi visitati" era una promessa che chi
           // ascolta non poteva verificare.
-          aria-label="Mappa dei continenti visitati"
+          aria-label={t("Mappa dei continenti visitati")}
         >
           <defs>
             <clipPath id="map-clip">

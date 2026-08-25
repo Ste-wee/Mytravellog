@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
+import { useT, useSettings } from "@/lib/settings";
 import { createPortal } from "react-dom";
 import { Search, Loader2, Home } from "lucide-react";
 import { GeoResult } from "@/lib/geo";
 import { usePlaceSearch } from "@/lib/usePlaceSearch";
-import { useSettings } from "@/lib/settings";
 import { adoptHomeForTripsWithout, countTripsWithoutHome } from "@/lib/storage";
 import { useModalFocus } from "@/lib/useModalFocus";
 import { shouldShowWelcome } from "@/components/WelcomeGate";
@@ -23,6 +23,7 @@ import { shouldShowWelcome } from "@/components/WelcomeGate";
  * vede sistemare i viaggi rimasti orfani.
  */
 export function HomeCityGate() {
+  const t = useT();
   const { homeCity, setHomeCity } = useSettings();
   // Aspetta che il benvenuto sia archiviato: al primo avvio lo coprirebbe
   // (questo gate sta più in alto) e il benvenuto non si vedrebbe affatto.
@@ -66,7 +67,7 @@ export function HomeCityGate() {
   };
 
   return createPortal(
-    <div ref={modalRef} role="dialog" aria-modal="true" aria-label="Da dove parti?"
+    <div ref={modalRef} role="dialog" aria-modal="true" aria-label={t("Da dove parti?")}
       style={{
         position: "fixed", inset: 0, zIndex: 300, background: "#060e1e",
         display: "flex", flexDirection: "column", justifyContent: "center",
@@ -91,11 +92,16 @@ export function HomeCityGate() {
         </h1>
         <p style={{ fontSize: 12.5, lineHeight: 1.6, color: "rgba(255,255,255,0.6)", textAlign: "center", marginTop: 10 }}>
           {orfani > 0 ? (
-            <>Non l'hai mai indicata, così <b style={{ color: "#f0f4ff", fontWeight: 600 }}>
-              {orfani} {orfani === 1 ? "viaggio" : "viaggi"}</b> non {orfani === 1 ? "compare" : "compaiono"} sul
-              globo né sui poster: senza un punto di partenza non si può disegnare la linea.</>
+            // Spezzata in tre per tenere il NUMERO in grassetto in mezzo alla
+            // frase: in inglese l'ordine delle parole è lo stesso, quindi la
+            // cucitura regge senza acrobazie.
+            <>{t("Non l'hai mai indicata, così")} <b style={{ color: "#f0f4ff", fontWeight: 600 }}>
+              {t(orfani === 1 ? "{quanti} viaggio" : "{quanti} viaggi", { quanti: orfani })}</b>{" "}
+              {t(orfani === 1
+                ? "non compare sul globo né sui poster: senza un punto di partenza non si può disegnare la linea."
+                : "non compaiono sul globo né sui poster: senza un punto di partenza non si può disegnare la linea.")}</>
           ) : (
-            <>Ogni viaggio parte da casa: da qui nascono le linee del globo e i tuoi poster.</>
+            <>{t("Ogni viaggio parte da casa: da qui nascono le linee del globo e i tuoi poster.")}</>
           )}
         </p>
 
@@ -103,14 +109,14 @@ export function HomeCityGate() {
           borderRadius: 10, padding: "9px 13px", display: "flex", alignItems: "center", gap: 8 }}>
           <Search style={{ width: 15, height: 15, color: "rgba(255,255,255,0.5)", flexShrink: 0 }} />
           <input value={query} onChange={e => setQuery(e.target.value)}
-            placeholder="La tua città…" aria-label="Cerca la tua città di partenza"
+            placeholder={t("La tua città…")} aria-label={t("Cerca la tua città di partenza")}
             style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", outline: "none",
               color: "#f0f4ff", fontSize: 13 }} />
           {loading && <Loader2 className="w-4 h-4 animate-spin" style={{ color: "rgba(255,255,255,0.5)", flexShrink: 0 }} />}
         </div>
 
         {results.length > 0 && (
-          <div role="listbox" aria-label="Città trovate"
+          <div role="listbox" aria-label={t("Città trovate")}
             style={{ marginTop: 6, border: "0.5px solid #1a2d4a", borderRadius: 10, overflow: "hidden" }}>
             {results.map((r, i) => (
               <button key={`${r.name}-${r.latitude}-${r.longitude}-${i}`} type="button" role="option"

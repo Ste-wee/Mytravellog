@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, createElement } from "react";
-import { useT } from "@/lib/settings";
+import { useT, fmtNumber } from "@/lib/settings";
 import type { ElementType } from "react";
 // SOLO i tipi: `import type` sparisce alla compilazione — maplibre-gl resta
 // caricato dinamicamente (loadMapLibre) e fuori dal bundle iniziale.
@@ -14,7 +14,6 @@ import { saveReliefImage } from "@/lib/photoStorage";
 import { buildPosterSvg, loadCountryRings, routeBounds, unwrapSegments } from "@/lib/posterSvg";
 import { X, Share2, Loader2, Download, Frame } from "lucide-react";
 import { canShareFile, downloadBlob, shareOrDownload } from "@/lib/share";
-import { fmtNumber } from "@/lib/settings";
 import { useNavigate } from "react-router-dom";
 import { TRANSPORT } from "@/lib/transport";
 

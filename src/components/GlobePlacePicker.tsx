@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useT } from "@/lib/settings";
 import { createPortal } from "react-dom";
 import { X, MapPin } from "lucide-react";
 import { WorldMap, CityInfo } from "@/components/WorldMap";
@@ -21,6 +22,7 @@ export function GlobePlacePicker({ onClose, onPick }: {
   onClose: () => void;
   onPick: (r: GeoResult) => void;
 }) {
+  const t = useT();
   // Il punto toccato, in attesa di conferma: mai aggiunto alla cieca.
   const [scelto, setScelto] = useState<CityInfo | null>(null);
   // Il nome è modificabile: toccando in mezzo al nulla il reverse geocoding
@@ -60,16 +62,16 @@ export function GlobePlacePicker({ onClose, onPick }: {
     `${Math.abs(v).toFixed(2).replace(".", ",")}° ${v >= 0 ? pos : neg}`;
 
   return createPortal(
-    <div ref={boxRef} role="dialog" aria-modal="true" aria-label="Scegli la tappa sul globo"
+    <div ref={boxRef} role="dialog" aria-modal="true" aria-label={t("Scegli la tappa sul globo")}
       style={{ position: "fixed", inset: 0, zIndex: 200, background: "#060e1e", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px",
         borderBottom: "0.5px solid #1a2d4a", flexShrink: 0 }}>
-        <button type="button" onClick={onClose} aria-label="Chiudi la scelta sul globo"
+        <button type="button" onClick={onClose} aria-label={t("Chiudi la scelta sul globo")}
           style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "rgba(255,255,255,0.7)", display: "flex" }}>
           <X style={{ width: 22, height: 22 }}/>
         </button>
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#f0f4ff" }}>Scegli la tappa</span>
+          <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#f0f4ff" }}>{t("Scegli la tappa")}</span>
           <span style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
             Ruota il globo e tocca un punto
           </span>
@@ -97,7 +99,7 @@ export function GlobePlacePicker({ onClose, onPick }: {
               : <MapPin style={{ width: 20, height: 20, color: "#60a5fa", flexShrink: 0 }}/>}
             <span style={{ flex: 1, minWidth: 0 }}>
               <input value={nome} onChange={e => setNome(e.target.value)}
-                aria-label="Nome della tappa"
+                aria-label={t("Nome della tappa")}
                 style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "0.5px solid #1a2d4a",
                   borderRadius: 8, padding: "7px 10px", fontSize: 14, fontWeight: 700, color: "#f0f4ff",
                   outline: "none", fontFamily: "inherit" }}/>
