@@ -243,57 +243,6 @@ export default function MieiViaggi() {
           )}
         </div>
 
-        {/* GITE IN GIORNATA — striscia in ALTO, la prima cosa dopo il titolo.
-            ⚠️ Prima stava in fondo, dopo tutti gli anni. Misurato con
-            l'archivio di Stefano (28 viaggi): **8,4 schermate** di scorrimento
-            in vista Lista, 2,5 in Griglia. La sezione esisteva e non l'avrebbe
-            trovata nessuno — lui infatti l'ha chiesta di nuovo. Qui sta dove si
-            guarda: titolo con filetto, poi le card. Non è dentro gli anni perché sono
-            un'altra cosa (fuori da statistiche, recap e record).
-            ⚠️ Restano FILTRATE come tutto il resto (`filtered` a monte): con
-            l'anno 2017 selezionato si vede la gita del 2017, non tutte. */}
-        {soloGite.length > 0 && (
-          <div style={{marginBottom:24}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-              <Sun style={{width:15,height:15,color:"#fbbf24",flexShrink:0}}/>
-              <span style={{fontSize:11,letterSpacing:"1.5px",color:"#fbbf24",fontWeight:600}}>{t("GITE IN GIORNATA")}</span>
-              <div style={{flex:1,height:1,background:"rgba(251,191,36,0.25)"}}/>
-              <span style={{flexShrink:0,fontSize:11,fontWeight:600,color:"rgba(251,191,36,0.85)"}}>{soloGite.length}</span>
-            </div>
-            {/* Fuori dai conti del viaggio: detto una volta qui, così il numero
-                in cima e le statistiche non sembrano sbagliati. */}
-            <p style={{fontSize:11.5,color:"rgba(255,255,255,0.45)",margin:"0 0 12px",lineHeight:1.5}}>
-              {t("Parti e torni lo stesso giorno: contate a parte, fuori da statistiche e recap.")}
-            </p>
-            {vista === "griglia" ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
-                {soloGite.map((g, i) => (
-                  <div key={g.id} className="animate-fade-up" style={{ animationDelay: `${i * 40}ms`, display: "grid", minWidth: 0 }}>
-                    <SchedaCompatta trip={g} anno={tripYear(g)} onApri={apriDallaGriglia}/>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {soloGite.map((g, i) => (
-                  <div key={g.id} id={`viaggio-${g.id}`} className="animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
-                    <div style={{
-                      transition: `opacity ${DELETE_ANIM_MS}ms ease, transform ${DELETE_ANIM_MS}ms ease, box-shadow 300ms ease`,
-                      opacity: leavingId === g.id ? 0 : 1,
-                      transform: leavingId === g.id ? "scale(0.95)" : "none",
-                      boxShadow: evidenziaId === g.id ? "0 0 0 2px #60a5fa, 0 0 24px rgba(96,165,250,0.35)" : "none",
-                      borderRadius: 16,
-                    }}>
-                      <TripCardTicket trip={g} onDeleteRequested={handleDeleteRequested}
-                        onSelectCompanion={setCompanionMap}/>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Search — sticky sotto l'AppHeader (sticky top:0, alto 65px) mentre si
             scorre l'elenco, con sfondo pieno per non far intravedere il
             contenuto che scorre sotto. top:65 è accoppiato all'altezza reale
@@ -371,6 +320,62 @@ export default function MieiViaggi() {
               </div>
             </div>
         </div>
+
+        {/* GITE IN GIORNATA — il primo CONTENUTO, subito dopo ricerca e filtri.
+            ⚠️ Prima stava in fondo, dopo tutti gli anni. Misurato con
+            l'archivio di Stefano (28 viaggi): **8,4 schermate** di scorrimento
+            in vista Lista, 2,5 in Griglia. La sezione esisteva e non l'avrebbe
+            trovata nessuno — lui infatti l'ha chiesta di nuovo. Qui sta dove si
+            guarda: titolo con filetto, poi le card. Non è dentro gli anni perché
+            sono un'altra cosa (fuori da statistiche, recap e record).
+            ⚠️ **Sotto** i filtri, non sopra: nel primo taglio stava fra il titolo
+            e la ricerca, e con due gite in archivio spingeva la ricerca giù di
+            due schede intere mettendo i chip degli anni SOTTO le card che
+            filtrano — un comando dopo la cosa che comanda. La ricerca è anche
+            `sticky`, quindi il suo posto è in cima.
+            ⚠️ Restano FILTRATE come tutto il resto (`filtered` a monte): con
+            l'anno 2017 selezionato si vede la gita del 2017, non tutte. */}
+        {soloGite.length > 0 && (
+          <div style={{marginBottom:24}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+              <Sun style={{width:15,height:15,color:"#fbbf24",flexShrink:0}}/>
+              <span style={{fontSize:11,letterSpacing:"1.5px",color:"#fbbf24",fontWeight:600}}>{t("GITE IN GIORNATA")}</span>
+              <div style={{flex:1,height:1,background:"rgba(251,191,36,0.25)"}}/>
+              <span style={{flexShrink:0,fontSize:11,fontWeight:600,color:"rgba(251,191,36,0.85)"}}>{soloGite.length}</span>
+            </div>
+            {/* Fuori dai conti del viaggio: detto una volta qui, così il numero
+                in cima e le statistiche non sembrano sbagliati. */}
+            <p style={{fontSize:11.5,color:"rgba(255,255,255,0.45)",margin:"0 0 12px",lineHeight:1.5}}>
+              {t("Parti e torni lo stesso giorno: contate a parte, fuori da statistiche e recap.")}
+            </p>
+            {vista === "griglia" ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+                {soloGite.map((g, i) => (
+                  <div key={g.id} className="animate-fade-up" style={{ animationDelay: `${i * 40}ms`, display: "grid", minWidth: 0 }}>
+                    <SchedaCompatta trip={g} anno={tripYear(g)} onApri={apriDallaGriglia}/>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {soloGite.map((g, i) => (
+                  <div key={g.id} id={`viaggio-${g.id}`} className="animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
+                    <div style={{
+                      transition: `opacity ${DELETE_ANIM_MS}ms ease, transform ${DELETE_ANIM_MS}ms ease, box-shadow 300ms ease`,
+                      opacity: leavingId === g.id ? 0 : 1,
+                      transform: leavingId === g.id ? "scale(0.95)" : "none",
+                      boxShadow: evidenziaId === g.id ? "0 0 0 2px #60a5fa, 0 0 24px rgba(96,165,250,0.35)" : "none",
+                      borderRadius: 16,
+                    }}>
+                      <TripCardTicket trip={g} onDeleteRequested={handleDeleteRequested}
+                        onSelectCompanion={setCompanionMap}/>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Trips */}
         {filtered.length === 0 ? (
