@@ -104,10 +104,6 @@ export const en = {
   "un posto, più notti · {quante} con gite": "one place, several nights · {quante} with day trips",
   "{quante} tappa in media": "{quante} stop on average",
   "{quante} tappe in media": "{quante} stops on average",
-  "{quante} gita in giornata, contate a parte: parti e torni lo stesso giorno.":
-    "{quante} day trip, counted separately: you leave and come back the same day.",
-  "{quante} gite in giornata, contate a parte: parti e torni lo stesso giorno.":
-    "{quante} day trips, counted separately: you leave and come back the same day.",
 
   // ── Statistiche · numeri grossi ed elenco paesi ───────────────────────────
   "paesi visitati": "countries visited",
@@ -199,8 +195,6 @@ export const en = {
   "Tocca 🏠 per cambiare città di partenza": "Tap 🏠 to change your starting city",
   "+ Aggiungi tappa": "+ Add stop",
   "Cambia la città di partenza": "Change the starting city",
-  "NOME DEL VIAGGIO (opzionale)": "TRIP NAME (optional)",
-  "COMPAGNI DI VIAGGIO (opzionale)": "TRAVEL COMPANIONS (optional)",
   "Salva viaggio": "Save trip",
   "Es. Viaggio di nozze…": "E.g. Honeymoon…",
   "Valutazione del viaggio": "Trip rating",
@@ -218,7 +212,6 @@ export const en = {
   "{quanti} percorsi": "{quanti} travelled",
   "e inoltre {gite}": "plus {gite}",
   "{quante} città": "{quante} cities",
-  "Carica una traccia .gpx (bici, moto, trekking…): il viaggio userà il percorso GPS reale. Puoi rifinire tutto dopo.": "Upload a .gpx track (bike, motorbike, hiking…): the trip will use the real GPS route. You can fine-tune everything afterwards.",
 
   "🔒 Solo tu puoi leggerli: nel database ogni archivio è legato al suo account, e nessun altro account può aprirlo.":
     "🔒 Only you can read them: in the database each archive is tied to its own account, and no other account can open it.",
@@ -298,7 +291,6 @@ export const en = {
 
   "Il tuo racconto, giorno per giorno": "Your story, day by day",
   "Cosa c'è da fare?": "What needs doing?",
-  "DA ORGANIZZARE · {fatte}/{tutte}": "TO SORT OUT · {fatte}/{tutte}",
 
   "Da organizzare": "To sort out",
   "IL TUO ANNO DI VIAGGI": "YOUR YEAR IN TRIPS",
@@ -308,5 +300,39 @@ export const en = {
   "I tuoi record": "Your records",
   "Il tuo paese dell'anno": "Your country of the year",
   "Il momento dell'anno": "The moment of the year",
+
+  // ── Avvisi, conferme, errori (toast e window.confirm) ─────────────────────
+  // Il collaudo `npm run lingua` NON li vede: non li fa scattare. Sono
+  // rimasti in italiano per due giri, trovati leggendo il codice.
+  "Aggiungi almeno una città all'itinerario": "Add at least one city to the itinerary",
+  "Il ritorno non può essere prima della partenza": "The return cannot be before the departure",
+  "Indica da dove parti: tocca la casa nell'itinerario": "Say where you are leaving from: tap the house in the itinerary",
+  "Viaggio salvato!": "Trip saved!",
+  "Viaggio aggiornato!": "Trip updated!",
+  "Spazio del browser esaurito: il viaggio NON è stato salvato.": "The browser is out of space: the trip was NOT saved.",
+  "Hai modifiche non salvate. Uscire senza salvare?": "You have unsaved changes. Leave without saving?",
+  "Segnare «{viaggio}» come fatto? Verrà spostato nei tuoi viaggi.": "Mark «{viaggio}» as done? It will move to your travels.",
+  "Spostato nei tuoi viaggi ✓ Completa itinerario e dettagli.": "Moved to your travels ✓ Fill in the itinerary and details.",
+  "Eliminare il viaggio in programma «{viaggio}»?": "Delete the planned trip «{viaggio}»?",
+  "Piano eliminato": "Plan deleted",
+
+  // Etichette invisibili che il collaudo non vedeva: una perché vive solo
+  // nella vista a GRIGLIA (mai visitata), l'altra perché "Rivivi" non era
+  // fra le parole-spia. Due buchi diversi, stessa lezione.
+
+  "Valutazione: {stelle} su 5": "Rating: {stelle} out of 5",
+  "Nessuna valutazione": "No rating",
+  "Rivivi in 3D": "Relive in 3D",
+  "Elimina": "Delete",
+  "Elimina piano": "Delete plan",
+  "Valutazione": "Rating",
+  "Motivo": "Reason",
+  "Annulla": "Cancel",
+  "Annulla (Ctrl/⌘+Z)": "Undo (Ctrl/⌘+Z)",
+  "Zoom avanti": "Zoom in",
+  "Zoom indietro": "Zoom out",
+
+  "L'ultima tela non si può eliminare": "The last canvas cannot be deleted",
+  "Elimina la tela selezionata": "Delete the selected canvas",
 
 } as const;

@@ -22,7 +22,8 @@
     "coverage": "vitest run --coverage --coverage.include=src/lib/** --coverage.exclude=**/*.test.*",
     "regressione": "npm run typecheck && eslint src scripts e2e && vitest run && npm run collaudo",
     "iso": "node scripts/genera-iso.mjs",
-    "lingua": "node e2e/lingua.mjs"
+    "lingua": "node e2e/lingua.mjs",
+    "lingua:statico": "node e2e/lingua-statico.mjs"
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "^5.2.8",

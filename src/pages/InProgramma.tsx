@@ -87,7 +87,7 @@ const InProgramma = () => {
   const create = () => {
     if (!dest || !dateStart) return;
     if (isReturnBeforeDeparture(dateStart, dateEnd)) {
-      toast.error("Il ritorno non può essere prima della partenza");
+      toast.error(t("Il ritorno non può essere prima della partenza"));
       return;
     }
     const p = addPlan(buildPlan(dest, title, dateStart, dateEnd, prefillWps, destMode));

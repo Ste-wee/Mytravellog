@@ -383,7 +383,7 @@ function HomeInner() {
                         fontSize:11, fontWeight:600, padding:"7px 0", borderRadius:999, cursor:"pointer",
                         background:"rgba(96,165,250,0.15)", border:"1px solid #60a5fa", color:"#60a5fa",
                       }}>
-                      <Video style={{width:12, height:12}}/> Rivivi in 3D
+                      <Video style={{width:12, height:12}}/> {t("Rivivi in 3D")}
                     </button>
                     <button onClick={() => navigate("/modifica-viaggio/"+selectedTrip.id)}
                       style={{

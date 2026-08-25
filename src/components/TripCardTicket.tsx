@@ -204,7 +204,7 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
               label riassuntiva comunicano il voto (o la sua assenza). */}
           <div style={{display:"flex",gap:1,flexShrink:0}}
             role="img"
-            aria-label={trip.rating ? `Valutazione: ${trip.rating} su 5` : "Nessuna valutazione"}>
+            aria-label={trip.rating ? t("Valutazione: {stelle} su 5", { stelle: trip.rating }) : t("Nessuna valutazione")}>
             {[1,2,3,4,5].map(i => (
               <span key={i} aria-hidden="true" style={{fontSize:10,color:i <= (trip.rating ?? 0) ? "#fbbf24" : "rgba(255,255,255,0.15)"}}>★</span>
             ))}
@@ -220,14 +220,14 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setShowFlyover(true)} className="flex items-center gap-2 cursor-pointer">
-                <Video className="w-4 h-4"/> Rivivi in 3D
+                <Video className="w-4 h-4"/> {t("Rivivi in 3D")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate("/modifica-viaggio/"+trip.id)} className="flex items-center gap-2 cursor-pointer">
                 <Pencil className="w-4 h-4"/> Modifica
               </DropdownMenuItem>
               <DropdownMenuSeparator/>
               <DropdownMenuItem onClick={() => onDeleteRequested?.(trip)} className="flex items-center gap-2 cursor-pointer" style={{color:"#f87171"}}>
-                <Trash2 className="w-4 h-4"/> Elimina
+                <Trash2 className="w-4 h-4"/> {t("Elimina")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -665,19 +665,19 @@ export default function QuadroEditor() {
         <button type="button" onClick={addPanel} style={btn()} title={t("Aggiungi una tela")}><Plus style={{ width: 15, height: 15 }} /> Tela</button>
         <button type="button" onClick={deleteSelected} disabled={!selectedId || panels.length <= 1}
           style={btn(!selectedId || panels.length <= 1 ? { opacity: 0.4, cursor: "default" } : undefined)}
-          title={panels.length <= 1 ? "L'ultima tela non si può eliminare" : "Elimina la tela selezionata"}>
+          title={panels.length <= 1 ? t("L'ultima tela non si può eliminare") : t("Elimina la tela selezionata")}>
           <Trash2 style={{ width: 15, height: 15 }} />
         </button>
         <button type="button" onClick={undo} disabled={!canUndo}
-          style={btn(!canUndo ? { opacity: 0.4, cursor: "default" } : undefined)} title="Annulla (Ctrl/⌘+Z)">
+          style={btn(!canUndo ? { opacity: 0.4, cursor: "default" } : undefined)} title={t("Annulla (Ctrl/⌘+Z)")}>
           <Undo2 style={{ width: 15, height: 15 }} />
         </button>
         <button type="button" onClick={redo} disabled={!canRedo}
           style={btn(!canRedo ? { opacity: 0.4, cursor: "default" } : undefined)} title="Ripeti (Ctrl/⌘+Shift+Z)">
           <Redo2 style={{ width: 15, height: 15 }} />
         </button>
-        <button type="button" onClick={() => zoomSelected(1 / 1.2)} style={btn()} title="Zoom indietro"><ZoomOut style={{ width: 15, height: 15 }} /></button>
-        <button type="button" onClick={() => zoomSelected(1.2)} style={btn()} title="Zoom avanti"><ZoomIn style={{ width: 15, height: 15 }} /></button>
+        <button type="button" onClick={() => zoomSelected(1 / 1.2)} style={btn()} title={t("Zoom indietro")}><ZoomOut style={{ width: 15, height: 15 }} /></button>
+        <button type="button" onClick={() => zoomSelected(1.2)} style={btn()} title={t("Zoom avanti")}><ZoomIn style={{ width: 15, height: 15 }} /></button>
         <button type="button" onClick={resetLayout} style={btn()} title="Ripristina il layout iniziale"><RotateCcw style={{ width: 15, height: 15 }} /></button>
 
         <div style={{ flex: 1 }} />

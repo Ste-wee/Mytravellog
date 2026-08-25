@@ -1,4 +1,5 @@
 import React, { Suspense, lazy } from "react";
+import { tr } from "@/lib/settings";
 import ReactDOM from "react-dom/client";
 import { HashRouter, Route, Routes, useParams } from "react-router-dom";
 import { Toaster, toast } from "sonner";
@@ -42,7 +43,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 // l'utente credeva di aver salvato. Un toast persistente lo dice chiaramente e
 // suggerisce l'unica via d'uscita utile (liberare spazio / backup su Drive).
 setStorageErrorHandler(() => {
-  toast.error("Spazio del browser esaurito: il viaggio NON è stato salvato.", {
+  toast.error(tr("Spazio del browser esaurito: il viaggio NON è stato salvato."), {
     description: "Libera spazio eliminando qualche viaggio o foto; se hai il backup su Drive i dati restano lì.",
     duration: Infinity,
   });

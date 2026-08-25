@@ -11,7 +11,7 @@ import { Link } from "react-router-dom";
 import { GeoResult, PlaceKind, distanceKm, placeSubtitle } from "@/lib/geo";
 import { hasCoords } from "@/lib/coords";
 import { riconosciBase, postoNoto, RiconoscimentoBase } from "@/lib/base";
-import { fmtDistance, useSettings, useT } from "@/lib/settings";
+import { fmtDistance, useSettings, useT, tr } from "@/lib/settings";
 import { parseLocalDate } from "@/lib/storage";
 import { Loader2, MapPin, Plane, Route, Search, AlertCircle, X } from "lucide-react";
 import { TRANSPORT as TRANSPORT_INFO, TRANSPORT_MODES, TRANSPORT_LIST, transportBg, type TransportMode } from "@/lib/transport";
@@ -1204,7 +1204,7 @@ export function TripFormFields({
       <div style={{ background:"#0a1628", border:"0.5px solid #1a2d4a", borderRadius:8, padding:"14px 16px" }}>
         <label style={{ fontSize:9, color:"rgba(255,255,255,0.6)", letterSpacing:"1.5px",
           textTransform:"uppercase", display:"block", marginBottom:8 }}>
-          Valutazione <span style={{ opacity:0.4, fontSize:9, textTransform:"none" }}>(opzionale)</span>
+          {t("Valutazione")} <span style={{ opacity:0.4, fontSize:9, textTransform:"none" }}>{t("(opzionale)")}</span>
         </label>
         {/* Cinque bottoni il cui unico contenuto era "★": uno screen reader
             leggeva cinque volte lo stesso nome. Ora ognuno dice quante stelle
@@ -1252,7 +1252,7 @@ export function TripFormActions({ saving, confirmDiscard, onSave }: {
           fontSize:13, color:"rgba(255,255,255,0.6)", border:"0.5px solid #1a2d4a",
           textDecoration:"none", background:"transparent",
           opacity: saving ? 0.4 : 1, pointerEvents: saving ? "none" : "auto" }}>
-          Annulla
+          {t("Annulla")}
         </Link>
         <button onClick={onSave} disabled={saving}
           style={{ flex:2, padding:"10px", borderRadius:10, fontSize:13, fontWeight:700,
@@ -1296,7 +1296,7 @@ export function useUnsavedChangesGuard(deps: readonly unknown[]) {
   }, [dirty]);
 
   const confirmDiscard = (e: React.MouseEvent) => {
-    if (dirty && !window.confirm("Hai modifiche non salvate. Uscire senza salvare?")) {
+    if (dirty && !window.confirm(tr("Hai modifiche non salvate. Uscire senza salvare?"))) {
       e.preventDefault();
     }
   };

@@ -66,7 +66,7 @@ export function TripPurposeCompanions({ purpose, setPurpose, companions, setComp
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {/* Motivo — segmented a scelta singola */}
       <div style={box}>
-        <label style={label}>Motivo <span style={{ opacity: 0.4, textTransform: "none" }}>(opzionale)</span></label>
+        <label style={label}>{t("Motivo")} <span style={{ opacity: 0.4, textTransform: "none" }}>{t("(opzionale)")}</span></label>
         <div style={{ display: "inline-flex", background: "rgba(255,255,255,0.04)", border: "0.5px solid #1a2d4a", borderRadius: 999, padding: 3, gap: 3 }}>
           {PURPOSES.map(p => {
             const on = purpose === p;

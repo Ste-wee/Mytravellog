@@ -12,7 +12,7 @@ import { loadTrips, loadPlans, deleteTrip, parseLocalDate, Trip } from "@/lib/st
 import { deletePhotosForTrip } from "@/lib/photoStorage";
 import { Search, X, Video, Plane, Plus, Sparkles, Globe2, CalendarClock, ArrowRight, List, LayoutGrid, Sun } from "lucide-react";
 import { transportColor } from "@/lib/transport";
-import { useT } from "@/lib/settings";
+import { useT, tr } from "@/lib/settings";
 
 /**
  * Card compatta della vista a griglia: SOLO overview (bandiera, titolo,
@@ -24,7 +24,7 @@ import { useT } from "@/lib/settings";
 function SchedaCompatta({ trip, anno, onApri }: { trip: Trip; anno: string; onApri: (id: string) => void }) {
   return (
     <button type="button" onClick={() => onApri(trip.id)}
-      aria-label={`Apri il biglietto di ${trip.title || trip.city}`}
+      aria-label={tr("Apri il biglietto di {viaggio}", { viaggio: trip.title || trip.city })}
       style={{ textAlign: "left", background: "rgba(255,255,255,0.03)", border: "0.5px solid #1a2d4a",
         borderRadius: 14, padding: 12, cursor: "pointer", display: "flex", flexDirection: "column", gap: 8,
         // min-width 0: gli item di una grid hanno min-width AUTO, e il titolo
@@ -375,7 +375,7 @@ export default function MieiViaggi() {
                   <div style={{flex:1,height:"0.5px",background:"#1a2d4a"}}/>
                   <span style={{fontSize:11,color:"rgba(255,255,255,0.6)"}}>{byYear[year].length}</span>
                   {byYear[year].length > 1 && (
-                    <button type="button" onClick={() => setFlyoverYear(year)} aria-label={`Rivivi il ${year} in 3D`}
+                    <button type="button" onClick={() => setFlyoverYear(year)} aria-label={t("Rivivi il {anno} in 3D", { anno: year })}
                       style={{width:22,height:22,background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.6)",display:"flex",alignItems:"center",justifyContent:"center"}}>
                       <Video style={{width:13,height:13}}/>
                     </button>
@@ -383,7 +383,7 @@ export default function MieiViaggi() {
                   {/* Recap dell'anno (deep-link) — icona sola, stesso ingombro del
                       bottone 3D: su mobile il testo veniva tagliato/coperto dal
                       "foglio" del poster che spunta dal primo biglietto. */}
-                  <Link to={`/recap?anno=${year}`} aria-label={`Recap del ${year}`} title={`Recap del ${year}`}
+                  <Link to={`/recap?anno=${year}`} aria-label={t("Recap del {anno}", { anno: year })} title={t("Recap del {anno}", { anno: year })}
                     style={{width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",color:"rgba(96,165,250,0.85)",textDecoration:"none",flexShrink:0}}>
                     <Sparkles style={{width:14,height:14}}/>
                   </Link>

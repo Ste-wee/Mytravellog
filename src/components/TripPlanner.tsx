@@ -191,19 +191,19 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
   const mutChecklist = (fn: (rows: ChecklistRow[]) => ChecklistRow[]) => { dirtyRef.current = true; setChecklist(fn); };
 
   const promote = () => {
-    if (!window.confirm(`Segnare "${plan.title || plan.city}" come fatto? Verrà spostato nei tuoi viaggi.`)) return;
+    if (!window.confirm(t("Segnare «{viaggio}» come fatto? Verrà spostato nei tuoi viaggi.", { viaggio: plan.title || plan.city }))) return;
     persist();
     promotePlanToTrip(plan.id);
-    toast.success("Spostato nei tuoi viaggi ✓ Completa itinerario e dettagli.");
+    toast.success(t("Spostato nei tuoi viaggi ✓ Completa itinerario e dettagli."));
     // Dritto in Modifica: il piano promosso è uno scheletro (niente itinerario,
     // km, casa) e questo è il momento giusto per completarlo.
     navigate(`/modifica-viaggio/${plan.id}`);
   };
 
   const remove = () => {
-    if (!window.confirm(`Eliminare il viaggio in programma "${plan.title || plan.city}"?`)) return;
+    if (!window.confirm(t("Eliminare il viaggio in programma «{viaggio}»?", { viaggio: plan.title || plan.city }))) return;
     deletePlan(plan.id);
-    toast.success("Piano eliminato");
+    toast.success(t("Piano eliminato"));
     onChanged();
     onClose();
   };
@@ -293,7 +293,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
               style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, background: "#34d399", border: "none", borderRadius: 10, padding: "11px 14px", fontSize: 14, fontWeight: 700, color: "#052e22", cursor: "pointer" }}>
               <Check style={{ width: 17, height: 17 }} /> Segna come fatto
             </button>
-            <button type="button" onClick={remove} aria-label="Elimina piano"
+            <button type="button" onClick={remove} aria-label={t("Elimina piano")}
               style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "0.5px solid rgba(248,113,113,0.4)", borderRadius: 10, padding: "11px 14px", color: "#f87171", cursor: "pointer" }}>
               <Trash2 style={{ width: 17, height: 17 }} />
             </button>

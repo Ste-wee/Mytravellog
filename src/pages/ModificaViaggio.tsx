@@ -8,7 +8,7 @@ import { usePlaceSearch } from "@/lib/usePlaceSearch";
 import { hasCoords } from "@/lib/coords";
 import { followsRoad } from "@/lib/transport";
 import { updateTrip, loadTrips, todayLocalISO } from "@/lib/storage";
-import { useSettings } from "@/lib/settings";
+import { useSettings, tr } from "@/lib/settings";
 import { sequentialMap, moveItem } from "@/lib/utils";
 import { inserisciRientri } from "@/lib/base";
 import { toast } from "sonner";
@@ -182,16 +182,16 @@ const ModificaViaggio = () => {
   const handleSave = async () => {
     if (!id || waypoints.length === 0) {
       setDestinationError(true);
-      toast.error("Aggiungi almeno una città all'itinerario");
+      toast.error(tr("Aggiungi almeno una città all'itinerario"));
       return;
     }
     if (isReturnBeforeDeparture(dateStart, dateEnd)) {
-      toast.error("Il ritorno non può essere prima della partenza");
+      toast.error(tr("Il ritorno non può essere prima della partenza"));
       return;
     }
     // Come in NuovoViaggio: senza partenza il viaggio sparirebbe dalle mappe.
     if (!home) {
-      toast.error("Indica da dove parti: tocca la casa nell'itinerario");
+      toast.error(tr("Indica da dove parti: tocca la casa nell'itinerario"));
       return;
     }
     setSaving(true);
@@ -297,7 +297,7 @@ const ModificaViaggio = () => {
       rating: rating || null,
       purpose: purpose || null, companions: companions.length ? companions : undefined,
     });
-    toast.success("Viaggio aggiornato!");
+    toast.success(tr("Viaggio aggiornato!"));
     navigate("/");
     } finally {
       // try/finally invece di un setSaving(false) a fine funzione: se una

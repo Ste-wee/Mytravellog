@@ -23,8 +23,17 @@ const OUT = argOut > -1 ? process.argv[argOut + 1] : "e2e/__shots__/lingua";
 fs.mkdirSync(OUT, { recursive: true });
 
 /** Parole funzione italiane: se una di queste compare, la scritta è italiana.
- *  Scelte perché non esistono in inglese e non compaiono nei nomi di città. */
+ *  Scelte perché non esistono in inglese e non compaiono nei nomi di città.
+ *
+ *  ⚠️ Due lezioni pagate: **una spia che esiste anche in inglese** dà falsi
+ *  positivi («marker size», «Tue», «come back» — per questo mancano `marker`,
+ *  `tue` e `come`); e **una scritta senza nessuna spia dentro passa liscia** —
+ *  «Rivivi il 2026 in 3D» è rimasto italiano per due giri perché nessuna delle
+ *  parole qui sotto compariva. Da qui l'audit delle chiavi non usate: le due
+ *  reti coprono buchi diversi. */
 const SPIE = [
+  "rivivi", "biglietto", "racconto", "compagni", "motivo", "valutazione",
+  "avanti", "salta", "capito", "annulla", "conferma", "elimina", "eliminare",
   "viaggio", "viaggi", "gita", "gite", "città", "paese", "paesi", "giorni", "notti",
   "tappa", "tappe", "aggiungi", "cerca", "chiudi", "rimuovi", "apri", "salva",
   "nessun", "nessuna", "ancora", "adesso", "oppure", "anche", "quando",
@@ -173,6 +182,29 @@ for (const [nome, hash, azione] of INTERAZIONI) {
 }
 
 await browser.close();
+
+/**
+ * SECONDA RETE: le chiavi del dizionario che nessun `t()` usa.
+ *
+ * Serve perché la ricerca delle parole-spia ha un buco per costruzione: una
+ * scritta italiana che non contiene nessuna spia passa liscia. È così che
+ * «Rivivi il {anno} in 3D» e «Apri il biglietto di {viaggio}» sono rimasti
+ * italiani per due giri — la chiave c'era, il `t()` no. Una chiave inutilizzata
+ * è quasi sempre questo: una traduzione scritta e mai collegata.
+ */
+const dizionario = fs.readFileSync("src/lib/i18n/en.ts", "utf8");
+const eolDiz = dizionario.includes("\r\n") ? "\r\n" : "\n";
+const chiavi = [];
+for (const r of dizionario.split(eolDiz)) {
+  const m = r.match(/^ {2}"((?:[^"\\]|\\.)*)":/);
+  if (m) chiavi.push(m[1]);
+}
+const sorgenti = fs.readdirSync("src", { recursive: true })
+  .filter(f => /\.(ts|tsx)$/.test(String(f)) && !String(f).endsWith("en.ts"))
+  .map(f => fs.readFileSync(`src/${f}`, "utf8")).join("\n");
+const orfane = chiavi.filter(k => !sorgenti.includes(JSON.stringify(k).slice(1, -1)) && !sorgenti.includes(k));
+if (orfane.length) esito["chiavi_senza_uso"] = orfane.map(k => `[chiave orfana] ${k.slice(0, 70)}`);
+
 fs.writeFileSync(`${OUT}/lingua.json`, JSON.stringify(esito, null, 2));
 const rimaste = Object.values(esito).reduce((n, v) => n + v.length, 0);
 for (const [nome, v] of Object.entries(esito)) {

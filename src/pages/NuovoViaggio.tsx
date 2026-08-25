@@ -9,7 +9,7 @@ import { followsRoad } from "@/lib/transport";
 import { addTrip, loadTrips, formatTripDate, todayLocalISO, Trip } from "@/lib/storage";
 import { trovaDuplicato } from "@/lib/duplicati";
 import { createPortal } from "react-dom";
-import { useSettings } from "@/lib/settings";
+import { useSettings, tr } from "@/lib/settings";
 import { sequentialMap, moveItem } from "@/lib/utils";
 import { inserisciRientri } from "@/lib/base";
 import { toast } from "sonner";
@@ -142,11 +142,11 @@ const NuovoViaggio = () => {
   const handleSave = async (ignoraDuplicato = false) => {
     if (waypoints.length === 0) {
       setDestinationError(true);
-      toast.error("Aggiungi almeno una città all'itinerario");
+      toast.error(tr("Aggiungi almeno una città all'itinerario"));
       return;
     }
     if (isReturnBeforeDeparture(dateStart, dateEnd)) {
-      toast.error("Il ritorno non può essere prima della partenza");
+      toast.error(tr("Il ritorno non può essere prima della partenza"));
       return;
     }
     // Doppioni: stesso posto, date che si sovrappongono (è successo davvero:
@@ -161,7 +161,7 @@ const NuovoViaggio = () => {
     // globo, poster dell'anno e mappa della vita. Normalmente c'è già (la
     // città è obbligatoria all'avvio), ma qui la si può anche togliere.
     if (!home) {
-      toast.error("Indica da dove parti: tocca la casa nell'itinerario");
+      toast.error(tr("Indica da dove parti: tocca la casa nell'itinerario"));
       return;
     }
     setSaving(true);
@@ -263,7 +263,7 @@ const NuovoViaggio = () => {
       country_code: dest.country_code, rating: rating || null,
       purpose: purpose || undefined, companions: companions.length ? companions : undefined,
     }, draftId);
-    toast.success("Viaggio salvato!");
+    toast.success(tr("Viaggio salvato!"));
     navigate("/");
     } finally {
       // try/finally invece di un setSaving(false) a fine funzione: se una

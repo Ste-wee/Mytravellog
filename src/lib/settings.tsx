@@ -149,6 +149,7 @@ let NUMERO = new Intl.NumberFormat("it-IT", opzioniNumero);
  *  Una variabile di modulo e non un hook, per non toccare le decine di punti
  *  che chiamano `fmtNumber` — e perché serve anche a chi disegna su canvas,
  *  dove gli hook non arrivano. */
+// Anche il locale parte dalla lingua salvata: vedi la nota su LINGUA qui sotto.
 let LOCALE = "it-IT";
 export function impostaLocale(locale: string): void {
   LOCALE = locale;
@@ -168,7 +169,25 @@ export const localeAttivo = (): string => LOCALE;
  * ⚠️ Stessa avvertenza del locale: è stato di modulo, quindi un test che monta
  * il provider in inglese lo lascia in inglese per quello dopo.
  */
-let LINGUA: Lingua = "it";
+/**
+ * ⚠️ Inizializzata al CARICAMENTO del modulo, non dal provider.
+ *
+ * Il provider imposta la lingua in un `useEffect`, cioè **dopo il primo
+ * render**: chiunque chiamasse `tr()` o `localeAttivo()` durante quel primo
+ * render leggeva l'italiano anche con l'app in inglese. Provato: oggi non si
+ * vede, ma solo perché tutte le pagine sono a caricamento pigro e montano dopo
+ * l'effect — cioè funzionava **per fortuna**, non per costruzione. Leggendo
+ * qui le impostazioni salvate, la lingua è giusta dalla prima riga di codice.
+ */
+let LINGUA: Lingua = (() => {
+  try {
+    const salvate = JSON.parse(localStorage.getItem(KEY) || "null");
+    return risolviLingua(salvate?.lingua ?? DEFAULTS.lingua);
+  } catch {
+    return "it";
+  }
+})();
+
 export function impostaLingua(lingua: Lingua): void {
   LINGUA = lingua;
   impostaLocale(localeDi(lingua));
@@ -176,6 +195,10 @@ export function impostaLingua(lingua: Lingua): void {
 export const linguaAttiva = (): Lingua => LINGUA;
 export const tr = (chiave: Chiave, params?: Record<string, string | number>): string =>
   traduci(LINGUA, chiave, params);
+
+// Allinea il locale alla lingua letta all'avvio (il `let LOCALE` qui sopra
+// nasce italiano perché serve a `NUMERO`, che si costruisce prima).
+impostaLocale(localeDi(LINGUA));
 export const fmtNumber = (n: number): string => NUMERO.format(n);
 
 export function fmtDistance(km: number | null | undefined, unit: DistanceUnit): string {
