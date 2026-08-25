@@ -198,6 +198,62 @@ for (const [nome, hash, azione] of INTERAZIONI) {
   await page.screenshot({ path: `${OUT}/int-${nome}.png` });
 }
 
+/**
+ * TERZO PASSAGGIO: **gli stati che il seed nasconde.**
+ *
+ * ⚠️ Questa è la lezione più grossa di tutto il lavoro sulla lingua. Il seed
+ * qui sopra riempie l'archivio, congeda il cancello di benvenuto, mette la
+ * città di casa e segna il tutorial come visto — cioè fa esattamente quello che
+ * serve per vedere l'app "normale", e così **rende irraggiungibili** la
+ * schermata vuota, il cancello, il gate della città e il 404. Sedici superfici
+ * verdi, e in quegli stati stavano scritte mai tradotte.
+ *
+ * Il seed non è sbagliato: è che **un seed è una scelta, e ogni scelta nasconde
+ * il suo opposto**. La risposta non è un seed più furbo, sono due passaggi.
+ *
+ * Ogni stato dichiara anche una scritta inglese che DEVE esserci: senza quella,
+ * una pagina che non si carica affatto darebbe "0 italiano" — il modo più
+ * classico di essere verdi senza aver guardato niente.
+ */
+const STATI_NASCOSTI = [
+  ["vuoto_home", "#/", { vuoto: true }, "Add your first trip"],
+  ["vuoto_miei-viaggi", "#/miei-viaggi", { vuoto: true }, "No trips yet"],
+  ["vuoto_editor-quadro", "#/editor-quadro", { vuoto: true }, "New trip"],
+  // ⚠️ `vuoto` serve: il cancello compare solo su un dispositivo vergine, e
+  // `shouldShowWelcome` guarda `loadTrips().length === 0`. Con i viaggi in casa
+  // lo stato non si raggiunge — e senza la scritta pretesa qui sotto avrei
+  // avuto un bel «0 italiano» su una schermata che non era quella.
+  ["benvenuto", "#/", { vuoto: true, benvenuto: true }, "Continue as guest"],
+  ["gate_citta", "#/", { senzaCasa: true }, "Where do you set off from?"],
+  ["pagina_inesistente", "#/una-rotta-che-non-esiste", {}, "Page not found"],
+];
+
+for (const [nome, hash, stato, atteso] of STATI_NASCOSTI) {
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await page.evaluate(([t, p, s]) => {
+    localStorage.clear();
+    if (!s.vuoto) {
+      localStorage.setItem("atlas.trips.v1", JSON.stringify(t));
+      localStorage.setItem("atlas.plans.v1", JSON.stringify(p));
+    }
+    if (!s.benvenuto) localStorage.setItem("navta.welcome.dismissed", "1");
+    localStorage.setItem("navta.globe_hint_seen", "1");
+    [["home", 2], ["trips", 1], ["plans", 1], ["stats", 2], ["form", 1]]
+      .forEach(([k, v]) => localStorage.setItem(`navta.tour.${k}.v${v}`, "1"));
+    localStorage.setItem("atlas.settings.v1", JSON.stringify({
+      autoRotate: "off", lingua: "en",
+      ...(s.senzaCasa ? {} : { homeCity: { label: "London, UK", lat: 51.5, lon: -0.13 } }),
+    }));
+  }, [TRIPS, PLANS, stato]);
+
+  await page.goto(BASE + "/" + hash, { waitUntil: "load" });
+  await page.waitForTimeout(hash === "#/" ? 4200 : 2200);
+  const trovate = await page.evaluate(cerca, SPIE);
+  const ceProva = await page.evaluate(a => document.body.innerText.includes(a), atteso);
+  esito[nome] = ceProva ? trovate : [`⚠️ stato non raggiunto: manca «${atteso}» a schermo`, ...trovate];
+  await page.screenshot({ path: `${OUT}/stato-${nome}.png`, fullPage: hash !== "#/" });
+}
+
 await browser.close();
 
 /**
@@ -219,7 +275,21 @@ for (const r of dizionario.split(eolDiz)) {
 const sorgenti = fs.readdirSync("src", { recursive: true })
   .filter(f => /\.(ts|tsx)$/.test(String(f)) && !String(f).endsWith("en.ts"))
   .map(f => fs.readFileSync(`src/${f}`, "utf8")).join("\n");
-const orfane = chiavi.filter(k => !sorgenti.includes(JSON.stringify(k).slice(1, -1)) && !sorgenti.includes(k));
+/**
+ * ⚠️ La chiave va cercata **delimitata da apici**, non come sottostringa nuda.
+ * Prima bastava che le parole comparissero da qualche parte nei sorgenti, e la
+ * chiave «Programma» risultava usata perché quelle nove lettere stanno dentro
+ * l'identificatore `InProgramma`. Era orfana, la rete diceva di no, e tirando
+ * quel filo sono venute fuori 60 scritte mai tradotte.
+ *
+ * Tre forme perché il codice ne usa tre: `t("…")`, `t('…')` e i template.
+ */
+const usata = (k) => {
+  const scappata = JSON.stringify(k).slice(1, -1);
+  return [k, scappata].some(v =>
+    sorgenti.includes(`"${v}"`) || sorgenti.includes(`'${v}'`) || sorgenti.includes("`" + v + "`"));
+};
+const orfane = chiavi.filter(k => !usata(k));
 if (orfane.length) esito["chiavi_senza_uso"] = orfane.map(k => `[chiave orfana] ${k.slice(0, 70)}`);
 
 fs.writeFileSync(`${OUT}/lingua.json`, JSON.stringify(esito, null, 2));
@@ -233,7 +303,7 @@ for (const [nome, v] of Object.entries(esito)) {
 // "non ho aperto niente". I numeri sono la differenza fra una rete verde e una
 // rete cieca.
 console.log(`\nsuperfici guardate: ${Object.keys(esito).length}`
-  + ` (${PAGINE.length} pagine + ${INTERAZIONI.length} interazioni)`);
+  + ` (${PAGINE.length} pagine + ${INTERAZIONI.length} interazioni + ${STATI_NASCOSTI.length} stati nascosti)`);
 console.log(`rotte nel router: ${rotteDelRouter.length}, tutte visitate: ${nonVisitate.length === 0 ? "sì" : "NO"}`);
 console.log(`scritte italiane rimaste in inglese: ${rimaste}`);
 console.log(errori.length ? `errori JS: ${JSON.stringify(errori)}` : "nessun errore JS");

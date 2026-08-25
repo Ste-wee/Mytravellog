@@ -970,19 +970,19 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
 
         {phase === "loading" && (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.5)", fontSize: 13, gap: 8 }}>
-            <Loader2 className="w-4 h-4 animate-spin" /> Caricamento della mappa…
+            <Loader2 className="w-4 h-4 animate-spin" /> {t("Caricamento della mappa…")}
           </div>
         )}
 
         {phase === "error" && (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.5)", fontSize: 13 }}>
-            Impossibile caricare la mappa.
+            {t("Impossibile caricare la mappa.")}
           </div>
         )}
 
         {phase === "empty" && (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.5)", fontSize: 13, textAlign: "center", padding: 24 }}>
-            Questo viaggio non ha punti sufficienti per la mappa 3D (manca la posizione di casa o della destinazione).
+            {t("Questo viaggio non ha punti sufficienti per la mappa 3D (manca la posizione di casa o della destinazione).")}
           </div>
         )}
 
@@ -1102,7 +1102,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                     padding: "8px 16px", borderRadius: 999, background: "rgba(255,255,255,0.08)",
                     border: "0.5px solid rgba(255,255,255,0.35)", color: "rgba(255,255,255,0.85)",
                   }}>
-                  <Frame className="w-3.5 h-3.5" /> Ritaglia quadro
+                  <Frame className="w-3.5 h-3.5" /> {t("Ritaglia quadro")}
                 </button>
               )}
               {tripsCount === 1 && !lifeMap && (

@@ -280,7 +280,7 @@ const Recap = () => {
       <AppHeader />
       <div className="container mx-auto px-6 pt-8 pb-2" style={{ maxWidth: 560 }}>
         <button onClick={() => navigate(-1)} className="flex items-center gap-2" style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, marginBottom: 16, background: "none", border: "none", cursor: "pointer" }}>
-          <ArrowLeft className="w-4 h-4" /> Indietro
+          <ArrowLeft className="w-4 h-4" /> {t("Indietro")}
         </button>
 
         {years.length === 0 ? (
@@ -298,11 +298,11 @@ const Recap = () => {
              link vecchio (o un segnalibro) non deve atterrare in silenzio
              sull'anno sbagliato — prima il fallback lo faceva. */
           <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, textAlign: "center", padding: "60px 0" }}>
-            Nel {annoRichiestoSoleGite} hai fatto solo gite in giornata: sono contate a parte e
-            non entrano nel recap.{" "}
+            {t("Nel {anno} hai fatto solo gite in giornata: sono contate a parte e non entrano nel recap.",
+              { anno: annoRichiestoSoleGite })}{" "}
             <button type="button" onClick={() => setParams({})}
               style={{ background: "none", border: "none", color: "#60a5fa", cursor: "pointer", fontSize: 14, padding: 0 }}>
-              Vai al {years[0]}
+              {t("Vai al {anno}", { anno: years[0] })}
             </button>
           </p>
         ) : (

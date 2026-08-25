@@ -19,8 +19,7 @@ export function CloudSection() {
   if (!configurato) {
     return (
       <p className="text-xs text-muted-foreground">
-        Il salvataggio nel cloud non è ancora configurato in questa versione dell'app.
-        I viaggi restano su questo dispositivo.
+        {t("Il salvataggio nel cloud non è ancora configurato in questa versione dell'app. I viaggi restano su questo dispositivo.")}
       </p>
     );
   }
@@ -38,24 +37,23 @@ export function CloudSection() {
             onClick={() => disconnect()}
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-destructive hover:opacity-80 transition-opacity"
           >
-            <LogOut className="w-3.5 h-3.5" /> Disconnetti
+            <LogOut className="w-3.5 h-3.5" /> {t("Disconnetti")}
           </button>
         </div>
 
         <div className="mt-3 pt-3 border-t border-border">
           {status === "syncing" ? (
             <p className="text-xs text-muted-foreground flex items-center gap-2">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Sincronizzazione…
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> {t("Sincronizzazione…")}
             </p>
           ) : (
             <p className="text-xs flex items-center gap-2" style={{ color: "#34d399" }}>
               <Check className="w-3.5 h-3.5" />
-              {lastSyncAt ? `Sincronizzato · ${relativeTime(lastSyncAt)}` : "Connesso"}
+              {lastSyncAt ? t("Sincronizzato · {quando}", { quando: relativeTime(lastSyncAt) }) : t("Connesso")}
             </p>
           )}
           <p className="mt-2 text-xs text-muted-foreground">
-            I viaggi si salvano nel cloud a ogni modifica, e tornano su ogni dispositivo
-            dove entri con lo stesso account. Le foto restano sul dispositivo.
+            {t("I viaggi si salvano nel cloud a ogni modifica, e tornano su ogni dispositivo dove entri con lo stesso account. Le foto restano sul dispositivo.")}
           </p>
         </div>
       </div>
@@ -93,7 +91,7 @@ export function CloudSection() {
         onClick={() => connect()}
         className="w-full flex items-center justify-center gap-2.5 py-2.5 rounded-xl text-sm font-semibold bg-white text-[#1f1f1f] hover:bg-white/90 transition-colors"
       >
-        <GoogleG size={16} /> Accedi con Google
+        <GoogleG size={16} /> {t("Accedi con Google")}
       </button>
 
       {/* Prima qui c'era scritto "i dati restano nel tuo account Google": era

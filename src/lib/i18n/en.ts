@@ -40,8 +40,6 @@ export const en = {
   "gita": "day trip",
   "gite": "day trips",
   "in giornata": "same day",
-  "gita in giornata": "day trip",
-  "gite in giornata": "day trips",
   "Chiudi scheda viaggio": "Close trip card",
   "Chiudi scheda città": "Close city card",
   "Aggiungi come viaggio": "Add as a trip",
@@ -108,7 +106,6 @@ export const en = {
   "Elenco dei paesi": "Countries list",
   "Nessun paese ancora. Aggiungi il tuo primo viaggio per popolare le statistiche.":
     "No countries yet. Add your first trip to fill in the stats.",
-  "Mostra tutti": "Show all",
   "Mostra meno": "Show less",
   "Viaggi in {paese}": "Trips to {paese}",
 
@@ -441,5 +438,81 @@ export const en = {
   "{mese} — {quante} gita": "{mese} — {quante} day trip",
   "{mese} — {quante} gite": "{mese} — {quante} day trips",
   "Gite in questo mese": "Day trips this month",
+
+
+  // ── Le 60 scritte che nessuna delle due reti vedeva ───────────────────────
+  // Trovate quando la rete strutturale ha smesso di leggere UNA RIGA ALLA
+  // VOLTA (e2e/lingua-statico.mjs): il testo JSX scritto su una riga tutta
+  // sua non ha né `>` né `<` su quella riga, quindi era invisibile. La rete
+  // viva non le vedeva per un motivo diverso e complementare: stanno in stati
+  // che il seed non produce mai — schermata vuota, offline, errore di mappa,
+  // il cancello di benvenuto che il seed congeda.
+  "Il salvataggio nel cloud non è ancora configurato in questa versione dell'app. I viaggi restano su questo dispositivo.": "Cloud saving isn't set up in this version of the app. Your trips stay on this device.",
+  "Disconnetti": "Disconnect",
+  "Sincronizzazione…": "Syncing…",
+  "Sincronizzato · {quando}": "Synced · {quando}",
+  "Connesso": "Connected",
+  "I viaggi si salvano nel cloud a ogni modifica, e tornano su ogni dispositivo dove entri con lo stesso account. Le foto restano sul dispositivo.": "Your trips are saved to the cloud on every change, and come back on any device where you sign in with the same account. Photos stay on the device.",
+  "Accedi con Google": "Sign in with Google",
+  "Non è stato possibile caricare la mappa. Controlla la connessione e riprova più tardi.": "The map could not be loaded. Check your connection and try again later.",
+  "Ruota il globo e tocca un punto": "Spin the globe and tap a spot",
+  "Scegli un altro punto": "Pick another spot",
+  "Aggiungi tappa": "Add stop",
+  "MANCA UNA COSA": "ONE THING MISSING",
+  "Sei senza connessione: per cercare la tua città serve la rete.": "You're offline: searching for your city needs a connection.",
+  "Nessuna città trovata. Prova con un nome più semplice.": "No city found. Try a simpler name.",
+  "Continua per ora": "Continue for now",
+  "I viaggi già salvati senza partenza la erediteranno, e torneranno sulle mappe.": "Trips already saved without a starting point will inherit it, and come back on the maps.",
+  "Si cambia quando vuoi dalle impostazioni.": "You can change it any time in settings.",
+  "Viaggio concluso — aprilo e segnalo come fatto": "Trip over — open it and mark it as done",
+  "Modifica": "Edit",
+  "Inizia a scrivere": "Start writing",
+  "Altri giorni (fuori dalle date attuali del viaggio)": "Other days (outside the trip's current dates)",
+  "Caricamento della mappa…": "Loading the map…",
+  "Impossibile caricare la mappa.": "The map could not be loaded.",
+  "Questo viaggio non ha punti sufficienti per la mappa 3D (manca la posizione di casa o della destinazione).": "This trip doesn't have enough points for the 3D map (the home or destination position is missing).",
+  "Ritaglia quadro": "Crop picture",
+  "Periodo": "Dates",
+  "Recupero regione, meteo e altitudine delle tappe…": "Fetching region, weather and altitude for the stops…",
+  "Segna come fatto": "Mark as done",
+  "Tocca + o premi Invio per aggiungere": "Tap + or press Enter to add",
+  "Il tuo atlante personale di viaggio.": "Your personal travel atlas.",
+  "Ogni meta, una stella.": "Every destination, a star.",
+  "Entra come ospite": "Continue as guest",
+  "🔒 I viaggi si salvano nel cloud, legati al tuo account: solo tu puoi vederli.": "🔒 Your trips are saved to the cloud, tied to your account: only you can see them.",
+  "Da ospite puoi collegarti quando vuoi dalle Impostazioni.": "As a guest you can connect any time from Settings.",
+  "Trascina per ruotare": "Drag to spin",
+  "Indietro": "Back",
+  "Prima imposta la tua città di casa": "Set your home city first",
+  "Aggiungi al programma": "Add to plans",
+  "Questa rotta non esiste. Torna alla home e riparti dal globo.": "This route doesn't exist. Go back home and start again from the globe.",
+  "Torna alla home": "Back home",
+  "Programmalo": "Plan it",
+  "Salva lo stesso": "Save anyway",
+  "Apri quello": "Open that one",
+  "Esporta": "Export",
+  "Carico la mappa del mondo…": "Loading the world map…",
+
+
+  // ── Le scritte INTERROTTE da un'espressione ───────────────────────────────
+  // «Mostro i primi {MAX_DAYS} giorni — il viaggio ne ha {totalDays}.»: una
+  // frase sola, spezzata in tre pezzi dalle graffe. La rete trattava la graffa
+  // come un muro e non vedeva né il prima né il dopo; ora la svuota.
+  "＋ altro {quanti} giorno →": "＋ {quanti} more day →",
+  "＋ altri {quanti} giorni →": "＋ {quanti} more days →",
+  "📖 Diario — {viaggio}": "📖 Diary — {viaggio}",
+  "Mostro i primi {quanti} giorni — il viaggio ne ha {totali}.": "Showing the first {quanti} days — the trip has {totali}.",
+  "Giorni scritti oltre il {quanti}° (dentro le date del viaggio)": "Days written beyond day {quanti} (inside the trip's dates)",
+  "🧭 Pianifica — {viaggio}": "🧭 Planning — {viaggio}",
+  "{quanti} punti": "{quanti} points",
+  "quota max {quanto} m": "max altitude {quanto} m",
+  "Esiste già un viaggio a {citta}": "There's already a trip to {citta}",
+  "Vuoi aprirlo invece di crearne un altro?": "Do you want to open it instead of creating another one?",
+  "fatte": "done",
+  "PNG {w}×{h}px, pronto per la stampa. SVG vettoriale per Illustrator.": "PNG {w}×{h}px, ready to print. Vector SVG for Illustrator.",
+  "Nel {anno} hai fatto solo gite in giornata: sono contate a parte e non entrano nel recap.": "In {anno} you only took day trips: they're counted separately and don't go into the recap.",
+  "Vai al {anno}": "Go to {anno}",
+  "posizione agganciata ({lat}, {lon})": "position locked ({lat}, {lon})",
+  "destinazione": "destination",
 
 } as const;

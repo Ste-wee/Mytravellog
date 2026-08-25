@@ -118,7 +118,7 @@ const ImportaGpx = () => {
       <AppHeader />
       <div className="container mx-auto px-6 pt-8 pb-2" style={{ maxWidth: 720 }}>
         <button onClick={() => navigate(-1)} className="flex items-center gap-2" style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, marginBottom: 16, background: "none", border: "none", cursor: "pointer" }}>
-          <ArrowLeft className="w-4 h-4" /> Indietro
+          <ArrowLeft className="w-4 h-4" /> {t("Indietro")}
         </button>
         <h1 className="font-display" style={{ fontSize: 22, fontWeight: 700, color: "#f0f4ff", marginBottom: 6 }}>{t("Importa da GPX")}</h1>
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: 20 }}>
@@ -147,8 +147,8 @@ const ImportaGpx = () => {
               dangerouslySetInnerHTML={{ __html: buildTrackPreviewSvg(coords) }} />
             <div style={{ display: "flex", gap: 14, fontSize: 12, color: "rgba(255,255,255,0.55)", marginBottom: 20, flexWrap: "wrap" }}>
               <span>{fmtNumber(lengthKm)} km</span>
-              <span>{coords.length} punti</span>
-              {maxEle != null && <span>quota max {maxEle} m</span>}
+              <span>{t("{quanti} punti", { quanti: coords.length })}</span>
+              {maxEle != null && <span>{t("quota max {quanto} m", { quanto: maxEle })}</span>}
               {geocoding && <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Loader2 className="w-3 h-3 animate-spin" /> {t("rilevo i luoghi…")}</span>}
             </div>
 

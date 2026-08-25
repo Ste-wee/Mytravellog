@@ -12,19 +12,43 @@ catturato regressioni vere che gli altri non vedevano).
 | 2 | Lint | `npx eslint src scripts e2e` | import morti, hook malformati, `any` | la logica |
 | 3 | Unit/integrazione (739 test, jsdom) | `npx vitest run` | logica, riduttori, formatter, macchine a stati, rami d'errore | **jsdom non disegna**: WebGL, layout, CSS (ellipsis/overflow), scroll |
 | 4 | Collaudo end-to-end (Playwright, browser vero) | `npm run collaudo` (serve il dev server) | pagine che si aprono, azioni chiave, globo che carica, offline | il sito *deployato* (bundle, SW, CDN) |
-| 4b | Traduzione | `npm run lingua` (serve un server) | **scritte rimaste in italiano con l'app in inglese**, pagina per pagina, etichette invisibili incluse | le schermate che si aprono solo con un'interazione (diario, pannello del piano, tutorial) |
+| 4b | Traduzione | `npm run lingua` (serve un server) | **scritte rimaste in italiano con l'app in inglese**: 9 pagine + 7 interazioni + 6 **stati che il seed nasconde** (vuoto, benvenuto, gate della città, 404), etichette invisibili incluse | le scritte senza nessuna parola-spia dentro |
 | 5 | Verifica sul deployato | script di sonda su `ste-wee.github.io/Mytravellog` | build minificato, service worker, cache, deploy riuscito | — |
 
-| 4c | Traduzione, rete STRUTTURALE | `npm run lingua:statico` | ogni scritta a mano fuori da `t()`, **senza indovinare la lingua** | i letterali che non stanno in testo JSX / attributi / toast (es. dentro un array) |
+| 4c | Traduzione, rete STRUTTURALE | `npm run lingua:statico` | ogni scritta a mano fuori da `t()`, **senza indovinare la lingua**: legge il file INTERO, quindi vede il testo su più righe, quello dopo una graffa chiusa e quello interrotto da `{espressioni}` | i letterali che non stanno in testo JSX / attributi / toast (es. dentro un array) |
 
 ⚠️ **Perché DUE reti per la stessa cosa.** La 4b guarda cosa *rende* a schermo,
 la 4c guarda il *codice*: hanno buchi opposti e servono insieme. La 4b non vede
 gli stati che non apre; la 4c non vede i letterali fuori dai posti che conosce.
-**Storia da non ripetere: ho creduto di aver finito quattro volte** con una rete
+**Storia da non ripetere: ho creduto di aver finito SEI volte** con una rete
 verde e l'italiano a schermo — «Rivivi il 2026 in 3D» (nessuna parola-spia),
 «Itinerario» (una parola sola), «Mappa del mondo» (l'articolo «del» non era
-nella mia lista), i toast (nessun collaudo li fa scattare). Ogni volta il buco
-era nel **disegno della rete**, non nel codice.
+nella mia lista), i toast (nessun collaudo li fa scattare), poi **76 scritte in
+un colpo** e infine «Accedi con Google» sul cancello di benvenuto. Ogni volta il
+buco era nel **disegno della rete**, non nel codice.
+
+⚠️ **Le ultime tre, che sono la stessa lezione tre volte.** La 4c leggeva **una
+riga alla volta** e cercava `>testo<`. In questo codice i tag sono spezzati su
+più righe di attributi, quindi il `>`, il testo e il `<` stanno su righe
+diverse: **60 scritte invisibili**. Poi il testo che comincia dopo una **graffa
+chiusa** (`{busy ? … : <GoogleG/>}` e a capo la scritta) e il testo
+**interrotto** da un'espressione («Mostro i primi {MAX_DAYS} giorni — il viaggio
+ne ha {totalDays}.»): **altre 16**, e la prima di queste l'ho vista in uno
+**screenshot**, non in una rete. La cura non è stata aggiungere tre regole ma **generalizzare
+quella che c'era**: leggere il file intero, e svuotare le graffe invece di
+trattarle da muro.
+
+Il complemento nella 4b: il seed riempie l'archivio e congeda il cancello di
+benvenuto, e con questo **rende irraggiungibili** la schermata vuota, il gate
+della città e il 404 — dove stavano un bel po' di quelle scritte. Un seed è una
+scelta, e **ogni scelta nasconde il suo opposto**: da qui il terzo passaggio con
+6 stati, ognuno dei quali pretende una scritta inglese a schermo (senza quella,
+una pagina che non carica darebbe «0 italiano»).
+
+⚠️ E il controllo delle chiavi orfane cercava la chiave come **sottostringa
+nuda**: «Programma» risultava usata perché quelle lettere stanno dentro
+l'identificatore `InProgramma`. Ora la cerca **fra apici**. È stato tirando
+quel filo che sono venute fuori tutte le altre.
 
 Da qui tre regole, valide oltre le lingue:
 1. **Chiedere una proprietà sintattica, non un'euristica.** «È un letterale
@@ -36,9 +60,14 @@ Da qui tre regole, valide oltre le lingue:
    una pagina che il collaudo non visita, fallisce invece di ignorarla. Uno
    «0» ottenuto guardando zero è il guasto silenzioso classico.
 3. **Ogni rete ha la sua autoprova.** `npm run lingua:statico -- --autoprova`
-   inietta 8 casi che deve trovare e 7 che deve ignorare. Ha già ripagato: mentre
-   la rendevo più silenziosa l'ho resa cieca su `toast.error("…!")`, e me l'ha
-   detto subito.
+   inietta 13 casi che deve trovare e 19 che deve ignorare, **multi-riga
+   compresi**. Ha già ripagato due volte: mentre la rendevo più silenziosa l'ho
+   resa cieca su `toast.error("…!")`, e mentre le insegnavo il testo su più
+   righe mi ha bocciato `else if (km > 100) return 3` come falso positivo.
+4. **Una rete che dice «0» va guardata con gli occhi almeno una volta.** Il
+   sesto difetto l'ha trovato uno screenshot, non un numero verde. Se una rete
+   dice a posto, la domanda giusta è: **cos'altro direbbe la stessa cosa se
+   fosse rotta?**
 
 **Lo strato 4b (`e2e/lingua.mjs`) è il cancello della traduzione**: apre ogni
 pagina con la lingua inglese e cerca parole funzione italiane (nel testo E negli

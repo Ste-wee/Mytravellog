@@ -25,11 +25,11 @@ const NotFound = () => {
           <div className="font-mono" style={{ fontSize: 40, fontWeight: 800, color: "#f0f4ff", lineHeight: 1 }}>404</div>
           <div className="font-display" style={{ fontSize: 16, fontWeight: 700, color: "#f0f4ff", marginTop: 10 }}>{t("Pagina non trovata")}</div>
           <p style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", lineHeight: 1.5, margin: "6px 0 18px" }}>
-            Questa rotta non esiste. Torna alla home e riparti dal globo.
+            {t("Questa rotta non esiste. Torna alla home e riparti dal globo.")}
           </p>
           <Link to="/"
             style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600, padding: "10px 22px", borderRadius: 999, background: "#60a5fa", color: "#0a1628", textDecoration: "none" }}>
-            Torna alla home
+            {t("Torna alla home")}
           </Link>
         </div>
       </div>

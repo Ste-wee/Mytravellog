@@ -84,11 +84,11 @@ export function HomeCityGate() {
 
         {orfani > 0 && (
           <div style={{ fontSize: 11, letterSpacing: "1.5px", fontWeight: 600, color: "#fbbf24", textAlign: "center" }}>
-            MANCA UNA COSA
+            {t("MANCA UNA COSA")}
           </div>
         )}
         <h1 className="font-display" style={{ fontSize: 22, fontWeight: 700, color: "#f0f4ff", textAlign: "center", marginTop: 8 }}>
-          Da dove parti?
+          {t("Da dove parti?")}
         </h1>
         <p style={{ fontSize: 12.5, lineHeight: 1.6, color: "rgba(255,255,255,0.6)", textAlign: "center", marginTop: 10 }}>
           {orfani > 0 ? (
@@ -133,31 +133,31 @@ export function HomeCityGate() {
         {!online && (
           <div style={{ marginTop: 12, background: "rgba(251,191,36,0.10)", border: "0.5px solid rgba(251,191,36,0.35)",
             borderRadius: 10, padding: "10px 12px", fontSize: 11.5, color: "#fbbf24", lineHeight: 1.5 }}>
-            Sei senza connessione: per cercare la tua città serve la rete.
+            {t("Sei senza connessione: per cercare la tua città serve la rete.")}
           </div>
         )}
         {online && query.trim().length >= 2 && !loading && results.length === 0 && (
           <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.6)", textAlign: "center" }}>
-            Nessuna città trovata. Prova con un nome più semplice.
+            {t("Nessuna città trovata. Prova con un nome più semplice.")}
           </div>
         )}
         {!online && (
           <button type="button" onClick={() => setRimandato(true)}
             style={{ display: "block", margin: "14px auto 0", background: "none", border: "none",
               color: "rgba(255,255,255,0.6)", fontSize: 12.5, textDecoration: "underline", cursor: "pointer" }}>
-            Continua per ora
+            {t("Continua per ora")}
           </button>
         )}
 
         {orfani > 0 && (
           <div style={{ marginTop: 20, background: "rgba(52,211,153,0.10)", border: "0.5px solid rgba(52,211,153,0.3)",
             borderRadius: 10, padding: "10px 12px", fontSize: 11.5, color: "#6ee7b7", lineHeight: 1.5 }}>
-            I viaggi già salvati senza partenza la erediteranno, e torneranno sulle mappe.
+            {t("I viaggi già salvati senza partenza la erediteranno, e torneranno sulle mappe.")}
           </div>
         )}
 
         <div style={{ marginTop: 16, fontSize: 11, color: "rgba(255,255,255,0.45)", textAlign: "center" }}>
-          Si cambia quando vuoi dalle impostazioni.
+          {t("Si cambia quando vuoi dalle impostazioni.")}
         </div>
       </div>
     </div>,

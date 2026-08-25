@@ -878,7 +878,7 @@ function RouteHero({
                   <text x={hx+38} y={hy+4} fontSize="12" textAnchor="start" fill="#fbbf24" fontWeight="700">{homeLabel}</text>
                   <circle cx={dx} cy={dy} r="26" fill="rgba(255,255,255,0.02)" stroke="#1a2d4a" strokeWidth="1.5" strokeDasharray="3 2"/>
                   <text x={dx} y={dy+6} fontSize="22" textAnchor="middle" dominantBaseline="middle" fill="rgba(255,255,255,0.15)">+</text>
-                  <text x={dx-38} y={dy+4} fontSize="12" textAnchor="end" fill="rgba(255,255,255,0.3)">destinazione</text>
+                  <text x={dx-38} y={dy+4} fontSize="12" textAnchor="end" fill="rgba(255,255,255,0.3)">{t("destinazione")}</text>
                 </svg>
               );
             })()}
@@ -1112,7 +1112,7 @@ export function TripFormFields({
         {/* Riga superiore: Titolo a sinistra, Durata a destra */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <label style={{ fontSize:9, color:"rgba(255,255,255,0.6)", letterSpacing:"1.5px", textTransform:"uppercase", display:"block", margin: 0 }}>
-            Periodo
+            {t("Periodo")}
           </label>
 
           {days && (
@@ -1190,7 +1190,7 @@ export function TripFormFields({
             tornava null), senza dire perché. */}
         {dateOrderError && (
           <p style={{ fontSize:11, color:"#f87171", marginTop:8, display:"flex", alignItems:"center", gap:4 }}>
-            <AlertCircle className="w-3 h-3"/> Il ritorno non può essere prima della partenza
+            <AlertCircle className="w-3 h-3"/> {t("Il ritorno non può essere prima della partenza")}
           </p>
         )}
       </div>
@@ -1266,7 +1266,7 @@ export function TripFormActions({ saving, confirmDiscard, onSave }: {
           questa riga il form sembra bloccato invece che al lavoro. */}
       {saving && (
         <p style={{ fontSize:11, color:"rgba(255,255,255,0.6)", textAlign:"center", margin:0 }}>
-          Recupero regione, meteo e altitudine delle tappe…
+          {t("Recupero regione, meteo e altitudine delle tappe…")}
         </p>
       )}
     </>

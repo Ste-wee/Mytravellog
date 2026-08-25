@@ -73,7 +73,7 @@ export function GlobePlacePicker({ onClose, onPick }: {
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#f0f4ff" }}>{t("Scegli la tappa")}</span>
           <span style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
-            Ruota il globo e tocca un punto
+            {t("Ruota il globo e tocca un punto")}
           </span>
         </span>
       </div>
@@ -114,13 +114,13 @@ export function GlobePlacePicker({ onClose, onPick }: {
               style={{ flex: 1, padding: 11, borderRadius: 10, background: "transparent",
                 border: "0.5px solid #1a2d4a", color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: 600,
                 cursor: "pointer", fontFamily: "inherit" }}>
-              Scegli un altro punto
+              {t("Scegli un altro punto")}
             </button>
             <button type="button" onClick={conferma} disabled={!nome.trim()}
               style={{ flex: 1, padding: 11, borderRadius: 10, border: "none",
                 background: nome.trim() ? "#60a5fa" : "rgba(96,165,250,0.3)", color: "#0a1628",
                 fontSize: 13, fontWeight: 700, cursor: nome.trim() ? "pointer" : "default", fontFamily: "inherit" }}>
-              Aggiungi tappa
+              {t("Aggiungi tappa")}
             </button>
           </div>
         </div>

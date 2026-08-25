@@ -223,7 +223,7 @@ export function ContinentsMap({ trips }: Props) {
             sempre — indistinguibile da "nessun paese visitato". */}
         {fetchFailed && countries.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-10">
-            Non è stato possibile caricare la mappa. Controlla la connessione e riprova più tardi.
+            {t("Non è stato possibile caricare la mappa. Controlla la connessione e riprova più tardi.")}
           </p>
         ) : (
         <svg

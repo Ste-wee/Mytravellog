@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { loadTrips } from "@/lib/storage";
 import { useCloud, LS_SCOLLEGATO, EVENTO_SCOLLEGATO } from "@/lib/cloudContext";
 import { GoogleG } from "@/components/GoogleG";
+import { useT } from "@/lib/settings";
 import { Loader2, AlertTriangle } from "lucide-react";
 
 const DISMISS_KEY = "navta.welcome.dismissed";
@@ -61,6 +62,7 @@ function AppLogo() {
 }
 
 export function WelcomeGate() {
+  const t = useT();
   const [visible, setVisible] = useState(shouldShowWelcome);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -144,7 +146,7 @@ export function WelcomeGate() {
       <div style={{ width: "100%", maxWidth: 340, textAlign: "center", margin: "auto" }}>
         <AppLogo />
         <p style={{ marginTop: 14, fontSize: 13.5, lineHeight: 1.6, color: "rgba(255,255,255,0.55)" }}>
-          Il tuo atlante personale di viaggio.<br />Ogni meta, una stella.
+          {t("Il tuo atlante personale di viaggio.")}<br />{t("Ogni meta, una stella.")}
         </p>
 
         <div style={{ marginTop: 36, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -155,7 +157,7 @@ export function WelcomeGate() {
               background: "#ffffff", color: "#1f1f1f", fontSize: 14, fontWeight: 700, opacity: busy ? 0.7 : 1,
             }}>
             {busy ? <Loader2 style={{ width: 16, height: 16 }} className="animate-spin" /> : <GoogleG size={16} />}
-            Accedi con Google
+            {t("Accedi con Google")}
           </button>
           <button type="button" onClick={dismiss} disabled={busy}
             style={{
@@ -164,7 +166,7 @@ export function WelcomeGate() {
               background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.22)",
               color: "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: 600,
             }}>
-            Entra come ospite
+            {t("Entra come ospite")}
           </button>
         </div>
 
@@ -180,10 +182,10 @@ export function WelcomeGate() {
             Stefano su questa schermata dopo che era già stata corretta nelle
             Impostazioni: la stessa frase viveva in DUE posti). */}
         <p style={{ marginTop: 18, fontSize: 11.5, lineHeight: 1.6, color: "rgba(255,255,255,0.5)" }}>
-          🔒 I viaggi si salvano nel cloud, legati al tuo account: solo tu puoi vederli.
+          {t("🔒 I viaggi si salvano nel cloud, legati al tuo account: solo tu puoi vederli.")}
         </p>
         <p style={{ marginTop: 6, fontSize: 11, lineHeight: 1.6, color: "rgba(255,255,255,0.6)" }}>
-          Da ospite puoi collegarti quando vuoi dalle Impostazioni.
+          {t("Da ospite puoi collegarti quando vuoi dalle Impostazioni.")}
         </p>
       </div>
     </div>

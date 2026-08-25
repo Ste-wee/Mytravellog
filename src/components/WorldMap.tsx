@@ -1,7 +1,7 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
 import { useEffect, useRef, useState, useMemo } from "react";
 import { Trip } from "@/lib/storage";
-import { AutoRotate } from "@/lib/settings";
+import { AutoRotate, useT } from "@/lib/settings";
 import { unwrapPath } from "@/lib/lonWrap";
 import { hasCoords } from "@/lib/coords";
 import { TRANSPORT, TRANSPORT_MODES, TRANSPORT_FALLBACK_COLOR } from "@/lib/transport";
@@ -255,6 +255,11 @@ export function WorldMap({
   trips, selectedId, onSelectTrip, onSelectCity, autoRotateSetting = "on", selectionOpen = false,
   minMarkerScale = 0.3, maxMarkerScale = 0.7, modalitaPaesi = false,
 }: Props) {
+  // ⚠️ Si chiama `testo`, non `t`: in questo file `t` è già il nome di due
+  // variabili locali (un timeout e un viaggio). Un `t` di componente le
+  // ombreggerebbe, e il primo che scrive `t("…")` dentro quegli scope si
+  // ritroverebbe in mano un Trip invece del traduttore.
+  const testo = useT();
   // Raggio dei pallini: il 7 storico moltiplicato per la scala scelta, che
   // cresce con lo zoom (min da lontano, max da vicino). Con "Piccoli"
   // (0,3-0,7) si passa da ~2 a ~5 pixel: il globo pieno resta leggibile.
@@ -1145,7 +1150,7 @@ export function WorldMap({
           style={{ transition: `opacity ${GLOBE_HINT_FADE_MS}ms ease`, opacity: globeHint === "fading" ? 0 : 1, pointerEvents: "none", bottom: 12 }}
         >
           <Hand className="w-3.5 h-3.5" aria-hidden/>
-          Trascina per ruotare
+          {testo("Trascina per ruotare")}
         </div>
       )}
 

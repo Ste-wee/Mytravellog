@@ -332,7 +332,7 @@ const NuovoViaggio = () => {
               <CalendarClock style={{width:15,height:15,color:"#fbbf24",flexShrink:0}}/>
               <span style={{flex:1,minWidth:0}}>{t("Data futura: è un viaggio in programma?")}</span>
               <span style={{flexShrink:0,display:"inline-flex",alignItems:"center",gap:4,color:"#93c5fd",fontWeight:600}}>
-                Programmalo <ArrowRight style={{width:12,height:12}}/>
+                {t("Programmalo")} <ArrowRight style={{width:12,height:12}}/>
               </span>
             </button>
           )}
@@ -355,11 +355,11 @@ const NuovoViaggio = () => {
             <span aria-hidden style={{ fontSize:17 }}>⚠️</span>
             <span>
               <span style={{ display:"block", fontSize:14, fontWeight:700, color:"#f0f4ff", marginBottom:3 }}>
-                Esiste già un viaggio a {duplicato.city}
+                {t("Esiste già un viaggio a {citta}", { citta: duplicato.city })}
               </span>
               <span style={{ display:"block", fontSize:12, color:"rgba(255,255,255,0.55)", lineHeight:1.45 }}>
                 {formatTripDate(duplicato.trip_date)}{duplicato.date_end ? ` → ${formatTripDate(duplicato.date_end)}` : ""}.
-                Vuoi aprirlo invece di crearne un altro?
+                {t("Vuoi aprirlo invece di crearne un altro?")}
               </span>
             </span>
           </div>
@@ -367,12 +367,12 @@ const NuovoViaggio = () => {
             <button type="button" onClick={() => { setDuplicato(null); handleSave(true); }}
               style={{ flex:1, padding:11, borderRadius:10, background:"transparent",
                 border:"0.5px solid #1a2d4a", color:"rgba(255,255,255,0.65)", fontSize:13, fontWeight:600, cursor:"pointer" }}>
-              Salva lo stesso
+              {t("Salva lo stesso")}
             </button>
             <button type="button" onClick={() => navigate(`/modifica-viaggio/${duplicato.id}`)}
               style={{ flex:1, padding:11, borderRadius:10, background:"#60a5fa", border:"none",
                 color:"#0a1628", fontSize:13, fontWeight:700, cursor:"pointer" }}>
-              Apri quello
+              {t("Apri quello")}
             </button>
           </div>
         </div>,

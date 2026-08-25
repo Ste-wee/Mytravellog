@@ -687,7 +687,7 @@ export default function QuadroEditor() {
             style={btn(borders
               ? { background: "rgba(96,165,250,0.16)", borderColor: "#60a5fa", color: "#60a5fa" }
               : { opacity: 0.5, cursor: "default" })}>
-            <Download style={{ width: 15, height: 15 }} /> Esporta
+            <Download style={{ width: 15, height: 15 }} /> {t("Esporta")}
           </button>
 
           {exportOpen && borders && (
@@ -739,7 +739,7 @@ export default function QuadroEditor() {
                 </button>
               </div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", marginTop: 8 }}>
-                PNG {fmt.w}×{fmt.h}px, pronto per la stampa. SVG vettoriale per Illustrator.
+                {t("PNG {w}×{h}px, pronto per la stampa. SVG vettoriale per Illustrator.", { w: fmt.w, h: fmt.h })}
               </div>
             </div>
           )}
@@ -760,12 +760,12 @@ export default function QuadroEditor() {
             <p>{t("Qui ritagli la mappa dei tuoi viaggi in un quadro a più tele — ma non c'è ancora nessun viaggio da disegnare.")}</p>
             <button type="button" onClick={() => navigate("/nuovo-viaggio")}
               style={btn({ margin: "14px auto 0", background: "rgba(96,165,250,0.16)", borderColor: "#60a5fa", color: "#60a5fa" })}>
-              <Plus style={{ width: 15, height: 15 }} /> Nuovo viaggio
+              <Plus style={{ width: 15, height: 15 }} /> {t("Nuovo viaggio")}
             </button>
           </div>
         ) : borders === null ? (
           <div style={{ display: "flex", alignItems: "center", gap: 10, color: "rgba(255,255,255,0.5)", fontSize: 14 }}>
-            <Loader2 style={{ width: 18, height: 18 }} className="animate-spin" /> Carico la mappa del mondo…
+            <Loader2 style={{ width: 18, height: 18 }} className="animate-spin" /> {t("Carico la mappa del mondo…")}
           </div>
         ) : (
           <svg

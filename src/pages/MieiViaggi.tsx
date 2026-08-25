@@ -325,7 +325,7 @@ export default function MieiViaggi() {
                   cursor:"pointer",
                 }}
               >
-                Tutti
+                {t("Tutti")}
               </button>
               {allYears.map(year => (
                 <button
@@ -357,14 +357,14 @@ export default function MieiViaggi() {
                     background: vista === "lista" ? "rgba(96,165,250,0.15)" : "transparent",
                     color: vista === "lista" ? "#60a5fa" : "rgba(255,255,255,0.4)",
                     fontWeight: vista === "lista" ? 600 : 400}}>
-                  <List style={{width:12,height:12}}/> Lista
+                  <List style={{width:12,height:12}}/> {t("Lista")}
                 </button>
                 <button type="button" onClick={() => setVista("griglia")} aria-pressed={vista === "griglia"}
                   style={{display:"flex",alignItems:"center",gap:5,padding:"6px 12px",fontSize:11,border:"none",cursor:"pointer",
                     background: vista === "griglia" ? "rgba(96,165,250,0.15)" : "transparent",
                     color: vista === "griglia" ? "#60a5fa" : "rgba(255,255,255,0.4)",
                     fontWeight: vista === "griglia" ? 600 : 400}}>
-                  <LayoutGrid style={{width:12,height:12}}/> Griglia
+                  <LayoutGrid style={{width:12,height:12}}/> {t("Griglia")}
                 </button>
               </div>
             </div>
@@ -385,11 +385,11 @@ export default function MieiViaggi() {
                 </div>
                 <div className="font-display" style={{fontSize:15, fontWeight:700, color:"#f0f4ff"}}>{t("Nessun viaggio ancora")}</div>
                 <p style={{fontSize:12, color:"rgba(255,255,255,0.6)", lineHeight:1.5, margin:"6px 0 16px"}}>
-                  Aggiungi il tuo primo viaggio: comparirà qui, sul globo e nelle statistiche.
+                  {t("Aggiungi il tuo primo viaggio: comparirà qui, sul globo e nelle statistiche.")}
                 </p>
                 <Link to="/nuovo-viaggio"
                   style={{display:"inline-flex", alignItems:"center", justifyContent:"center", gap:6, fontSize:13, fontWeight:600, padding:"10px 22px", borderRadius:999, background:"#60a5fa", color:"#0a1628", textDecoration:"none"}}>
-                  <Plus style={{width:14, height:14}}/> Aggiungi il primo viaggio
+                  <Plus style={{width:14, height:14}}/> {t("Aggiungi il primo viaggio")}
                 </Link>
               </div>
             </div>

@@ -292,7 +292,7 @@ function HomeInner() {
                   </div>
                   <div className="font-display" style={{fontSize:15, fontWeight:700, color:"#f0f4ff"}}>{t("Benvenuto su NAV·TA")}</div>
                   <p style={{fontSize:12, color:"rgba(255,255,255,0.6)", lineHeight:1.5, margin:"6px 0 16px"}}>
-                    Aggiungi il tuo primo viaggio e guarda il globo prendere vita.
+                    {t("Aggiungi il tuo primo viaggio e guarda il globo prendere vita.")}
                   </p>
                   <button onClick={() => navigate("/nuovo-viaggio")}
                     style={{
@@ -300,12 +300,12 @@ function HomeInner() {
                       fontSize:13, fontWeight:600, padding:"10px 0", borderRadius:999, cursor:"pointer",
                       background:"#60a5fa", border:"none", color:"#0a1628",
                     }}>
-                    <Plus style={{width:14, height:14}}/> Aggiungi il primo viaggio
+                    <Plus style={{width:14, height:14}}/> {t("Aggiungi il primo viaggio")}
                   </button>
                   {!homeCity && (
                     <button onClick={() => navigate("/impostazioni")}
                       style={{marginTop:10, fontSize:11, background:"none", border:"none", cursor:"pointer", color:"rgba(255,255,255,0.6)", textDecoration:"underline"}}>
-                      Prima imposta la tua città di casa
+                      {t("Prima imposta la tua città di casa")}
                     </button>
                   )}
                 </div>
@@ -391,7 +391,7 @@ function HomeInner() {
                         fontSize:11, fontWeight:600, padding:"7px 0", borderRadius:999, cursor:"pointer",
                         background:"rgba(255,255,255,0.06)", border:"0.5px solid #1a2d4a", color:"rgba(255,255,255,0.7)",
                       }}>
-                      <Pencil style={{width:12, height:12}}/> Modifica
+                      <Pencil style={{width:12, height:12}}/> {t("Modifica")}
                     </button>
                   </div>
                 </div>
@@ -521,7 +521,7 @@ function HomeInner() {
                   navigate("/nuovo-viaggio");
                 }}
               >
-                <Plus className="w-4 h-4" /> Aggiungi come viaggio
+                <Plus className="w-4 h-4" /> {t("Aggiungi come viaggio")}
               </button>
 
             </div>

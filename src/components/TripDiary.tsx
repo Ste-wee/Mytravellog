@@ -230,7 +230,7 @@ export function TripDiary({ trip, entries, onClose, onSaved }: Props) {
           <div style={{ fontFamily: MONO, fontSize: 13, lineHeight: 1.7 }}>{t("Il diario di bordo è ancora vuoto.")}</div>
           <button type="button" onClick={() => setMode("write")}
             style={{ marginTop: 16, padding: "9px 18px", borderRadius: 999, background: "rgba(96,165,250,0.15)", border: "0.5px solid rgba(96,165,250,0.4)", color: "#93c5fd", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-            Inizia a scrivere
+            {t("Inizia a scrivere")}
           </button>
         </div>
       );
@@ -295,7 +295,7 @@ export function TripDiary({ trip, entries, onClose, onSaved }: Props) {
       }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: "#f0f4ff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            📖 Diario — {trip.title || trip.city}
+            {t("📖 Diario — {viaggio}", { viaggio: trip.title || trip.city })}
           </div>
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>
             {mode === "read" ? t("Il tuo racconto, giorno per giorno") : t("Scrivi il racconto giorno per giorno · si salva da solo")}
@@ -327,13 +327,13 @@ export function TripDiary({ trip, entries, onClose, onSaved }: Props) {
           {days.map(renderDay)}
           {truncated && (
             <div style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", margin: "2px 0 14px" }}>
-              Mostro i primi {MAX_DAYS} giorni — il viaggio ne ha {totalDays}.
+              {t("Mostro i primi {quanti} giorni — il viaggio ne ha {totali}.", { quanti: MAX_DAYS, totali: totalDays })}
             </div>
           )}
           {beyondCapDates.length > 0 && (
             <>
               <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", letterSpacing: "1.5px", textTransform: "uppercase", margin: "18px 0 10px" }}>
-                Giorni scritti oltre il {MAX_DAYS}° (dentro le date del viaggio)
+                {t("Giorni scritti oltre il {quanti}° (dentro le date del viaggio)", { quanti: MAX_DAYS })}
               </div>
               {beyondCapDates.map(renderDay)}
             </>
@@ -341,7 +341,7 @@ export function TripDiary({ trip, entries, onClose, onSaved }: Props) {
           {orphanDates.length > 0 && (
             <>
               <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", letterSpacing: "1.5px", textTransform: "uppercase", margin: "18px 0 10px" }}>
-                Altri giorni (fuori dalle date attuali del viaggio)
+                {t("Altri giorni (fuori dalle date attuali del viaggio)")}
               </div>
               {orphanDates.map(renderDay)}
             </>

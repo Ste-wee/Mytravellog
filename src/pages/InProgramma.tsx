@@ -158,11 +158,11 @@ const InProgramma = () => {
 
             {/* Date */}
             <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-              <label style={{ flex: 1, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Partenza
+              <label style={{ flex: 1, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{t("Partenza")}
                 <input type="date" value={dateStart} onChange={e => setDateStart(e.target.value)}
                   style={{ width: "100%", marginTop: 4, background: "rgba(255,255,255,0.04)", border: "0.5px solid #1a2d4a", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#f0f4ff", outline: "none", fontFamily: "inherit", colorScheme: "dark" }} />
               </label>
-              <label style={{ flex: 1, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Ritorno
+              <label style={{ flex: 1, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{t("Ritorno")}
                 <input type="date" value={dateEnd} min={dateStart || undefined} onChange={e => setDateEnd(e.target.value)}
                   style={{ width: "100%", marginTop: 4, background: "rgba(255,255,255,0.04)", border: "0.5px solid #1a2d4a", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#f0f4ff", outline: "none", fontFamily: "inherit", colorScheme: "dark" }} />
               </label>
@@ -174,7 +174,7 @@ const InProgramma = () => {
 
             <button type="button" onClick={create} disabled={!canSave}
               style={{ width: "100%", background: canSave ? "#34d399" : "rgba(255,255,255,0.08)", border: "none", borderRadius: 8, padding: "10px", fontSize: 14, fontWeight: 700, color: canSave ? "#052e22" : "rgba(255,255,255,0.35)", cursor: canSave ? "pointer" : "default" }}>
-              Aggiungi al programma
+              {t("Aggiungi al programma")}
             </button>
           </div>
         )}

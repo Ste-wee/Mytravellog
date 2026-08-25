@@ -218,7 +218,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderBottom: "0.5px solid rgba(255,255,255,0.1)", background: "rgba(6,14,30,0.95)" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: "#f0f4ff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            🧭 Pianifica — {plan.title || plan.city}
+            {t("🧭 Pianifica — {viaggio}", { viaggio: plan.title || plan.city })}
           </div>
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>
             {t("Cose da organizzare · si salva da solo")}
@@ -290,7 +290,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
           <div style={{ display: "flex", gap: 10, marginTop: 32, paddingTop: 18, borderTop: "0.5px solid rgba(255,255,255,0.08)" }}>
             <button type="button" onClick={promote}
               style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, background: "#34d399", border: "none", borderRadius: 10, padding: "11px 14px", fontSize: 14, fontWeight: 700, color: "#052e22", cursor: "pointer" }}>
-              <Check style={{ width: 17, height: 17 }} /> Segna come fatto
+              <Check style={{ width: 17, height: 17 }} /> {t("Segna come fatto")}
             </button>
             <button type="button" onClick={remove} aria-label={t("Elimina piano")}
               style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "0.5px solid rgba(248,113,113,0.4)", borderRadius: 10, padding: "11px 14px", color: "#f87171", cursor: "pointer" }}>

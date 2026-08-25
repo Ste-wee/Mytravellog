@@ -67,13 +67,13 @@ export function PlanCard({ plan: p, onOpen }: { plan: Trip; onOpen: () => void }
         )}
         {cd.returned && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, fontSize: 11, color: "#34d399" }}>
-            <Check style={{ width: 14, height: 14 }} /> Viaggio concluso — aprilo e segnalo come fatto
+            <Check style={{ width: 14, height: 14 }} /> {t("Viaggio concluso — aprilo e segnalo come fatto")}
           </div>
         )}
         {cl.length > 0 && (
           <div style={{ marginTop: 14 }}>
             <div style={{ fontSize: 9, letterSpacing: ".06em", color: "rgba(255,255,255,0.6)", marginBottom: 4 }}>{t("DA ORGANIZZARE")}</div>
-            <div style={{ fontSize: 17, fontWeight: 600 }}>{done} / {cl.length} <span style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", fontWeight: 400 }}>fatte</span></div>
+            <div style={{ fontSize: 17, fontWeight: 600 }}>{done} / {cl.length} <span style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", fontWeight: 400 }}>{t("fatte")}</span></div>
             <div style={{ height: 5, borderRadius: 999, background: "#16233d", marginTop: 6, overflow: "hidden" }}>
               <div style={{ width: `${Math.round((done / cl.length) * 100)}%`, height: "100%", background: "#60a5fa" }} />
             </div>

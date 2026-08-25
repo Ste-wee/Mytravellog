@@ -223,7 +223,7 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
                 <Video className="w-4 h-4"/> {t("Rivivi in 3D")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate("/modifica-viaggio/"+trip.id)} className="flex items-center gap-2 cursor-pointer">
-                <Pencil className="w-4 h-4"/> Modifica
+                <Pencil className="w-4 h-4"/> {t("Modifica")}
               </DropdownMenuItem>
               <DropdownMenuSeparator/>
               <DropdownMenuItem onClick={() => onDeleteRequested?.(trip)} className="flex items-center gap-2 cursor-pointer" style={{color:"#f87171"}}>
@@ -460,7 +460,8 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
           {diary.length > DIARY_PREVIEW_MAX && (
             <button type="button" onClick={() => setShowDiary(true)}
               style={{alignSelf:"flex-start",background:"transparent",border:"none",padding:0,cursor:"pointer",fontSize:10,fontWeight:600,color:"#93c5fd"}}>
-              ＋ altri {diary.length - DIARY_PREVIEW_MAX} {diary.length - DIARY_PREVIEW_MAX === 1 ? "giorno" : "giorni"} →
+              {t(diary.length - DIARY_PREVIEW_MAX === 1 ? "＋ altro {quanti} giorno →" : "＋ altri {quanti} giorni →",
+                { quanti: diary.length - DIARY_PREVIEW_MAX })}
             </button>
           )}
         </div>

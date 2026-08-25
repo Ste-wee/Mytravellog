@@ -160,7 +160,7 @@ export function TripPurposeCompanions({ purpose, setPurpose, companions, setComp
         {/* Riga d'aiuto PERSISTENTE: il placeholder sparisce proprio quando
             servirebbe, cioè mentre si scrive il nome. */}
         <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.4)", marginTop: 5 }}>
-          Tocca + o premi Invio per aggiungere
+          {t("Tocca + o premi Invio per aggiungere")}
         </div>
         {suggestions.length > 0 && (
           <div id="companion-suggestions" role="listbox"
