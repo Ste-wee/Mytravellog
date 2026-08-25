@@ -12,10 +12,10 @@ catturato regressioni vere che gli altri non vedevano).
 | 2 | Lint | `npx eslint src scripts e2e` | import morti, hook malformati, `any` | la logica |
 | 3 | Unit/integrazione (739 test, jsdom) | `npx vitest run` | logica, riduttori, formatter, macchine a stati, rami d'errore | **jsdom non disegna**: WebGL, layout, CSS (ellipsis/overflow), scroll |
 | 4 | Collaudo end-to-end (Playwright, browser vero) | `npm run collaudo` (serve il dev server) | pagine che si aprono, azioni chiave, globo che carica, offline | il sito *deployato* (bundle, SW, CDN) |
-| 4b | Traduzione | `npm run lingua` (serve un server) | **scritte rimaste in italiano con l'app in inglese**: 9 pagine + 7 interazioni + 6 **stati che il seed nasconde** (vuoto, benvenuto, gate della città, 404), etichette invisibili incluse | le scritte senza nessuna parola-spia dentro |
+| 4b | Traduzione | `npm run lingua` (serve un server) | **scritte rimaste in italiano con l'app in inglese**: 9 pagine + 7 interazioni + 6 **stati che il seed nasconde** (vuoto, benvenuto, gate della città, 404), etichette invisibili incluse, **+ nessuna CHIAVE del dizionario a schermo** | il testo disegnato su canvas (il poster del recap non sta in `innerText`) |
 | 5 | Verifica sul deployato | script di sonda su `ste-wee.github.io/Mytravellog` | build minificato, service worker, cache, deploy riuscito | — |
 
-| 4c | Traduzione, rete STRUTTURALE | `npm run lingua:statico` | ogni scritta a mano fuori da `t()`, **senza indovinare la lingua**: legge il file INTERO, quindi vede il testo su più righe, quello dopo una graffa chiusa e quello interrotto da `{espressioni}` | i letterali che non stanno in testo JSX / attributi / toast (es. dentro un array) |
+| 4c | Traduzione, rete STRUTTURALE | `npm run lingua:statico` | ogni scritta a mano fuori da `t()`, **senza indovinare la lingua**: legge il file INTERO (testo su più righe, dopo una graffa chiusa, interrotto da `{espressioni}`) **e sette posizioni fuori dal JSX** | le posizioni non elencate (es. una stringa dentro un array di tuple) |
 
 ⚠️ **Perché DUE reti per la stessa cosa.** La 4b guarda cosa *rende* a schermo,
 la 4c guarda il *codice*: hanno buchi opposti e servono insieme. La 4b non vede
@@ -65,9 +65,35 @@ Da qui tre regole, valide oltre le lingue:
    resa cieca su `toast.error("…!")`, e mentre le insegnavo il testo su più
    righe mi ha bocciato `else if (km > 100) return 3` come falso positivo.
 4. **Una rete che dice «0» va guardata con gli occhi almeno una volta.** Il
-   sesto difetto l'ha trovato uno screenshot, non un numero verde. Se una rete
-   dice a posto, la domanda giusta è: **cos'altro direbbe la stessa cosa se
+   sesto difetto l'ha trovato uno screenshot, non un numero verde («Aereo» e
+   «Diario» in italiano su ogni biglietto, con la rete viva a zero, perché le
+   sue spie sono una lista di PAROLE e quella lista non li conteneva). Se una
+   rete dice a posto, la domanda giusta è: **cos'altro direbbe la stessa cosa se
    fosse rotta?**
+5. **Prova che la rete sa fallire, con file finti.** Aggiungendo le posizioni
+   fuori dal JSX ho messo il loro rumore nel filtro comune, e due regole hanno
+   accecato la ricerca del testo: «tutte parole minuscole» è la forma di una
+   classe Tailwind **ed è la forma di «non hai viaggiato»**; «comincia con un
+   numero» è `1.5px solid #60a5fa` **ed è «12 tappe in tre paesi»**. Cinque
+   file finti, zero trovati. Da allora le regole guardano **ogni token** invece
+   del prefisso, e quei cinque casi vivono nell'autoprova.
+6. **Una prova che usa il dato vero smette di provare la regola.** Le fixture
+   dell'autoprova usavano le scritte reali; appena tradotte sono diventate
+   chiavi del dizionario e la rete ha (correttamente) smesso di segnalarle —
+   facendo fallire l'autoprova. Ora quelle frasi sono **inventate**.
+
+### Le tre reti in una riga
+
+- **strutturale** (4c): «questo letterale passa da `t()`?» — vede il codice,
+  compreso il canvas; non vede le posizioni che non ho elencato.
+- **viva, spie** (4b): «c'è una parola italiana a schermo?» — vede quello che
+  rende; non vede le parole fuori lista.
+- **viva, chiavi** (4b): «c'è una CHIAVE del dizionario a schermo?» — non
+  indovina niente e copre tutte le chiavi presenti e future; non vede il canvas
+  né le scritte che non hanno ancora una chiave. **È la rete che chiude il buco
+  delle altre due**: una chiave che esiste e un `t()` che manca al punto di
+  visualizzazione — il difetto più silenzioso, perché il dizionario dice sì e lo
+  schermo dice no.
 
 **Lo strato 4b (`e2e/lingua.mjs`) è il cancello della traduzione**: apre ogni
 pagina con la lingua inglese e cerca parole funzione italiane (nel testo E negli
