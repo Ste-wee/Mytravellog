@@ -1,5 +1,6 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useT } from "@/lib/settings";
 import { Check } from "lucide-react";
 import { Trip as LocalTrip } from "@/lib/storage";
 import { loadWorldAtlasCountries, polygonsOf } from "@/lib/worldAtlas";
@@ -101,6 +102,7 @@ export function __clearCountryFeatsCache() {
 }
 
 export function ContinentsMap({ trips }: Props) {
+  const t = useT();
   const [countries, setCountries] = useState<CountryFeat[]>(cachedCountryFeats ?? []);
   const [fetchFailed, setFetchFailed] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<{ code: string; name: string; trips: LocalTrip[] } | null>(null);
@@ -277,7 +279,7 @@ export function ContinentsMap({ trips }: Props) {
                   tabIndex={isVisited ? 0 : undefined}
                   style={{ cursor: isVisited ? "pointer" : "default" }}
                   role={isVisited ? "button" : undefined}
-                  aria-label={isVisited ? `Viaggi in ${nomePaese(c)}` : undefined}
+                  aria-label={isVisited ? t("Viaggi in {paese}", { paese: nomePaese(c) }) : undefined}
                 >
                   {/* Nome nella lingua dell'utente: il tooltip e il lettore di
                       schermo dicevano "Italy" mentre il resto dell'app dice

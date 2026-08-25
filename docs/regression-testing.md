@@ -12,7 +12,20 @@ catturato regressioni vere che gli altri non vedevano).
 | 2 | Lint | `npx eslint src scripts e2e` | import morti, hook malformati, `any` | la logica |
 | 3 | Unit/integrazione (739 test, jsdom) | `npx vitest run` | logica, riduttori, formatter, macchine a stati, rami d'errore | **jsdom non disegna**: WebGL, layout, CSS (ellipsis/overflow), scroll |
 | 4 | Collaudo end-to-end (Playwright, browser vero) | `npm run collaudo` (serve il dev server) | pagine che si aprono, azioni chiave, globo che carica, offline | il sito *deployato* (bundle, SW, CDN) |
+| 4b | Traduzione | `npm run lingua` (serve un server) | **scritte rimaste in italiano con l'app in inglese**, pagina per pagina, etichette invisibili incluse | le schermate che si aprono solo con un'interazione (diario, pannello del piano, tutorial) |
 | 5 | Verifica sul deployato | script di sonda su `ste-wee.github.io/Mytravellog` | build minificato, service worker, cache, deploy riuscito | — |
+
+**Lo strato 4b (`e2e/lingua.mjs`) è il cancello della traduzione**: apre ogni
+pagina con la lingua inglese e cerca parole funzione italiane (nel testo E negli
+`aria-label`/`title`/`placeholder`), poi esce con codice ≠ 0 se ne trova. I dati
+di prova sono in inglese di proposito — così tutto l'italiano che trova è testo
+dell'app, non un dato dell'utente (i nomi dei luoghi restano come li hai
+censiti: è una scelta dichiarata nelle Impostazioni, non un difetto).
+⚠️ Aggiungendo una scritta all'app va aggiunta anche in `src/lib/i18n/en.ts`, o
+**il typecheck non compila**: la chiave È l'italiano, e il dizionario inglese
+definisce le chiavi ammesse. Le due false positive già pagate: «marker» e
+«come», che sono parole inglesi — se aggiungi una spia, controlla che non
+esista in inglese.
 
 Il comando unico degli strati 1–4:
 

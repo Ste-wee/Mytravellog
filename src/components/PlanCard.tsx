@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useT } from "@/lib/settings";
 import { Trip, formatTripDate, updatePlan } from "@/lib/storage";
 import { planCountdown } from "@/lib/plans";
 import { MapPin, Check, CircleCheck, Circle } from "lucide-react";
@@ -22,6 +23,7 @@ function dateRange(t: Trip): string {
 }
 
 export function PlanCard({ plan: p, onOpen }: { plan: Trip; onOpen: () => void }) {
+  const t = useT();
   const cl = p.checklist ?? [];
   const done = cl.filter(c => c.done).length;
   const cd = planCountdown(p);
@@ -54,7 +56,7 @@ export function PlanCard({ plan: p, onOpen }: { plan: Trip; onOpen: () => void }
           </div>
           <div style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, color: cd.returned ? "#34d399" : cd.urgent ? "#fbbf24" : "rgba(255,255,255,0.6)" }}>{cd.text}</div>
         </div>
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>{dateRange(p)} · in programma</div>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>{dateRange(p)} · {t("in programma")}</div>
         {(p.waypoints?.length ?? 0) > 0 && (
           <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#93c5fd", marginTop: 6, minWidth: 0 }}>
             <MapPin style={{ width: 12, height: 12, flexShrink: 0 }} />
@@ -70,7 +72,7 @@ export function PlanCard({ plan: p, onOpen }: { plan: Trip; onOpen: () => void }
         )}
         {cl.length > 0 && (
           <div style={{ marginTop: 14 }}>
-            <div style={{ fontSize: 9, letterSpacing: ".06em", color: "rgba(255,255,255,0.6)", marginBottom: 4 }}>DA ORGANIZZARE</div>
+            <div style={{ fontSize: 9, letterSpacing: ".06em", color: "rgba(255,255,255,0.6)", marginBottom: 4 }}>{t("DA ORGANIZZARE")}</div>
             <div style={{ fontSize: 17, fontWeight: 600 }}>{done} / {cl.length} <span style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", fontWeight: 400 }}>fatte</span></div>
             <div style={{ height: 5, borderRadius: 999, background: "#16233d", marginTop: 6, overflow: "hidden" }}>
               <div style={{ width: `${Math.round((done / cl.length) * 100)}%`, height: "100%", background: "#60a5fa" }} />
@@ -90,7 +92,7 @@ export function PlanCard({ plan: p, onOpen }: { plan: Trip; onOpen: () => void }
           {booked
             ? <CircleCheck style={{ width: 15, height: 15 }} />
             : <Circle style={{ width: 15, height: 15 }} />}
-          {booked ? "Prenotato" : "Da prenotare"}
+          {booked ? t("Prenotato") : t("Da prenotare")}
         </button>
       </div>
     </div>

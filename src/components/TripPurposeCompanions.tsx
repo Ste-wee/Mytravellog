@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useT } from "@/lib/settings";
 import { loadTrips } from "@/lib/storage";
 import { X } from "lucide-react";
 
@@ -31,6 +32,7 @@ const smallInput: React.CSSProperties = {
  * nel form. Standalone di proposito (TripFormParts è FROZEN).
  */
 export function TripPurposeCompanions({ purpose, setPurpose, companions, setCompanions }: Props) {
+  const t = useT();
   const [nameInput, setNameInput] = useState("");
   // Suggerimento evidenziato da tastiera (-1 = nessuno) e chiusura con Esc.
   // I bottoni dei suggerimenti usano onMouseDown (per battere il blur), che
@@ -86,7 +88,7 @@ export function TripPurposeCompanions({ purpose, setPurpose, companions, setComp
 
       {/* Compagni di viaggio */}
       <div style={box}>
-        <label style={label}>Compagni di viaggio <span style={{ opacity: 0.4, textTransform: "none" }}>(opzionale)</span></label>
+        <label style={label}>{t("Compagni di viaggio")} <span style={{ opacity: 0.4, textTransform: "none" }}>{t("(opzionale)")}</span></label>
         {companions.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 10 }}>
             {companions.map(c => (
@@ -132,13 +134,13 @@ export function TripPurposeCompanions({ purpose, setPurpose, companions, setComp
             }
           }}
           onBlur={() => addName(nameInput)}
-          placeholder="Aggiungi un nome…"
+          placeholder={t("Aggiungi un nome…")}
           style={{ ...smallInput, paddingRight: 46 }}
         />
         {/* onMouseDown+preventDefault: senza, il tocco sul + toglie prima il
             focus all'input (e la tastiera del telefono si chiude). Così il
             focus resta dov'è e si può incatenare il nome successivo. */}
-        <button type="button" aria-label="Aggiungi il compagno"
+        <button type="button" aria-label={t("Aggiungi il compagno")}
           disabled={!nameInput.trim()}
           onMouseDown={e => e.preventDefault()}
           onClick={() => { addName(nameInput); setHi(-1); }}

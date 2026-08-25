@@ -1,5 +1,6 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
 import { useMemo, useState } from "react";
+import { useT } from "@/lib/settings";
 import { Trip as LocalTrip } from "@/lib/storage";
 import { paeseVisibileDiViaggio, paeseVisibileDiTappa } from "@/lib/paesi";
 import { CountryMapModal } from "@/components/CountryMapModal";
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function StatsSection({ trips }: Props) {
+  const t = useT();
   const [showAll, setShowAll] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
@@ -92,13 +94,13 @@ export function StatsSection({ trips }: Props) {
       <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6">
         <StatHero
           value={count.toString()}
-          label="paesi visitati"
+          label={t("paesi visitati")}
           accent="#60a5fa"
           gradient="linear-gradient(135deg, #0d2847 0%, #0a1628 62%)"
         />
         <StatHero
           value={`${percentLabel}%`}
-          label="del mondo visto"
+          label={t("del mondo visto")}
           accent="#34d399"
           gradient="linear-gradient(135deg, #0d3327 0%, #0a1628 62%)"
           mirror
@@ -106,10 +108,10 @@ export function StatsSection({ trips }: Props) {
       </div>
 
       <div>
-        <h2 className="text-lg font-bold mb-3">Elenco dei paesi</h2>
+        <h2 className="text-lg font-bold mb-3">{t("Elenco dei paesi")}</h2>
         {countries.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Nessun paese ancora. Aggiungi il tuo primo viaggio per popolare le statistiche.
+            {t("Nessun paese ancora. Aggiungi il tuo primo viaggio per popolare le statistiche.")}
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">

@@ -12,6 +12,7 @@ import { loadTrips, loadPlans, deleteTrip, parseLocalDate, Trip } from "@/lib/st
 import { deletePhotosForTrip } from "@/lib/photoStorage";
 import { Search, X, Video, Plane, Plus, Sparkles, Globe2, CalendarClock, ArrowRight, List, LayoutGrid, Sun } from "lucide-react";
 import { transportColor } from "@/lib/transport";
+import { useT } from "@/lib/settings";
 
 /**
  * Card compatta della vista a griglia: SOLO overview (bandiera, titolo,
@@ -53,6 +54,7 @@ const DELETE_ANIM_MS = 200;
 const UNDO_GRACE_MS = 5000;
 
 export default function MieiViaggi() {
+  const t = useT();
   const [trips, setTrips] = useState<Trip[]>([]);
   // Viaggi e gite in giornata, contati a parte come in Home.
   const conteggi = contaViaggiEGite(trips);
@@ -218,20 +220,20 @@ export default function MieiViaggi() {
             viaggi in un'unica costellazione), a destra del titolo. */}
         <div className="mb-6" style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12}}>
           <div>
-            <h2 className="text-2xl font-bold">I miei viaggi</h2>
+            <h2 className="text-2xl font-bold">{t("I miei viaggi")}</h2>
             <p className="text-sm text-muted-foreground mt-1">
               {/* Stessa distinzione della Home: le gite in giornata hanno il
                   loro numero. Due conteggi diversi per la stessa cosa in due
                   schermate è il pasticcio già fatto oggi con la promessa sulla
                   privacy, corretta in un posto solo su due. */}
-              {conteggi.viaggi} {conteggi.viaggi === 1 ? "viaggio" : "viaggi"}
-              {conteggi.gite > 0 && ` · ${conteggi.gite} ${conteggi.gite === 1 ? "gita" : "gite"} in giornata`}
-              {plans.length > 0 && ` · ${plans.length} in programma`}
+              {t(conteggi.viaggi === 1 ? "{quanti} viaggio" : "{quanti} viaggi", { quanti: conteggi.viaggi })}
+              {conteggi.gite > 0 && " · " + t(conteggi.gite === 1 ? "{quante} gita in giornata" : "{quante} gite in giornata", { quante: conteggi.gite })}
+              {plans.length > 0 && " · " + t("{quanti} in programma", { quanti: plans.length })}
             </p>
           </div>
           {trips.length > 0 && (
             <button type="button" onClick={() => setShowLifeMap(true)}
-              aria-label="La mappa della mia vita" title="La mappa della mia vita"
+              aria-label={t("La mappa della mia vita")} title={t("La mappa della mia vita")}
               style={{
                 width:38, height:38, borderRadius:11, flexShrink:0,
                 display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
@@ -250,10 +252,10 @@ export default function MieiViaggi() {
           <div style={{marginBottom:24}}>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
               <CalendarClock style={{width:15,height:15,color:"#93c5fd",flexShrink:0}}/>
-              <span style={{fontSize:11,letterSpacing:"1.5px",color:"#93c5fd",fontWeight:600}}>IN PROGRAMMA</span>
+              <span style={{fontSize:11,letterSpacing:"1.5px",color:"#93c5fd",fontWeight:600}}>{t("IN PROGRAMMA")}</span>
               <div style={{flex:1,height:1,background:"rgba(147,197,253,0.25)"}}/>
               <Link to="/in-programma" style={{flexShrink:0,fontSize:11,fontWeight:600,color:"#93c5fd",textDecoration:"none",display:"inline-flex",alignItems:"center",gap:4}}>
-                Programma <ArrowRight style={{width:12,height:12}}/>
+                {t("Programma")} <ArrowRight style={{width:12,height:12}}/>
               </Link>
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -273,7 +275,7 @@ export default function MieiViaggi() {
               style={{background:"transparent",border:"none",outline:"none",color:"#f0f4ff",fontSize:13,flex:1}}
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Cerca città, paese, titolo…"
+              placeholder={t("Cerca città, paese, titolo…")}
             />
             {search && (
               <button onClick={() => setSearch("")} aria-label="Cancella la ricerca" style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.6)"}}>
@@ -431,7 +433,7 @@ export default function MieiViaggi() {
                 <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
                   <Sun style={{width:14,height:14,color:"#fbbf24",flexShrink:0}}/>
                   <span style={{fontSize:11,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",color:"#fbbf24"}}>
-                    Gite in giornata
+                    {t("Gite in giornata")}
                   </span>
                   <div style={{flex:1,height:"0.5px",background:"rgba(251,191,36,0.25)"}}/>
                   <span style={{fontSize:11,color:"rgba(251,191,36,0.85)"}}>{soloGite.length}</span>
@@ -439,7 +441,7 @@ export default function MieiViaggi() {
                 {/* Fuori dai conti del viaggio: detto una volta qui, così il
                     numero in cima e le statistiche non sembrano sbagliati. */}
                 <p style={{fontSize:11.5,color:"rgba(255,255,255,0.45)",margin:"0 0 12px",lineHeight:1.5}}>
-                  Parti e torni lo stesso giorno: contate a parte, fuori da statistiche e recap.
+                  {t("Parti e torni lo stesso giorno: contate a parte, fuori da statistiche e recap.")}
                 </p>
                 {vista === "griglia" ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">

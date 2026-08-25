@@ -5,9 +5,21 @@ import { calendarDayKeys } from "@/lib/travelDays";
 import { stopChain } from "@/lib/stops";
 import { availableYears, computeYearRecap } from "@/lib/recap";
 import { Hourglass, CalendarDays, X, ChevronRight } from "lucide-react";
-import { fmtNumber } from "@/lib/settings";
+import { fmtNumber, localeAttivo, useT } from "@/lib/settings";
 
-const MONTH_LABELS = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
+/**
+ * I nomi brevi dei mesi, dal LOCALE attivo (non una tabella italiana): così
+ * seguono la lingua da soli, senza dodici chiavi da tradurre a mano — e in
+ * inglese diventano Jan/Feb/Mar senza che nessuno se ne debba ricordare.
+ * Il punto finale va via: l'abbreviazione italiana di CLDR è "gen.".
+ */
+function etichetteMesi(locale: string): string[] {
+  const fmt = new Intl.DateTimeFormat(locale, { month: "short" });
+  return Array.from({ length: 12 }, (_, m) => {
+    const nome = fmt.format(new Date(2026, m, 1)).replace(".", "");
+    return nome.charAt(0).toUpperCase() + nome.slice(1);
+  });
+}
 
 /**
  * Giorni di viaggio (trip_date..date_end inclusi) per ogni mese, aggregati
@@ -83,6 +95,9 @@ interface Props {
 }
 
 export function TravelHeatmap({ trips }: Props) {
+  const t = useT();
+  // I mesi seguono la lingua: si ricalcolano quando cambia il locale.
+  const MESI = etichetteMesi(localeAttivo());
   const monthlyDays = useMemo(() => computeMonthlyTravelDays(trips), [trips]);
   const abstinence = useMemo(() => daysSinceLastTrip(trips), [trips]);
   // Somma dei giorni di calendario effettivamente coperti dai viaggi (estremi
@@ -136,7 +151,7 @@ export function TravelHeatmap({ trips }: Props) {
           </div>
           <div>
             <div className="font-mono" style={{ fontSize: 24, fontWeight: 700, color: "#f0f4ff", lineHeight: 1 }}>{fmtNumber(totalTravelDays)}</div>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>giorni in viaggio</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>{t("giorni in viaggio")}</div>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -147,14 +162,14 @@ export function TravelHeatmap({ trips }: Props) {
             <div className="font-mono" style={{ fontSize: 24, fontWeight: 700, color: "#f0f4ff", lineHeight: 1 }}>
               {abstinence == null ? "—" : fmtNumber(abstinence)}
             </div>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>giorni senza viaggiare</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>{t("giorni senza viaggiare")}</div>
           </div>
         </div>
       </div>
 
-      <h2 className="text-lg font-bold mb-1">Quando viaggi</h2>
+      <h2 className="text-lg font-bold mb-1">{t("Quando viaggi")}</h2>
       <p className="text-xs text-muted-foreground mb-4">
-        I giorni di viaggio mese per mese, tutti gli anni insieme.
+        {t("I giorni di viaggio mese per mese, tutti gli anni insieme.")}
       </p>
 
       {/* La striscia: dodici celle, una per mese dell'anno. Prima qui c'era
@@ -163,7 +178,7 @@ export function TravelHeatmap({ trips }: Props) {
           i dodici mesi: da agosto in poi si vedeva solo scorrendo di lato.
           Ora l'altezza è la stessa per sempre e i mesi ci stanno tutti. */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 3 }}>
-        {MONTH_LABELS.map((m, i) => (
+        {MESI.map((m, i) => (
           // Tre lettere, non l'iniziale: con dodici colonne su una riga sola lo
           // spazio adesso c'è, e "G F M A M G L A S O N D" era indecifrabile
           // (G = gennaio o giugno? M = marzo o maggio?).
@@ -171,10 +186,10 @@ export function TravelHeatmap({ trips }: Props) {
             {m}
           </div>
         ))}
-        {MONTH_LABELS.map((label, m) => {
+        {MESI.map((label, m) => {
           const days = stagionalita[m];
           const aperto = meseAperto === m;
-          const voce = `${label}: ${days} giorn${days === 1 ? "o" : "i"} di viaggio in tutto`;
+          const voce = t(days === 1 ? "{mese}: {quanti} giorno di viaggio in tutto" : "{mese}: {quanti} giorni di viaggio in tutto", { mese: label, quanti: days });
           const stile = {
             height: 34, borderRadius: 5, background: cellColor(days),
             outline: aperto ? "1.5px solid #60a5fa" : "none", outlineOffset: 1,
@@ -198,7 +213,7 @@ export function TravelHeatmap({ trips }: Props) {
         {[0, 0.25, 0.5, 0.75, 1].map(a => (
           <div key={a} style={{ width: 10, height: 10, borderRadius: 3, background: a === 0 ? "rgba(255,255,255,0.06)" : `rgba(96,165,250,${a})` }} />
         ))}
-        <span style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>{maxDays} giorni</span>
+        <span style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>{t("{quanti} giorni", { quanti: maxDays })}</span>
       </div>
       )}
 
@@ -206,9 +221,10 @@ export function TravelHeatmap({ trips }: Props) {
         <div style={{ marginTop: 14, padding: "12px 14px", background: "#0a1e38", border: "0.5px solid #1a2d4a", borderRadius: 10 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: "#f0f4ff" }}>
-              {`${MONTH_LABELS[meseAperto]} — ${stagionalita[meseAperto]} giorn${stagionalita[meseAperto] === 1 ? "o" : "i"}`}
+              {t(stagionalita[meseAperto] === 1 ? "{mese} — {quanti} giorno" : "{mese} — {quanti} giorni",
+                { mese: MESI[meseAperto], quanti: stagionalita[meseAperto] })}
             </span>
-            <button type="button" onClick={() => setMeseAperto(null)} aria-label="Chiudi"
+            <button type="button" onClick={() => setMeseAperto(null)} aria-label={t("Chiudi")}
               style={{ background: "none", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", display: "flex" }}>
               <X className="w-3.5 h-3.5" />
             </button>
@@ -242,13 +258,19 @@ export function TravelHeatmap({ trips }: Props) {
             if (!r) return null;
             return (
               <Link key={a} to={`/recap?anno=${a}`}
-                aria-label={`Il tuo ${a}: ${r.trips} viagg${r.trips === 1 ? "io" : "i"}, ${r.days} giorn${r.days === 1 ? "o" : "i"}. Apri il recap dell'anno`}
+                aria-label={t("Il tuo {anno}: {viaggi}, {giorni}. Apri il recap dell'anno", {
+                  anno: a,
+                  viaggi: t(r.trips === 1 ? "{quanti} viaggio" : "{quanti} viaggi", { quanti: r.trips }),
+                  giorni: t(r.days === 1 ? "{quanti} giorno" : "{quanti} giorni", { quanti: r.days }),
+                })}
                 style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
                   gap: 10, padding: "9px 2px", textDecoration: "none",
                   borderBottom: "0.5px solid rgba(26,45,74,0.6)" }}>
                 <span className="font-mono" style={{ fontSize: 13, fontWeight: 700, color: "#f0f4ff" }}>{a}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "rgba(255,255,255,0.6)" }}>
-                  {r.trips} {r.trips === 1 ? "viaggio" : "viaggi"} · {r.days} {r.days === 1 ? "giorno" : "giorni"}
+                  {t(r.trips === 1 ? "{quanti} viaggio" : "{quanti} viaggi", { quanti: r.trips })}
+                  {" · "}
+                  {t(r.days === 1 ? "{quanti} giorno" : "{quanti} giorni", { quanti: r.days })}
                   <ChevronRight className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.35)" }} aria-hidden />
                 </span>
               </Link>
@@ -258,7 +280,7 @@ export function TravelHeatmap({ trips }: Props) {
             <button type="button" onClick={() => setTuttiGliAnni(v => !v)}
               style={{ width: "100%", marginTop: 10, background: "none", border: "none",
                 color: "#60a5fa", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "6px 0" }}>
-              {tuttiGliAnni ? "Mostra meno" : `Mostra tutti i ${anni.length} anni`}
+              {tuttiGliAnni ? t("Mostra meno") : t("Mostra tutti i {quanti} anni", { quanti: anni.length })}
             </button>
           )}
         </div>

@@ -1,6 +1,7 @@
 import { Trip } from "@/lib/storage";
 import { contaForme } from "@/lib/forme";
 import { separaGite } from "@/lib/gite";
+import { useT } from "@/lib/settings";
 import { Sun, Tent, Waypoints } from "lucide-react";
 
 /**
@@ -27,31 +28,35 @@ import { Sun, Tent, Waypoints } from "lucide-react";
  * un'informazione ("non fai viaggi itineranti").
  */
 export function ComeViaggi({ trips }: { trips: Trip[] }) {
+  const t = useT();
   if (trips.length === 0) return null;   // niente caselle a zero su un archivio vuoto
   // Le forme si contano sui VIAGGI: le gite stanno fuori dalle statistiche.
   const { viaggi, gite } = separaGite(trips);
   const c = contaForme(viaggi);
 
   const caselle = [
-    { label: "Tappa fissa", valore: c.fissa, colore: "#5dcaa5", Icona: Tent,
+    { label: t("Tappa fissa"), valore: c.fissa, colore: "#5dcaa5", Icona: Tent,
       // Le gite si nominano solo se ci sono: senza, il sottotitolo dice
       // semplicemente com'è fatto un viaggio a tappa fissa.
       sub: c.conGite > 0
-        ? `un posto, più notti · ${c.conGite} con gite`
-        : "un posto, più notti" },
-    { label: "Itineranti", valore: c.itinerante, colore: "#a78bfa", Icona: Waypoints,
-      sub: c.tappeMedie > 0 ? `${c.tappeMedie} ${c.tappeMedie === 1 ? "tappa" : "tappe"} in media` : undefined },
+        ? t("un posto, più notti · {quante} con gite", { quante: c.conGite })
+        : t("un posto, più notti") },
+    { label: t("Itineranti"), valore: c.itinerante, colore: "#a78bfa", Icona: Waypoints,
+      sub: c.tappeMedie > 0
+        ? t(c.tappeMedie === 1 ? "{quante} tappa in media" : "{quante} tappe in media", { quante: c.tappeMedie })
+        : undefined },
   ];
 
   return (
     <section className="mb-8 animate-fade-up">
-      <h2 className="text-lg font-bold mb-1">Come viaggi</h2>
+      <h2 className="text-lg font-bold mb-1">{t("Come viaggi")}</h2>
       {/* Il numero qui DEVE essere quello della Home: stessa `separaGite`,
           quindi non possono divergere. Le gite si nominano nella riga sotto
           le caselle, non qui, per non dire due volte la stessa cosa. */}
       <p className="text-xs text-muted-foreground mb-4">
-        Ogni viaggio in una casella sola:{" "}
-        {viaggi.length} {viaggi.length === 1 ? "viaggio" : "viaggi"}.
+        {t("Ogni viaggio in una casella sola: {quanti}.", {
+          quanti: t(viaggi.length === 1 ? "{quanti} viaggio" : "{quanti} viaggi", { quanti: viaggi.length }),
+        })}
       </p>
       {/* Due in riga: erano tre quando c'era anche "in giornata". Con due
           caselle le card sono più larghe e i sottotitoli respirano. */}
@@ -87,7 +92,9 @@ export function ComeViaggi({ trips }: { trips: Trip[] }) {
           <Sun style={{ width:16, height:16, color:"#fbbf24", flexShrink:0 }}/>
           <span style={{ fontSize:12, color:"rgba(255,255,255,0.7)" }}>
             <b className="font-mono" style={{ color:"#fbbf24", fontWeight:700 }}>{gite.length}</b>
-            {" "}{gite.length === 1 ? "gita" : "gite"} in giornata, contate a parte: parti e torni lo stesso giorno.
+            {" "}{t(gite.length === 1
+              ? "gita in giornata, contate a parte: parti e torni lo stesso giorno."
+              : "gite in giornata, contate a parte: parti e torni lo stesso giorno.")}
           </span>
         </div>
       )}

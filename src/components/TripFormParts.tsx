@@ -11,7 +11,7 @@ import { Link } from "react-router-dom";
 import { GeoResult, PlaceKind, distanceKm, placeSubtitle } from "@/lib/geo";
 import { hasCoords } from "@/lib/coords";
 import { riconosciBase, postoNoto, RiconoscimentoBase } from "@/lib/base";
-import { fmtDistance, useSettings } from "@/lib/settings";
+import { fmtDistance, useSettings, useT } from "@/lib/settings";
 import { parseLocalDate } from "@/lib/storage";
 import { Loader2, MapPin, Plane, Route, Search, AlertCircle, X } from "lucide-react";
 import { TRANSPORT as TRANSPORT_INFO, TRANSPORT_MODES, TRANSPORT_LIST, transportBg, type TransportMode } from "@/lib/transport";
@@ -176,6 +176,7 @@ function SerpentinaConBase({ VBW, stops, base, notti, onRemoveWaypoint, onEditHo
   onRemoveWaypoint: (i: number) => void;
   onEditHome: () => void;
 }) {
+  const t = useT();
   const nodeRr = 22, baseR = 27;
   const xL = 68, xR = VBW - 68;
   const padTop = 40, mainStep = 84, gitaStep = 58;
@@ -310,7 +311,7 @@ function SerpentinaConBase({ VBW, stops, base, notti, onRemoveWaypoint, onEditHo
               })()}
               {stop.isHome ? (
                 <g style={{ cursor: "pointer" }} onClick={onEditHome}
-                  {...svgButton("Cambia la città di partenza", onEditHome)}>
+                  {...svgButton(t("Cambia la città di partenza"), onEditHome)}>
                   <circle cx={p.x + r - 4} cy={p.y - r + 4} r="20" fill="transparent"/>
                   <circle cx={p.x + r - 4} cy={p.y - r + 4} r="10" fill="#0d1f3c" stroke="#fbbf24" strokeWidth="1.5"/>
                   <text x={p.x + r - 4} y={p.y - r + 8} fontSize="11" textAnchor="middle" fill="#fbbf24">✎</text>
@@ -413,6 +414,7 @@ function RouteHero({
   wpTransport, setWpTransport, wpOpen, setWpOpen, wpQuery, setWpQuery,
   wpResults, wpLoading, onAddWaypoint, destinationError, notti
 }: RouteHeroProps) {
+  const t = useT();
   const containerRef = React.useRef<HTMLDivElement>(null);
   const svgRef = React.useRef<SVGSVGElement>(null);
   const [containerW, setContainerW] = React.useState(600);
@@ -675,7 +677,7 @@ function RouteHero({
                         transition: SCORRIMENTO(inMano) }}/>
                     {stop.isHome ? (
                       <g style={{cursor:"pointer"}} onClick={onEditHome}
-                        {...svgButton("Cambia la città di partenza", onEditHome)}>
+                        {...svgButton(t("Cambia la città di partenza"), onEditHome)}>
                         <circle cx={x+r-4} cy={y-r+4} r="20" fill="transparent"/>
                         <circle cx={x+r-4} cy={y-r+4} r="10" fill="#0d1f3c" stroke="#fbbf24" strokeWidth="1.5"/>
                         <text x={x+r-4} y={y-r+8} fontSize="11" textAnchor="middle" fill="#fbbf24">✎</text>
@@ -868,7 +870,7 @@ function RouteHero({
                     stroke="#1a2d4a" strokeWidth="1.5" strokeDasharray="6 4" fill="none"/>
                   <circle cx={hx} cy={hy} r="26" fill="rgba(251,191,36,0.1)" stroke="#fbbf24" strokeWidth="1.5" strokeDasharray="3 2"/>
                   <g style={{cursor:"pointer"}} onClick={onEditHome}
-                    {...svgButton("Cambia la città di partenza", onEditHome)}>
+                    {...svgButton(t("Cambia la città di partenza"), onEditHome)}>
                     <circle cx={hx+22} cy={hy-22} r="20" fill="transparent"/>
                     <circle cx={hx+22} cy={hy-22} r="10" fill="#0d1f3c" stroke="#fbbf24" strokeWidth="1.5"/>
                     <text x={hx+22} y={hy-18} fontSize="11" textAnchor="middle" fill="#fbbf24">✎</text>
@@ -1019,10 +1021,10 @@ function RouteHero({
                 color: destinationError ? "#f87171" : "rgba(255,255,255,0.4)",
                 border: `1.5px dashed ${destinationError ? "#f87171" : "#1a2d4a"}`,
                 borderRadius:99, padding:"6px 20px", cursor:"pointer", background:"transparent" }}>
-              + Aggiungi tappa
+              {t("+ Aggiungi tappa")}
             </button>
             {destinationError && (
-              <span style={{ fontSize:11, color:"#f87171" }}>Seleziona una destinazione</span>
+              <span style={{ fontSize:11, color:"#f87171" }}>{t("Seleziona una destinazione")}</span>
             )}
           </div>
         )}
@@ -1033,6 +1035,7 @@ function RouteHero({
 
 /** La card "Itinerario" completa (intestazione + editor visuale): la colonna sinistra dei due form. */
 export function ItineraryPanel(props: RouteHeroProps) {
+  const t = useT();
   // Serve solo a scegliere l'indizio in testa, ma è O(n²) e girava a ogni
   // render: memorizzato come nel RouteHero qui sotto.
   const conBase = React.useMemo(
@@ -1059,9 +1062,9 @@ export function ItineraryPanel(props: RouteHeroProps) {
                 trascina niente, e promettere il gesto sarebbe una bugia. */}
             {props.waypoints.length >= 2
               ? (conBase
-                  ? "Tocca 🏠 per la partenza · la base raccoglie le sue gite"
-                  : "Tocca 🏠 per la partenza · trascina le tappe per riordinarle")
-              : "Tocca 🏠 per cambiare città di partenza"}
+                  ? t("Tocca 🏠 per la partenza · la base raccoglie le sue gite")
+                  : t("Tocca 🏠 per la partenza · trascina le tappe per riordinarle"))
+              : t("Tocca 🏠 per cambiare città di partenza")}
           </div>
         </div>
       </div>
@@ -1083,6 +1086,7 @@ export function TripFormFields({
   dateEnd: string; setDateEnd: (v: string) => void;
   rating: number; setRating: (v: number) => void;
 }) {
+  const t = useT();
   const [hoverRating, setHoverRating] = useState(0);
   const days = daysBetween(dateStart, dateEnd);
   const dateOrderError = isReturnBeforeDeparture(dateStart, dateEnd);
@@ -1092,12 +1096,12 @@ export function TripFormFields({
       {/* Nome */}
       <div style={{ background:"#0a1628", border:"0.5px solid #1a2d4a", borderRadius:8, padding:"14px 16px" }}>
         <label style={{ fontSize:9, color:"rgba(255,255,255,0.6)", letterSpacing:"1.5px",
-          textTransform:"uppercase", display:"block", marginBottom:6 }}>Nome del viaggio <span style={{ opacity:0.4, fontSize:9, textTransform:"none" }}>(opzionale)</span></label>
+          textTransform:"uppercase", display:"block", marginBottom:6 }}>{t("Nome del viaggio")} <span style={{ opacity:0.4, fontSize:9, textTransform:"none" }}>{t("(opzionale)")}</span></label>
         <input style={{ background:"#060e1e", border:"0.5px solid #1a2d4a", borderRadius:8,
           padding:"9px 12px", fontSize:13, color:"#f0f4ff", width:"100%",
           outline:"none", boxSizing:"border-box" }}
           value={title} onChange={e => setTitle(e.target.value)}
-          placeholder="Es. Viaggio di nozze…"
+          placeholder={t("Es. Viaggio di nozze…")}
           onFocus={e => (e.target.style.borderColor="#60a5fa")}
           onBlur={e => (e.target.style.borderColor="#1a2d4a")}/>
       </div>
@@ -1205,10 +1209,10 @@ export function TripFormFields({
         {/* Cinque bottoni il cui unico contenuto era "★": uno screen reader
             leggeva cinque volte lo stesso nome. Ora ognuno dice quante stelle
             assegna e se è quella scelta. */}
-        <div style={{ display:"flex", gap:4 }} role="group" aria-label="Valutazione del viaggio">
+        <div style={{ display:"flex", gap:4 }} role="group" aria-label={t("Valutazione del viaggio")}>
           {[1,2,3,4,5].map(i => (
             <button key={i} type="button"
-              aria-label={`${i} ${i === 1 ? "stella" : "stelle"} su 5`}
+              aria-label={t(i === 1 ? "{quante} stella su 5" : "{quante} stelle su 5", { quante: i })}
               aria-pressed={rating === i}
               onMouseEnter={() => setHoverRating(i)}
               onMouseLeave={() => setHoverRating(0)}
@@ -1238,6 +1242,7 @@ export function TripFormActions({ saving, confirmDiscard, onSave }: {
   confirmDiscard: (e: React.MouseEvent) => void;
   onSave: () => void;
 }) {
+  const t = useT();
   return (
     <>
       <div style={{ display:"flex", gap:8, paddingTop:4 }}>
@@ -1254,7 +1259,7 @@ export function TripFormActions({ saving, confirmDiscard, onSave }: {
             color:"#060e1e", background:"#60a5fa", border:"none", cursor:"pointer",
             display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
           {saving && <Loader2 className="w-4 h-4 animate-spin"/>}
-          {saving ? "Salvataggio…" : "Salva viaggio"}
+          {saving ? t("Salvataggio…") : t("Salva viaggio")}
         </button>
       </div>
       {/* Un viaggio con più tappe può richiedere qualche secondo: senza

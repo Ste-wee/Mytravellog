@@ -1,5 +1,6 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
 import type { TransportMode } from "./transport";
+import { localeAttivo } from "./settings";
 
 export type Trip = {
   id: string;
@@ -458,7 +459,7 @@ export function formatTripDate(iso: string): string {
   // l'unico sink di biglietto, flyover e poster, quindi la guardia qui li
   // copre tutti in un colpo.
   if (!isValidDateISO(iso)) return "—";
-  return parseLocalDate(iso).toLocaleDateString("it-IT", {
+  return parseLocalDate(iso).toLocaleDateString(localeAttivo(), {
     day: "2-digit",
     month: "short",
     year: "numeric",

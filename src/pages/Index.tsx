@@ -12,7 +12,7 @@ import { separaGite } from "@/lib/gite";
 import { ricalcolaTemperature } from "@/lib/ricalcolaTemperature";
 import { ricalcolaTracciati } from "@/lib/ricalcolaTracciati";
 import { recuperaDatiMancanti } from "@/lib/recuperaDatiMancanti";
-import { fmtDistance, fmtNumber, useSettings } from "@/lib/settings";
+import { fmtDistance, fmtNumber, useSettings, useT } from "@/lib/settings";
 import { TRANSPORT, isTransportMode } from "@/lib/transport";
 import { Route, Globe, MapPin, Pencil, Plane, Plus, Sun, Video, X } from "lucide-react";
 import { WorldMap, CityInfo } from "@/components/WorldMap";
@@ -129,6 +129,7 @@ class ErrorBoundary extends Component<{children:ReactNode},{error:string|null}> 
 function HomeInner() {
   const navigate = useNavigate();
   const { distanceUnit, autoRotate, homeCity, minMarkerScale, maxMarkerScale } = useSettings();
+  const t = useT();
   // Inizializzato in modo sincrono (localStorage) invece che [] + effect:
   // così l'invito di benvenuto per chi non ha viaggi non lampeggia mai
   // per un frame agli utenti che invece ne hanno.
@@ -415,12 +416,12 @@ function HomeInner() {
           // reader, quindi con gli sr-only dentro si sentiva solo "vai alla
           // pagina Statistiche" — i numeri sparivano proprio a chi non li vede.
           const voce = [
-            `${stats.trips} ${stats.trips === 1 ? "viaggio" : "viaggi"}`,
+            t(stats.trips === 1 ? "{quanti} viaggio" : "{quanti} viaggi", { quanti: stats.trips }),
             // Le stesse quattro voci della riga, né una di più: chi ascolta
             // deve sentire quello che gli altri vedono.
-            `${stats.countries} ${stats.countries === 1 ? "paese" : "paesi"}`,
-            `${stats.cities} città`,
-            `${fmtDistance(stats.km, distanceUnit)} percorsi`,
+            t(stats.countries === 1 ? "{quanti} paese" : "{quanti} paesi", { quanti: stats.countries }),
+            t("{quanti} città", { quanti: stats.cities }),
+            t("{quanti} percorsi", { quanti: fmtDistance(stats.km, distanceUnit) }),
           ].join(", ");
           // La riga dei numeri È l'interruttore: un tocco accende i paesi con
           // le bandiere, un altro torna ai viaggi. Niente maniglia né scritta
@@ -430,8 +431,8 @@ function HomeInner() {
           return (
           <button type="button" onClick={() => setModalitaPaesi(v => !v)}
             aria-label={modalitaPaesi
-              ? `Le tue statistiche: ${voce}. Torna ai pallini dei viaggi sul globo`
-              : `Le tue statistiche: ${voce}. Mostra sul globo i paesi che hai visitato`}
+              ? t("Le tue statistiche: {voce}. Torna ai pallini dei viaggi sul globo", { voce })
+              : t("Le tue statistiche: {voce}. Mostra sul globo i paesi che hai visitato", { voce })}
             style={{ display:"flex", alignItems:"center", justifyContent:"center", flexWrap:"wrap",
               gap:12, width:"100%", padding:"9px 12px", background:"none", border:"none", cursor:"pointer" }}>
             {[
@@ -479,9 +480,11 @@ function HomeInner() {
                   zeri) e il connettivo restava appeso al nulla — visto in
                   revisione, a schermo diceva «e inoltre 2 gite» come prima
                   cosa della pagina. */}
-              {stats.trips > 0 ? "e inoltre " : ""}
-              {stats.gite} {stats.gite === 1 ? "gita" : "gite"} in giornata
-              {stats.giteCitta > 0 && ` · ${stats.giteCitta} ${stats.giteCitta === 1 ? "città" : "città"}`}
+              {(() => {
+                const quante = t(stats.gite === 1 ? "{quante} gita in giornata" : "{quante} gite in giornata", { quante: stats.gite });
+                return stats.trips > 0 ? t("e inoltre {gite}", { gite: quante }) : quante;
+              })()}
+              {stats.giteCitta > 0 && " · " + t("{quante} città", { quante: stats.giteCitta })}
               {stats.giteKm >= 1 && ` · ${fmtDistance(stats.giteKm, distanceUnit)}`}
             </span>
           </div>

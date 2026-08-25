@@ -8,6 +8,7 @@ import { PlanCard } from "@/components/PlanCard";
 import { isReturnBeforeDeparture } from "@/components/TripFormParts";
 import { CalendarClock, Plus, MapPin, X } from "lucide-react";
 import { toast } from "sonner";
+import { useT } from "@/lib/settings";
 
 type PlanWaypoint = Trip["waypoints"][number];
 
@@ -30,6 +31,7 @@ function buildPlan(
 }
 
 const InProgramma = () => {
+  const t = useT();
   const [plans, setPlans] = useState<Trip[]>(() => loadPlans());
   const [openId, setOpenId] = useState<string | null>(null);
   const reload = () => setPlans(loadPlans());
@@ -105,17 +107,17 @@ const InProgramma = () => {
       <div style={{ maxWidth: 760, margin: "0 auto", width: "100%", padding: "28px 20px 8px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
           <CalendarClock style={{ width: 22, height: 22, color: "#60a5fa" }} />
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#f0f4ff", margin: 0 }}>In programma</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#f0f4ff", margin: 0 }}>{t("In programma")}</h1>
         </div>
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", margin: "0 0 20px" }}>
-          I viaggi che devi ancora fare: itinerario e cose da organizzare. Al ritorno diventano ricordi nel diario.
+          {t("I viaggi che devi ancora fare: itinerario e cose da organizzare. Al ritorno diventano ricordi nel diario.")}
         </p>
 
         {/* Mini-form / bottone */}
         {!adding ? (
           <button type="button" onClick={() => setAdding(true)}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#60a5fa", border: "none", borderRadius: 10, padding: "10px 16px", fontSize: 14, fontWeight: 700, color: "#04203f", cursor: "pointer", marginBottom: 24 }}>
-            <Plus style={{ width: 17, height: 17 }} /> Programma un viaggio
+            <Plus style={{ width: 17, height: 17 }} /> {t("Programma un viaggio")}
           </button>
         ) : (
           <div style={{ background: "#0b1a33", border: "0.5px solid #1a2d4a", borderRadius: 12, padding: 16, marginBottom: 24 }}>

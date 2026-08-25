@@ -21,7 +21,8 @@
     "confini": "node scripts/genera-confini.mjs",
     "coverage": "vitest run --coverage --coverage.include=src/lib/** --coverage.exclude=**/*.test.*",
     "regressione": "npm run typecheck && eslint src scripts e2e && vitest run && npm run collaudo",
-    "iso": "node scripts/genera-iso.mjs"
+    "iso": "node scripts/genera-iso.mjs",
+    "lingua": "node e2e/lingua.mjs"
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "^5.2.8",

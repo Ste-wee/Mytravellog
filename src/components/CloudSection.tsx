@@ -1,4 +1,6 @@
 import { useCloud } from "@/lib/cloudContext";
+import { useT } from "@/lib/settings";
+import { localeAttivo } from "@/lib/settings";
 import { GoogleG } from "@/components/GoogleG";
 import { Loader2, Check, AlertTriangle, LogOut } from "lucide-react";
 
@@ -8,10 +10,11 @@ function relativeTime(ms: number): string {
   if (s < 60) return `${s} secondi fa`;
   const m = Math.round(s / 60);
   if (m < 60) return `${m} ${m === 1 ? "minuto" : "minuti"} fa`;
-  return new Date(ms).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return new Date(ms).toLocaleString(localeAttivo(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 export function CloudSection() {
+  const t = useT();
   const { status, email, lastSyncAt, errorMsg, configurato, connect, disconnect } = useCloud();
 
   if (!configurato) {
@@ -98,8 +101,7 @@ export function CloudSection() {
           vero quando il file viveva nella Drive dell'utente. Ora vivono nel
           database dell'app, e la frase dev'essere quella giusta. */}
       <p className="text-xs text-muted-foreground">
-        🔒 Solo tu puoi leggerli: nel database ogni archivio è legato al suo account,
-        e nessun altro account può aprirlo.
+        {t("🔒 Solo tu puoi leggerli: nel database ogni archivio è legato al suo account, e nessun altro account può aprirlo.")}
       </p>
     </div>
   );

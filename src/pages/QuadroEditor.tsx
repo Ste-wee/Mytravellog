@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, memo } from "react";
+import { useT } from "@/lib/settings";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, ZoomIn, ZoomOut, Download, Hand, Move, RotateCcw, Undo2, Redo2, Loader2 } from "lucide-react";
 import { loadTrips } from "@/lib/storage";
@@ -148,6 +149,7 @@ const PanelTile = memo(function PanelTile({ p, borders, ink, tile }: { p: Editor
 });
 
 export default function QuadroEditor() {
+  const t = useT();
   const navigate = useNavigate();
   const svgRef = useRef<SVGSVGElement>(null);
   const idRef = useRef(1);
@@ -646,7 +648,7 @@ export default function QuadroEditor() {
         display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", flexWrap: "wrap",
         borderBottom: "0.5px solid rgba(255,255,255,0.1)", background: "rgba(6,14,30,0.9)",
       }}>
-        <button type="button" onClick={() => navigate("/miei-viaggi")} style={btn()} aria-label="Torna a I miei viaggi">
+        <button type="button" onClick={() => navigate("/miei-viaggi")} style={btn()} aria-label={t("Torna a I miei viaggi")}>
           <ArrowLeft style={{ width: 16, height: 16 }} />
         </button>
         <div style={{ fontWeight: 700, fontSize: 14, marginRight: 4 }}>Editor quadro</div>
@@ -660,7 +662,7 @@ export default function QuadroEditor() {
 
         <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.12)", margin: "0 2px" }} />
 
-        <button type="button" onClick={addPanel} style={btn()} title="Aggiungi una tela"><Plus style={{ width: 15, height: 15 }} /> Tela</button>
+        <button type="button" onClick={addPanel} style={btn()} title={t("Aggiungi una tela")}><Plus style={{ width: 15, height: 15 }} /> Tela</button>
         <button type="button" onClick={deleteSelected} disabled={!selectedId || panels.length <= 1}
           style={btn(!selectedId || panels.length <= 1 ? { opacity: 0.4, cursor: "default" } : undefined)}
           title={panels.length <= 1 ? "L'ultima tela non si può eliminare" : "Elimina la tela selezionata"}>

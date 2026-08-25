@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Trip, formatTripDate, parseLocalDate, isValidDateISO, updateTrip } from "@/lib/storage";
-import { fmtDistance, fmtTemp, useSettings } from "@/lib/settings";
+import { fmtDistance, fmtTemp, localeAttivo, useSettings, useT } from "@/lib/settings";
 import { Plane, Pencil, Trash2, Video, X, MoreVertical } from "lucide-react";
 import { TRANSPORT, isTransportMode, transportBg } from "@/lib/transport";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -42,8 +42,8 @@ function abbr(city: string) {
 // Etichetta compatta per una voce di diario: "MAR 10 GIU".
 function diaryDayChip(iso: string): string {
   const d = parseLocalDate(iso);
-  const wd = d.toLocaleDateString("it-IT", { weekday: "short" }).replace(".", "");
-  const mon = d.toLocaleDateString("it-IT", { month: "short" }).replace(".", "");
+  const wd = d.toLocaleDateString(localeAttivo(), { weekday: "short" }).replace(".", "");
+  const mon = d.toLocaleDateString(localeAttivo(), { month: "short" }).replace(".", "");
   return `${wd} ${d.getDate()} ${mon}`.toUpperCase();
 }
 
@@ -115,6 +115,7 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
     return () => window.removeEventListener("keydown", onKey);
   }, [reliefOpen]);
   const { distanceUnit, temperatureUnit } = useSettings();
+  const t = useT();
   const ts = styleOf(trip.transport_mode);
 
   const notes = trip.notes?.trim() || null;
@@ -212,7 +213,7 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
               3 icone affiancate strizzavano il titolo. */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button aria-label="Azioni viaggio"
+              <button aria-label={t("Azioni viaggio")}
                 style={{width:26,height:26,background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.6)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                 <MoreVertical style={{width:16,height:16}}/>
               </button>
@@ -413,7 +414,7 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
           };
           return onSelectCompanion ? (
             <button key={"c"+c} type="button" onClick={() => onSelectCompanion(c)}
-              aria-label={`Vedi la mappa dei viaggi con ${c}`}
+              aria-label={t("Vedi la mappa dei viaggi con {persona}", { persona: c })}
               // Contorno con boxShadow e non border: il bordo occuperebbe
               // spazio e questo chip risulterebbe più alto (e disallineato di
               // un pixel) rispetto a quello del motivo, che gli sta accanto.
@@ -425,7 +426,9 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
           );
         })}
         <button type="button" onClick={() => setShowDiary(true)}
-          aria-label={diary.length ? `Apri il diario (${diary.length} giorni scritti)` : "Apri il diario del viaggio"}
+          aria-label={diary.length
+            ? t(diary.length === 1 ? "Apri il diario ({quanti} giorno scritto)" : "Apri il diario ({quanti} giorni scritti)", { quanti: diary.length })
+            : t("Apri il diario del viaggio")}
           style={{
             marginLeft: (purpose || companions.length > 0) ? "auto" : 0,
             display:"inline-flex",alignItems:"center",gap:5,fontSize:10,fontWeight:600,padding:"3px 10px",borderRadius:999,
@@ -443,7 +446,7 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
         <div style={{padding:"0 20px 16px",display:"flex",flexDirection:"column",gap:8}}>
           {diary.slice(0, DIARY_PREVIEW_MAX).map(e => (
             <button key={e.date} type="button" onClick={() => setShowDiary(true)}
-              aria-label={`Apri il diario — ${diaryDayChip(e.date)}`}
+              aria-label={t("Apri il diario — {giorno}", { giorno: diaryDayChip(e.date) })}
               style={{
                 display:"block",textAlign:"left",width:"100%",background:"transparent",border:"none",
                 borderLeft:"2px solid #1a2d4a",paddingLeft:10,cursor:"pointer",

@@ -1,5 +1,6 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
 import { useRef } from "react";
+import { useT } from "@/lib/settings";
 import { Link } from "react-router-dom";
 import { Plane, PieChart, Settings, Plus, Menu, Upload, CalendarClock, HelpCircle } from "lucide-react";
 import {
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function AppHeader({ onTripsClick }: Props) {
+  const t = useT();
   // Scegliendo «Rivedi il tutorial», il menu NON deve ridarsi il focus alla
   // chiusura: il suo ripristino (che arriva a fine animazione) vincerebbe sul
   // focus della scheda del tour, e l'Invio successivo riaprirebbe il menu
@@ -49,7 +51,7 @@ export function AppHeader({ onTripsClick }: Props) {
             mobile"). */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button type="button" className="btn-ghost p-2" aria-label="Menu">
+            <button type="button" className="btn-ghost p-2" aria-label={t("Menu")}>
               <Menu className="w-5 h-5"/>
             </button>
           </DropdownMenuTrigger>
@@ -62,35 +64,35 @@ export function AppHeader({ onTripsClick }: Props) {
               if (zittisciRitornoFocus.current) { zittisciRitornoFocus.current = false; e.preventDefault(); }
             }}>
             <DropdownMenuLabel style={{ fontSize: 11, letterSpacing: "0.08em", color: "rgba(255,255,255,0.45)", paddingBottom: 2 }}>
-              I tuoi viaggi
+              {t("I tuoi viaggi")}
             </DropdownMenuLabel>
             <DropdownMenuItem asChild>
               <Link to="/miei-viaggi" className="flex items-center gap-2 cursor-pointer">
-                <Plane className="w-4 h-4 text-primary"/> I miei viaggi
+                <Plane className="w-4 h-4 text-primary"/> {t("I miei viaggi")}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link to="/in-programma" className="flex items-center gap-2 cursor-pointer">
-                <CalendarClock className="w-4 h-4 text-primary"/> In programma
+                <CalendarClock className="w-4 h-4 text-primary"/> {t("In programma")}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link to="/statistiche" className="flex items-center gap-2 cursor-pointer">
-                <PieChart className="w-4 h-4 text-primary"/> Statistiche
+                <PieChart className="w-4 h-4 text-primary"/> {t("Statistiche")}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator/>
             <DropdownMenuLabel style={{ fontSize: 11, letterSpacing: "0.08em", color: "rgba(255,255,255,0.45)", paddingBottom: 2 }}>
-              Aggiungi
+              {t("Aggiungi")}
             </DropdownMenuLabel>
             <DropdownMenuItem asChild>
               <Link to="/nuovo-viaggio" className="flex items-center gap-2 cursor-pointer font-semibold" style={{ color: "#60a5fa" }}>
-                <Plus className="w-4 h-4"/> Nuovo viaggio
+                <Plus className="w-4 h-4"/> {t("Nuovo viaggio")}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link to="/importa-gpx" className="flex items-center gap-2 cursor-pointer">
-                <Upload className="w-4 h-4 text-primary"/> Importa da GPX
+                <Upload className="w-4 h-4 text-primary"/> {t("Importa da GPX")}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator/>
@@ -105,11 +107,11 @@ export function AppHeader({ onTripsClick }: Props) {
                 zittisciRitornoFocus.current = true;
                 window.dispatchEvent(new Event("navta:tour-replay"));
               }}>
-              <HelpCircle className="w-4 h-4 text-muted-foreground"/> Rivedi il tutorial
+              <HelpCircle className="w-4 h-4 text-muted-foreground"/> {t("Rivedi il tutorial")}
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link to="/impostazioni" className="flex items-center gap-2 cursor-pointer">
-                <Settings className="w-4 h-4 text-muted-foreground"/> Impostazioni
+                <Settings className="w-4 h-4 text-muted-foreground"/> {t("Impostazioni")}
               </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>

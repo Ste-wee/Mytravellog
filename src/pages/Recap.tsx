@@ -4,7 +4,7 @@ import { ArrowLeft, Share2, Download, Play } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { loadTrips, parseLocalDate } from "@/lib/storage";
 import { transportColor, transportLabel } from "@/lib/transport";
-import { useSettings, formatDistanceKm, formatAltitudeM, formatTemperatureC } from "@/lib/settings";
+import { useSettings, useT, formatDistanceKm, formatAltitudeM, formatTemperatureC, localeAttivo } from "@/lib/settings";
 import { computeYearRecap, availableYears, anniDiSoleGite, YearRecap } from "@/lib/recap";
 import { canShareFile, shareOrDownload } from "@/lib/share";
 import { RecapStories } from "@/components/RecapStories";
@@ -178,7 +178,7 @@ function drawRecap(ctx: CanvasRenderingContext2D, r: YearRecap, fmt: Fmt, flag: 
     // Data di diario malformata → "· NaN Invalid Date" sul PNG condiviso:
     // meglio il solo titolo del viaggio.
     const mdValid = Number.isFinite(md.getTime());
-    const mon = mdValid ? md.toLocaleDateString("it-IT", { month: "short" }).replace(".", "") : "";
+    const mon = mdValid ? md.toLocaleDateString(localeAttivo(), { month: "short" }).replace(".", "") : "";
     ctx.textAlign = "right";
     ctx.fillStyle = "rgba(255,255,255,0.45)"; ctx.font = '400 20px "Space Grotesk", sans-serif';
     ctx.fillText(mdValid ? `${r.moment.tripTitle} · ${md.getDate()} ${mon}` : r.moment.tripTitle, W - P, mTop + 36);
@@ -207,6 +207,7 @@ function drawRecap(ctx: CanvasRenderingContext2D, r: YearRecap, fmt: Fmt, flag: 
 }
 
 const Recap = () => {
+  const t = useT();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const { distanceUnit, temperatureUnit } = useSettings();
@@ -328,7 +329,7 @@ const Recap = () => {
                 fontSize: 14, fontWeight: 600, cursor: "pointer",
               }}>
               {canShareFile(new File([], "x.png", { type: "image/png" })) ? <Share2 className="w-4 h-4" /> : <Download className="w-4 h-4" />}
-              Condividi il recap
+              {t("Condividi il recap")}
             </button>
 
             <button onClick={() => setPlaying(true)}

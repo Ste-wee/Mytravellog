@@ -4,7 +4,7 @@ import React from "react";
 import { Mountain, Globe2, Sun, Snowflake, Moon, ChevronLeft, ChevronRight } from "lucide-react";
 import { TRANSPORT, TRANSPORT_MODES, TransportMode, transportBg } from "@/lib/transport";
 import { Trip as LocalTrip } from "@/lib/storage";
-import { useSettings, formatDistanceKm, formatAltitudeM, formatTemperatureC } from "@/lib/settings";
+import { useSettings, useT, formatDistanceKm, formatAltitudeM, formatTemperatureC } from "@/lib/settings";
 import { tripTotalKm, buildFlightPath, buildFlightLegs } from "@/lib/flyover";
 
 interface Props {
@@ -51,6 +51,7 @@ export function computeKmByTransportMode(trips: LocalTrip[]): KmByMode {
 
 export function TravelHighlights({ trips }: Props) {
   const { distanceUnit, temperatureUnit } = useSettings();
+  const t = useT();
   const transportScrollRef = useRef<HTMLDivElement>(null);
   const scrollTransportBy = (dir: 1 | -1) => {
     transportScrollRef.current?.scrollBy({ left: dir * 140, behavior: "smooth" });
@@ -100,17 +101,17 @@ export function TravelHighlights({ trips }: Props) {
       {/* A differenza delle altre sezioni della pagina Statistiche (che hanno
           già un proprio h2 interno, es. "Distanze" più sotto), la griglia di
           card qui sotto non aveva alcun titolo. Stesso stile delle altre. */}
-      <h2 className="text-lg font-bold">Highlights di viaggio</h2>
+      <h2 className="text-lg font-bold">{t("Highlights di viaggio")}</h2>
 
       {/* Highlights grid — "Giorni in viaggio" è ora nella sezione Anni e mesi
           di viaggio, insieme a "giorni senza viaggiare" (metrica complementare) */}
       {(() => {
         type HlItem = { label: string; value: string; sub?: string; color: string; Icon: React.ElementType };
         const items: HlItem[] = [
-          { label:"Altitudine più alta",  value: highest ? formatAltitudeM(highest.max_altitude_m ?? highest.altitude_m, distanceUnit) : "—",      sub: highest?.max_altitude_city ?? highest?.city,                                                color:"#34d399", Icon:Mountain    },
-          { label:"Più distante da casa", value: farthest ? formatDistanceKm(farthest.max_distance_from_home_km ?? farthest.distance_from_home_km, distanceUnit) : "—", sub: farthest?.max_distance_city ?? farthest?.city, color:"#f472b6", Icon:Globe2 },
-          { label:"Il posto più caldo",   value: hottest  ? formatTemperatureC(hottest.hottest_temp_c ?? hottest.temperature_c, temperatureUnit) : "—", sub: hottest?.hottest_city ?? hottest?.city,  color:"#fb7185", Icon:Sun      },
-          { label:"Il posto più freddo",  value: coldest  ? formatTemperatureC(coldest.coldest_temp_c ?? coldest.temperature_c, temperatureUnit) : "—",  sub: coldest?.coldest_city ?? coldest?.city,  color:"#93c5fd", Icon:Snowflake },
+          { label:t("Altitudine più alta"),  value: highest ? formatAltitudeM(highest.max_altitude_m ?? highest.altitude_m, distanceUnit) : "—",      sub: highest?.max_altitude_city ?? highest?.city,                                                color:"#34d399", Icon:Mountain    },
+          { label:t("Più distante da casa"), value: farthest ? formatDistanceKm(farthest.max_distance_from_home_km ?? farthest.distance_from_home_km, distanceUnit) : "—", sub: farthest?.max_distance_city ?? farthest?.city, color:"#f472b6", Icon:Globe2 },
+          { label:t("Il posto più caldo"),   value: hottest  ? formatTemperatureC(hottest.hottest_temp_c ?? hottest.temperature_c, temperatureUnit) : "—", sub: hottest?.hottest_city ?? hottest?.city,  color:"#fb7185", Icon:Sun      },
+          { label:t("Il posto più freddo"),  value: coldest  ? formatTemperatureC(coldest.coldest_temp_c ?? coldest.temperature_c, temperatureUnit) : "—",  sub: coldest?.coldest_city ?? coldest?.city,  color:"#93c5fd", Icon:Snowflake },
         ];
         // Icona grande "illustrata" invece del badge circolare piccolo (spunto
         // preso da un'app concorrente, poi estesa anche al desktop su richiesta
@@ -192,7 +193,7 @@ export function TravelHighlights({ trips }: Props) {
                   orizzontale con freccine ◀▶, icona grande senza badge. Prima su
                   desktop era una griglia a 7 colonne. */}
               <div className="relative mb-4">
-                {scorrevole && <button type="button" onClick={() => scrollTransportBy(-1)} aria-label="Scorri a sinistra"
+                {scorrevole && <button type="button" onClick={() => scrollTransportBy(-1)} aria-label={t("Scorri a sinistra")}
                   className="absolute left-0 top-1/2 z-10 flex items-center justify-center"
                   style={{ transform: "translateY(-50%)", width: 26, height: 26, borderRadius: "50%", background: "rgba(10,22,40,0.92)", border: "1px solid #1a2d4a" }}>
                   <ChevronLeft className="w-3.5 h-3.5"/>
@@ -210,7 +211,7 @@ export function TravelHighlights({ trips }: Props) {
                     </div>
                   ))}
                 </div>
-                {scorrevole && <button type="button" onClick={() => scrollTransportBy(1)} aria-label="Scorri a destra"
+                {scorrevole && <button type="button" onClick={() => scrollTransportBy(1)} aria-label={t("Scorri a destra")}
                   className="absolute right-0 top-1/2 z-10 flex items-center justify-center"
                   style={{ transform: "translateY(-50%)", width: 26, height: 26, borderRadius: "50%", background: "rgba(10,22,40,0.92)", border: "1px solid #1a2d4a" }}>
                   <ChevronRight className="w-3.5 h-3.5"/>

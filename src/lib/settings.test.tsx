@@ -8,6 +8,7 @@ import {
   fmtDistance,
   fmtAltitude,
   fmtTemp,
+  impostaLocale,
   MARKER_SCALE_MIN,
   MARKER_SCALE_MAX,
   type Settings,
@@ -76,6 +77,13 @@ describe("settings — minMarkerScale / maxMarkerScale", () => {
       temperatureUnit: "fahrenheit",
       autoRotate: "off",
       homeCity: null,
+      // ⚠️ "it" e non "en" di proposito: montare il provider in inglese
+      // imposta il locale GLOBALE dei numeri (`impostaLocale`) e lo lascia
+      // così per i test successivi — ha fatto cadere quattro asserzioni in
+      // TravelHighlights, un file che non c'entra niente con le lingue.
+      // La reidratazione resta provata dagli altri campi (imperial, fahrenheit,
+      // off, 0.8/1.6). Chi vuole provare l'inglese: ripristina dopo.
+      lingua: "it",
       minMarkerScale: 0.8,
       maxMarkerScale: 1.6,
     };
@@ -84,6 +92,21 @@ describe("settings — minMarkerScale / maxMarkerScale", () => {
     expect(s.minMarkerScale).toBe(0.8);
     expect(s.maxMarkerScale).toBe(1.6);
     expect(s.distanceUnit).toBe("imperial");
+    expect(s.lingua).toBe("it");
+    expect(s.linguaAttiva).toBe("it");
+  });
+
+  it("la lingua si salva e diventa quella attiva", () => {
+    const s = mount();
+    expect(s.lingua).toBe("it");   // default: italiano, mai un cambio non chiesto
+    act(() => s.setLingua("en"));
+    try {
+      expect(JSON.parse(localStorage.getItem(KEY)!).lingua).toBe("en");
+    } finally {
+      // Il locale globale torna a casa: vedi l'avviso qui sopra.
+      act(() => s.setLingua("it"));
+      impostaLocale("it-IT");
+    }
   });
 });
 
@@ -120,6 +143,13 @@ describe("parseStoredSettings — compatibilità retroattiva", () => {
 // raggruppa i numeri a 4 cifre (toLocaleString("it-IT") dà "4419"), e i totali
 // dell'app stanno quasi sempre lì — sembrava che il separatore non ci fosse.
 describe("fmtNumber / fmtDistance / fmtAltitude — separatore delle migliaia", () => {
+  // ⚠️ Il locale di date e numeri è una variabile di MODULO (`impostaLocale`),
+  // scelta per non passare la lingua a decine di chiamanti e per servire anche
+  // il codice che disegna su canvas, dove gli hook non arrivano. Il prezzo è
+  // qui: un test che monta il provider in inglese lo lascia impostato per il
+  // test successivo. Chi asserisce numeri all'italiana lo riporta a casa.
+  beforeEach(() => impostaLocale("it-IT"));
+
   it("raggruppa anche i numeri a 4 cifre (dove toLocaleString it-IT non lo fa)", () => {
     expect(fmtNumber(4419)).toBe("4.419");
     expect(fmtNumber(787)).toBe("787");

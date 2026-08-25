@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { localeAttivo } from "@/lib/settings";
 import { createPortal } from "react-dom";
 import { Trip, updateTrip, parseLocalDate, isValidDateISO } from "@/lib/storage";
 import { X } from "lucide-react";
@@ -38,8 +39,8 @@ function dayLabel(iso: string): { day: string; wd: string; mon: string } {
   const d = parseLocalDate(iso);
   return {
     day: String(d.getDate()),
-    wd: d.toLocaleDateString("it-IT", { weekday: "short" }).replace(".", ""),
-    mon: d.toLocaleDateString("it-IT", { month: "short" }).replace(".", ""),
+    wd: d.toLocaleDateString(localeAttivo(), { weekday: "short" }).replace(".", ""),
+    mon: d.toLocaleDateString(localeAttivo(), { month: "short" }).replace(".", ""),
   };
 }
 
@@ -47,8 +48,8 @@ function dayLabel(iso: string): { day: string; wd: string; mon: string } {
 function stampLabel(iso: string): string {
   if (!isValidDateISO(iso)) return "—";
   const d = parseLocalDate(iso);
-  const wd = d.toLocaleDateString("it-IT", { weekday: "short" }).replace(".", "");
-  const mon = d.toLocaleDateString("it-IT", { month: "short" }).replace(".", "");
+  const wd = d.toLocaleDateString(localeAttivo(), { weekday: "short" }).replace(".", "");
+  const mon = d.toLocaleDateString(localeAttivo(), { month: "short" }).replace(".", "");
   return `${wd.toUpperCase()} · ${String(d.getDate()).padStart(2, "0")} ${mon.toUpperCase()}`;
 }
 
@@ -57,7 +58,7 @@ function coverRange(trip: Trip): string {
   if (!isValidDateISO(trip.trip_date)) return "—";
   const s = parseLocalDate(trip.trip_date);
   const e = trip.date_end && isValidDateISO(trip.date_end) ? parseLocalDate(trip.date_end) : s;
-  const mon = (d: Date) => d.toLocaleDateString("it-IT", { month: "short" }).replace(".", "");
+  const mon = (d: Date) => d.toLocaleDateString(localeAttivo(), { month: "short" }).replace(".", "");
   const y = e.getFullYear();
   if (s.getTime() === e.getTime()) return `${s.getDate()} ${mon(s)} ${y}`;
   if (s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear()) return `${s.getDate()}–${e.getDate()} ${mon(e)} ${y}`;

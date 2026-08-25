@@ -1,7 +1,9 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
 import { AppHeader } from "@/components/AppHeader";
-import { MapPin, Search, X, Ruler, RotateCw, CircleDot, UserCircle } from "lucide-react";
+import { useT } from "@/lib/settings";
+import { MapPin, Search, X, Ruler, RotateCw, CircleDot, UserCircle, Languages } from "lucide-react";
 import { useSettings, DistanceUnit, TemperatureUnit, AutoRotate, HomeCity } from "@/lib/settings";
+import { LINGUE, type PreferenzaLingua } from "@/lib/i18n";
 import { GeoResult } from "@/lib/geo";
 import { usePlaceSearch } from "@/lib/usePlaceSearch";
 import { useState, useEffect } from "react";
@@ -14,6 +16,8 @@ export const MARKER_SIZE_PRESETS = {
   small:    { label: "Piccoli",  min: 0.3, max: 0.7 },
   standard: { label: "Standard", min: 0.5, max: 1.0 },
   large:    { label: "Grandi",   min: 0.8, max: 1.5 },
+  // NB: le etichette qui sono CHIAVI (l'italiano è la chiave, vedi lib/i18n);
+  // vengono tradotte dove si disegnano, non qui, perché questa tabella è dati.
 } as const;
 export type MarkerSizePreset = keyof typeof MARKER_SIZE_PRESETS;
 
@@ -84,6 +88,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 }
 
 function HomeCityPicker({ value, onChange }: { value: HomeCity; onChange: (v: HomeCity) => void }) {
+  const t = useT();
   const [query, setQuery] = useState(value?.label ?? "");
 
   // Ricerca unificata (usePlaceSearch): solo città — è una residenza.
@@ -98,11 +103,11 @@ function HomeCityPicker({ value, onChange }: { value: HomeCity; onChange: (v: Ho
           className="bg-transparent flex-1 text-sm outline-none placeholder:text-muted-foreground"
           value={query}
           onChange={e => setQuery(e.target.value)}
-          placeholder="Cerca la tua città…"
+          placeholder={t("Cerca la tua città…")}
         />
         {value && (
           <button type="button" onClick={() => { onChange(null); setQuery(""); }}
-            aria-label="Rimuovi la città di residenza"
+            aria-label={t("Rimuovi la città di residenza")}
             className="text-muted-foreground hover:text-foreground">
             <X className="w-4 h-4"/>
           </button>
@@ -138,6 +143,7 @@ function HomeCityPicker({ value, onChange }: { value: HomeCity; onChange: (v: Ho
 
 export default function Settings() {
   const s = useSettings();
+  const t = s.t;
   const markerPreset = detectMarkerPreset(s.minMarkerScale, s.maxMarkerScale);
 
   const applyMarkerPreset = (key: MarkerSizePreset) => {
@@ -152,26 +158,26 @@ export default function Settings() {
 
       <div className="container mx-auto px-4 pt-8 pb-2 max-w-xl">
 
-        <SectionHeading>Misure</SectionHeading>
+        <SectionHeading>{t("Misure")}</SectionHeading>
 
         <Group
           icon={<Ruler width="18" height="18"/>}
-          title="Unità di misura"
-          desc="Come mostrare distanze, altitudini e temperature"
+          title={t("Unità di misura")}
+          desc={t("Come mostrare distanze, altitudini e temperature")}
         >
           <div className="space-y-3">
             <div>
-              <label className="text-xs text-muted-foreground mb-1.5 block">Distanze e altitudini</label>
+              <label className="text-xs text-muted-foreground mb-1.5 block">{t("Distanze e altitudini")}</label>
               <SegmentControl<DistanceUnit>
                 value={s.distanceUnit} onChange={s.setDistanceUnit}
-                options={[{ value: "metric", label: "Metrico", hint: "km, m" }, { value: "imperial", label: "Imperiale", hint: "mi, ft" }]}
+                options={[{ value: "metric", label: t("Metrico"), hint: "km, m" }, { value: "imperial", label: t("Imperiale"), hint: "mi, ft" }]}
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1.5 block">Temperatura</label>
+              <label className="text-xs text-muted-foreground mb-1.5 block">{t("Temperatura")}</label>
               <SegmentControl<TemperatureUnit>
                 value={s.temperatureUnit} onChange={s.setTemperatureUnit}
-                options={[{ value: "celsius", label: "Celsius", hint: "°C" }, { value: "fahrenheit", label: "Fahrenheit", hint: "°F" }]}
+                options={[{ value: "celsius", label: t("Celsius"), hint: "°C" }, { value: "fahrenheit", label: t("Fahrenheit"), hint: "°F" }]}
               />
             </div>
           </div>
@@ -179,53 +185,76 @@ export default function Settings() {
 
         <Group
           icon={<MapPin width="18" height="18"/>}
-          title="Città di residenza"
-          desc="Usata per calcolare le distanze e precompilare il punto di partenza"
+          title={t("Città di residenza")}
+          desc={t("Usata per calcolare le distanze e precompilare il punto di partenza")}
         >
           <HomeCityPicker value={s.homeCity} onChange={s.setHomeCity}/>
         </Group>
 
-        <SectionHeading>Globo</SectionHeading>
+        {/* La lingua sta con le unità di misura, non in una sezione sua: è la
+            stessa famiglia di scelte — come leggere i numeri, le distanze, le
+            date. Il selettore elenca SOLO le lingue tradotte al 100% (vedi
+            LINGUE in lib/i18n): una tendina con cento voci di cui novantotto
+            non fanno niente è un'interfaccia che promette e non mantiene. */}
+        <Group
+          icon={<Languages width="18" height="18"/>}
+          title={t("Lingua")}
+          desc={t("Interfaccia, date e numeri")}
+        >
+          <SegmentControl<PreferenzaLingua>
+            value={s.lingua} onChange={s.setLingua}
+            options={LINGUE.map(l => ({
+              value: l.valore,
+              label: l.valore === "sistema" ? t("Sistema") : l.etichetta,
+              hint: l.valore === "sistema" ? t("automatica") : undefined,
+            }))}
+          />
+          <p className="mt-2 text-xs text-muted-foreground">
+            {t("I nomi dei viaggi già salvati restano come li hai censiti: sono dati, non scritte dell'app.")}
+          </p>
+        </Group>
+
+        <SectionHeading>{t("Globo")}</SectionHeading>
 
         <Group
           icon={<RotateCw width="18" height="18"/>}
-          title="Rotazione automatica"
-          desc="Il globo ruota da solo all'avvio"
+          title={t("Rotazione automatica")}
+          desc={t("Il globo ruota da solo all'avvio")}
         >
           <SegmentControl<AutoRotate>
             value={s.autoRotate} onChange={s.setAutoRotate}
             options={[
-              { value: "on",  label: "Attiva" },
-              { value: "off", label: "Disattiva" },
+              { value: "on",  label: t("Attiva") },
+              { value: "off", label: t("Disattiva") },
             ]}
           />
         </Group>
 
         <Group
           icon={<CircleDot width="18" height="18"/>}
-          title="Dimensione marker"
-          desc="Quanto grandi sono i punti dei viaggi sul globo"
+          title={t("Dimensione marker")}
+          desc={t("Quanto grandi sono i punti dei viaggi sul globo")}
         >
           <SegmentControl<MarkerSizePreset>
             value={markerPreset}
             onChange={applyMarkerPreset}
             options={(Object.keys(MARKER_SIZE_PRESETS) as MarkerSizePreset[]).map(key => ({
-              value: key, label: MARKER_SIZE_PRESETS[key].label,
+              value: key, label: t(MARKER_SIZE_PRESETS[key].label),
             }))}
           />
           {markerPreset === null && (
             <p className="mt-2 text-xs text-muted-foreground">
-              Al momento è attiva una dimensione personalizzata: scegli un preset per sostituirla.
+              {t("Al momento è attiva una dimensione personalizzata: scegli un preset per sostituirla.")}
             </p>
           )}
         </Group>
 
-        <SectionHeading>Account e backup</SectionHeading>
+        <SectionHeading>{t("Account e backup")}</SectionHeading>
 
         <Group
           icon={<UserCircle width="18" height="18"/>}
-          title="Backup nel cloud"
-          desc="Accedi con Google per salvare i viaggi nel cloud, in automatico, e ritrovarli su ogni dispositivo (facoltativo: l'app funziona anche come ospite)"
+          title={t("Backup nel cloud")}
+          desc={t("Accedi con Google per salvare i viaggi nel cloud, in automatico, e ritrovarli su ogni dispositivo (facoltativo: l'app funziona anche come ospite)")}
         >
           <CloudSection/>
         </Group>

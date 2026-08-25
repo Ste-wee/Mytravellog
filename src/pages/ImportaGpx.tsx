@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useT } from "@/lib/settings";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload, Loader2, MapPin } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
@@ -24,6 +25,7 @@ const field: React.CSSProperties = {
 const label: React.CSSProperties = { fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, display: "block" };
 
 const ImportaGpx = () => {
+  const t = useT();
   const navigate = useNavigate();
   const [coords, setCoords] = useState<[number, number][]>([]);
   const [fileName, setFileName] = useState("");
@@ -121,7 +123,7 @@ const ImportaGpx = () => {
         </button>
         <h1 className="font-display" style={{ fontSize: 22, fontWeight: 700, color: "#f0f4ff", marginBottom: 6 }}>Importa da GPX</h1>
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: 20 }}>
-          Carica una traccia <code>.gpx</code> (bici, moto, trekking…): il viaggio userà il percorso GPS reale. Partenza e arrivo li rilevo io, poi puoi rifinire tutto.
+          {t("Carica una traccia .gpx (bici, moto, trekking…): il viaggio userà il percorso GPS reale. Partenza e arrivo li rilevo io, poi puoi rifinire tutto.")}
         </p>
 
         <label style={{
@@ -130,7 +132,7 @@ const ImportaGpx = () => {
           background: "rgba(96,165,250,0.04)", marginBottom: 20,
         }}>
           <Upload className="w-6 h-6" style={{ color: "#60a5fa" }} />
-          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{fileName || "Scegli un file GPX"}</span>
+          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{fileName || t("Scegli un file GPX")}</span>
           {parsing && <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", display: "flex", alignItems: "center", gap: 6 }}><Loader2 className="w-3.5 h-3.5 animate-spin" /> Leggo il percorso…</span>}
           <input type="file" accept=".gpx,application/gpx+xml,application/xml,text/xml" style={{ display: "none" }}
             onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.currentTarget.value = ""; }} />

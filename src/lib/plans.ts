@@ -1,5 +1,5 @@
 import { Trip, parseLocalDate, todayLocalISO } from "@/lib/storage";
-import { fmtNumber } from "@/lib/settings";
+import { fmtNumber, tr } from "@/lib/settings";
 
 export interface PlanCountdown {
   text: string;
@@ -23,14 +23,14 @@ export function planCountdown(trip: Trip, todayISO: string = todayLocalISO()): P
   // viaggio futuro finiva su "sei tornato?" (o "tra NaN giorni" con anni
   // fuori scala). Meglio dirlo com'è.
   if (!Number.isFinite(start) || !Number.isFinite(end)) {
-    return { text: "data non valida", urgent: false, returned: false };
+    return { text: tr("data non valida"), urgent: false, returned: false };
   }
   const days = Math.round((start - today) / 86400000);
   // fmtNumber: un viaggio programmato ad anni di distanza scriverebbe
   // "tra 1024 giorni" mentre tutto il resto dell'app scrive "1.024".
-  if (days > 1) return { text: `tra ${fmtNumber(days)} giorni`, urgent: days <= 14, returned: false };
-  if (days === 1) return { text: "domani", urgent: true, returned: false };
-  if (days === 0) return { text: "oggi", urgent: true, returned: false };
-  if (today <= end) return { text: "in corso", urgent: false, returned: false };
-  return { text: "sei tornato?", urgent: false, returned: true };
+  if (days > 1) return { text: tr("tra {quanti} giorni", { quanti: fmtNumber(days) }), urgent: days <= 14, returned: false };
+  if (days === 1) return { text: tr("domani"), urgent: true, returned: false };
+  if (days === 0) return { text: tr("oggi"), urgent: true, returned: false };
+  if (today <= end) return { text: tr("in corso"), urgent: false, returned: false };
+  return { text: tr("sei tornato?"), urgent: false, returned: true };
 }

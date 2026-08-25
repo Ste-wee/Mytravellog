@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { type Chiave, type Lingua, type PreferenzaLingua, localeDi, risolviLingua, traduci } from "@/lib/i18n";
 
 export type DistanceUnit = "metric" | "imperial";
 export type TemperatureUnit = "celsius" | "fahrenheit";
@@ -17,6 +18,8 @@ export type Settings = {
   homeCity: HomeCity;
   minMarkerScale: number;
   maxMarkerScale: number;
+  /** La lingua dell'interfaccia. "sistema" segue il browser. */
+  lingua: PreferenzaLingua;
 };
 
 type Ctx = Settings & {
@@ -26,6 +29,11 @@ type Ctx = Settings & {
   setHomeCity: (v: HomeCity) => void;
   setMinMarkerScale: (v: number) => void;
   setMaxMarkerScale: (v: number) => void;
+  setLingua: (v: PreferenzaLingua) => void;
+  /** La lingua VERA (mai "sistema"): quella con cui tradurre adesso. */
+  linguaAttiva: Lingua;
+  /** Traduce una scritta dell'interfaccia. Vedi lib/i18n. */
+  t: (chiave: Chiave, params?: Record<string, string | number>) => string;
 };
 
 export const MARKER_SCALE_MIN = 0.1;
@@ -42,6 +50,14 @@ const DEFAULTS: Settings = {
   // scelto una dimensione non viene toccato: le impostazioni salvate vincono.
   minMarkerScale: 0.3,
   maxMarkerScale: 0.7,
+  // ⚠️ "it", NON "sistema". Avevo messo "sistema" convinto che fosse più
+  // gentile con chi arriva da fuori, e ho scoperto due cose provandolo:
+  // l'app di Stefano sarebbe passata all'inglese da sola se il suo browser
+  // fosse in inglese — un cambio che nessuno ha chiesto — e quattro test di
+  // TravelHighlights sono caduti perché in jsdom `navigator.language` è
+  // inglese, quindi i numeri uscivano "9,710" invece di "9.710".
+  // L'app nasce italiana: chi vuole il resto lo scegli, non lo subisce.
+  lingua: "it",
 };
 
 function clampScale(v: number): number {
@@ -69,6 +85,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   // Apply theme class to document root
 
+  const linguaOra = risolviLingua(s.lingua);
+  // Date e numeri seguono la lingua: `fmtNumber` e i `toLocaleDateString`
+  // sparsi nei componenti leggono il locale da qui, così non esiste una
+  // schermata che resta in italiano solo per le date.
+  useEffect(() => { impostaLingua(linguaOra); }, [linguaOra]);
+  // Anche l'attributo `lang` del documento: serve alla sillabazione, agli
+  // screen reader e alla tastiera del telefono.
+  useEffect(() => { document.documentElement.lang = linguaOra; }, [linguaOra]);
+
   const value: Ctx = {
     ...s,
     setDistanceUnit: (v) => setS((p) => ({ ...p, distanceUnit: v })),
@@ -77,6 +102,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setHomeCity: (v) => setS((p) => ({ ...p, homeCity: v })),
     setMinMarkerScale: (v) => setS((p) => ({ ...p, minMarkerScale: clampScale(v) })),
     setMaxMarkerScale: (v) => setS((p) => ({ ...p, maxMarkerScale: clampScale(v) })),
+    setLingua: (v) => setS((p) => ({ ...p, lingua: v })),
+    linguaAttiva: linguaOra,
+    t: (chiave, params) => traduci(linguaOra, chiave, params),
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
@@ -87,6 +115,26 @@ export function useSettings(): Ctx {
   return ctx;
 }
 
+/**
+ * Il traduttore, per i componenti.
+ *
+ * ⚠️ A differenza di `useSettings`, **non esplode senza provider**: ricade
+ * sull'italiano. Non è pigrizia, è una scelta con due motivi:
+ *
+ * - **35 file di test** montano i componenti senza `SettingsProvider`. Se il
+ *   traduttore pretendesse il contesto, tradurre un componente vorrebbe dire
+ *   riscrivere il suo test — e allora i test non potrebbero più fare da rete
+ *   per la traduzione stessa. Così restano verdi e provano che l'italiano non
+ *   è cambiato di una virgola.
+ * - **Una scritta è meno importante di una schermata.** Se un domani un
+ *   componente finisse fuori dal provider, deve mostrare l'italiano, non una
+ *   pagina bianca.
+ */
+export function useT(): Ctx["t"] {
+  const ctx = useContext(Ctx);
+  return ctx ? ctx.t : (chiave, params) => traduci("it", chiave, params);
+}
+
 // Il separatore delle migliaia SEMPRE: l'italiano di CLDR non raggruppa i
 // numeri a 4 cifre (minimumGroupingDigits=2 → "4419", il punto compare solo
 // da 10.000 in su), quindi i totali più comuni dell'app — km, quote e giorni
@@ -95,7 +143,39 @@ export function useSettings(): Ctx {
 // vedi tsconfig) e il suo tipo dice ancora `boolean`. Il cast resta QUI.
 // Runtime: i motori pre-2022 coercevano la stringa a true (= "auto", il
 // comportamento di prima) — nessun crash, al peggio niente punto sui 4 cifre.
-const NUMERO = new Intl.NumberFormat("it-IT", { useGrouping: "always" } as unknown as Intl.NumberFormatOptions);
+const opzioniNumero = { useGrouping: "always" } as unknown as Intl.NumberFormatOptions;
+let NUMERO = new Intl.NumberFormat("it-IT", opzioniNumero);
+/** Il locale di date e numeri, cambiato dal provider quando cambia la lingua.
+ *  Una variabile di modulo e non un hook, per non toccare le decine di punti
+ *  che chiamano `fmtNumber` — e perché serve anche a chi disegna su canvas,
+ *  dove gli hook non arrivano. */
+let LOCALE = "it-IT";
+export function impostaLocale(locale: string): void {
+  LOCALE = locale;
+  NUMERO = new Intl.NumberFormat(locale, opzioniNumero);
+}
+/** Il locale attivo: da passare a `toLocaleDateString` invece di "it-IT". */
+export const localeAttivo = (): string => LOCALE;
+
+/**
+ * La lingua attiva e il traduttore per il codice SENZA hook.
+ *
+ * Servono a tre famiglie di codice che non possono usare `useT`: le funzioni
+ * pure (`planCountdown`, `formatTripDate`), quello che disegna su canvas (il
+ * poster del recap, le stories) e i moduli chiamati fuori dall'albero React.
+ * Il provider li tiene aggiornati insieme al locale.
+ *
+ * ⚠️ Stessa avvertenza del locale: è stato di modulo, quindi un test che monta
+ * il provider in inglese lo lascia in inglese per quello dopo.
+ */
+let LINGUA: Lingua = "it";
+export function impostaLingua(lingua: Lingua): void {
+  LINGUA = lingua;
+  impostaLocale(localeDi(lingua));
+}
+export const linguaAttiva = (): Lingua => LINGUA;
+export const tr = (chiave: Chiave, params?: Record<string, string | number>): string =>
+  traduci(LINGUA, chiave, params);
 export const fmtNumber = (n: number): string => NUMERO.format(n);
 
 export function fmtDistance(km: number | null | undefined, unit: DistanceUnit): string {

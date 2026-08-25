@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, ReactNode } from "react";
+import { localeAttivo } from "@/lib/settings";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { YearRecap } from "@/lib/recap";
@@ -118,7 +119,7 @@ export function RecapStories({ recap: r, fmt, flagUrl, onClose }: { recap: YearR
     const md = parseLocalDate(r.moment.date);
     // Data di diario malformata → la slide diceva "· NaN Invalid Date NaN".
     const mdValid = Number.isFinite(md.getTime());
-    const mon = mdValid ? md.toLocaleDateString("it-IT", { month: "short" }).replace(".", "") : "";
+    const mon = mdValid ? md.toLocaleDateString(localeAttivo(), { month: "short" }).replace(".", "") : "";
     slides.push(
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", height: "100%", textAlign: "center" }}>
         <div style={{ fontSize: 34, color: "#fbbf24", marginBottom: 14 }}>★</div>
