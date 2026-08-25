@@ -237,7 +237,7 @@ export function TripDiary({ trip, entries, onClose, onSaved }: Props) {
     }
     return (
       <div style={{ maxWidth: 640, margin: "0 auto" }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "4px", color: "rgba(255,255,255,0.6)", textTransform: "uppercase" }}>diario di bordo</div>
+        <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "4px", color: "rgba(255,255,255,0.6)", textTransform: "uppercase" }}>{t("diario di bordo")}</div>
         <div style={{ color: "#f0f4ff", fontFamily: BRAND, fontSize: 26, fontWeight: 700, lineHeight: 1.1, margin: "9px 0 5px" }}>{trip.title || trip.city}</div>
         <div style={{ fontFamily: MONO, fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 22 }}>
           {coverRange(trip)} · {readEntries.length} {readEntries.length === 1 ? "giorno scritto" : "giorni scritti"}

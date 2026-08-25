@@ -133,7 +133,7 @@ export function TravelHighlights({ trips }: Props) {
       })()}
 
       <div className="mt-6 glass-card p-6">
-        <h2 className="text-lg font-bold mb-4">Distanze</h2>
+        <h2 className="text-lg font-bold mb-4">{t("Distanze")}</h2>
 
         {/* Hero row — layout unico ovunque (desktop = mobile): km totali come
             "momento hero" con icona grande, intorno-al-mondo/alla-luna compatte
@@ -144,7 +144,7 @@ export function TravelHighlights({ trips }: Props) {
               <Globe2 style={{width:32,height:32,color:"#378ADD"}} strokeWidth={1.5}/>
             </div>
             <div className="text-2xl font-bold font-mono mt-1">{formatDistanceKm(totalKm, distanceUnit)}</div>
-            <div className="text-xs text-muted-foreground">chilometri percorsi in totale</div>
+            <div className="text-xs text-muted-foreground">{t("chilometri percorsi in totale")}</div>
           </div>
           <div className="grid grid-cols-2 gap-2.5">
             <div className="flex flex-col items-center text-center gap-1.5 rounded-xl py-3" style={{background:"rgba(99,153,34,0.08)"}}>
@@ -156,12 +156,12 @@ export function TravelHighlights({ trips }: Props) {
                 <path d="M6.5 15Q11 13 15.5 15" stroke="#639922" strokeWidth="1" fill="none"/>
               </svg>
               <div className="text-lg font-bold font-mono">{aroundWorld.toFixed(3).replace(".",",")}×</div>
-              <div className="text-[11px] text-muted-foreground">intorno al mondo</div>
+              <div className="text-[11px] text-muted-foreground">{t("intorno al mondo")}</div>
             </div>
             <div className="flex flex-col items-center text-center gap-1.5 rounded-xl py-3" style={{background:"rgba(127,119,221,0.08)"}}>
               <Moon className="w-5 h-5" style={{color:"#7F77DD"}} strokeWidth={1.5}/>
               <div className="text-lg font-bold font-mono">{toMoon.toFixed(3).replace(".",",")}×</div>
-              <div className="text-[11px] text-muted-foreground">alla luna</div>
+              <div className="text-[11px] text-muted-foreground">{t("alla luna")}</div>
             </div>
           </div>
         </div>

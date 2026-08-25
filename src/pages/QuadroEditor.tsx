@@ -651,7 +651,7 @@ export default function QuadroEditor() {
         <button type="button" onClick={() => navigate("/miei-viaggi")} style={btn()} aria-label={t("Torna a I miei viaggi")}>
           <ArrowLeft style={{ width: 16, height: 16 }} />
         </button>
-        <div style={{ fontWeight: 700, fontSize: 14, marginRight: 4 }}>Editor quadro</div>
+        <div style={{ fontWeight: 700, fontSize: 14, marginRight: 4 }}>{t("Editor quadro")}</div>
 
         <button type="button" onClick={() => setMode(m => (m === "arrange" ? "frame" : "arrange"))}
           style={btn(mode === "frame" ? { background: "rgba(96,165,250,0.16)", borderColor: "#60a5fa", color: "#60a5fa" } : undefined)}
@@ -673,7 +673,7 @@ export default function QuadroEditor() {
           <Undo2 style={{ width: 15, height: 15 }} />
         </button>
         <button type="button" onClick={redo} disabled={!canRedo}
-          style={btn(!canRedo ? { opacity: 0.4, cursor: "default" } : undefined)} title="Ripeti (Ctrl/⌘+Shift+Z)">
+          style={btn(!canRedo ? { opacity: 0.4, cursor: "default" } : undefined)} title={t("Ripeti (Ctrl/⌘+Shift+Z)")}>
           <Redo2 style={{ width: 15, height: 15 }} />
         </button>
         <button type="button" onClick={() => zoomSelected(1 / 1.2)} style={btn()} title={t("Zoom indietro")}><ZoomOut style={{ width: 15, height: 15 }} /></button>
@@ -696,7 +696,7 @@ export default function QuadroEditor() {
               background: "#0b1a33", border: "0.5px solid #2a3f5f", borderRadius: 12,
               padding: 14, boxShadow: "0 16px 40px rgba(0,0,0,0.5)",
             }}>
-              <div style={{ fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", color: "rgba(255,255,255,0.6)", marginBottom: 8 }}>Formato</div>
+              <div style={{ fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", color: "rgba(255,255,255,0.6)", marginBottom: 8 }}>{t("Formato")}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
                 {PRINT_FORMATS.map(f => (
                   <button key={f.id} type="button" onClick={() => setFmtId(f.id)}
@@ -711,7 +711,7 @@ export default function QuadroEditor() {
                 ))}
               </div>
 
-              <div style={{ fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", color: "rgba(255,255,255,0.6)", marginBottom: 8 }}>Colore</div>
+              <div style={{ fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", color: "rgba(255,255,255,0.6)", marginBottom: 8 }}>{t("Colore")}</div>
               <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
                 {PALETTES.map(p => (
                   <button key={p.id} type="button" onClick={() => setPalId(p.id)} title={p.label}

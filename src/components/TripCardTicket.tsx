@@ -342,7 +342,7 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
                     sa cosa segnava, il satellite no. */}
                 {editTemp ? (
                   <input autoFocus type="number" step="0.1" inputMode="decimal"
-                    aria-label="Temperatura in gradi"
+                    aria-label={t("Temperatura in gradi")}
                     defaultValue={tempCorrente}
                     onBlur={e => salvaTemp(e.target.value)}
                     onKeyDown={e => {
@@ -502,7 +502,7 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
         }}>
         <img src={reliefUrl} alt={`Rilievo 3D di ${displayTitle}`} onClick={e => e.stopPropagation()}
           style={{maxWidth:"92vw",maxHeight:"88vh",objectFit:"contain",borderRadius:12,boxShadow:"0 20px 60px rgba(0,0,0,0.6)"}}/>
-        <button onClick={() => setReliefOpen(false)} aria-label="Chiudi anteprima rilievo"
+        <button onClick={() => setReliefOpen(false)} aria-label={t("Chiudi anteprima rilievo")}
           style={{
             position:"absolute", top:16, right:16, width:34, height:34, borderRadius:10,
             background:"rgba(10,22,40,0.8)", border:"0.5px solid #1a2d4a", cursor:"pointer",

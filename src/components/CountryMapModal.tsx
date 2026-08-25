@@ -663,7 +663,7 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
               style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "1px solid rgba(255,255,255,0.1)" }}/>
           )}
           <div className="font-display" style={{ fontSize: 16, fontWeight: 700, color: "#f0f4ff", flex: 1 }}>{countryName}</div>
-          <button onClick={onClose} aria-label="Chiudi mappa del paese"
+          <button onClick={onClose} aria-label={t("Chiudi mappa del paese")}
             style={{ width: 28, height: 28, background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.6)", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8 }}>
             <X style={{ width: 16, height: 16 }}/>
           </button>
@@ -673,9 +673,9 @@ export function CountryMapModal({ countryCode, countryName, trips, onClose }: Pr
         {!loading && !error && totalRegions > 0 && (
           <div style={{ textAlign: "center", paddingTop: 16 }}>
             <span style={{ fontSize: 30, fontWeight: 700, color: "#60a5fa" }}>{pct}%</span>
-            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginLeft: 8 }}>del paese visitato</span>
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginLeft: 8 }}>{t("del paese visitato")}</span>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>
-              {visitedRegions.length} region{visitedRegions.length === 1 ? "e" : "i"} su {totalRegions}
+              {t(visitedRegions.length === 1 ? "{quante} regione su {tutte}" : "{quante} regioni su {tutte}", { quante: visitedRegions.length, tutte: totalRegions })}
             </div>
           </div>
         )}

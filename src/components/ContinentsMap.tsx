@@ -215,7 +215,7 @@ export function ContinentsMap({ trips }: Props) {
   return (
     <div className="glass-card p-5 animate-fade-up">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-foreground">Mappa del mondo</h2>
+        <h2 className="text-lg font-bold text-foreground">{t("Mappa del mondo")}</h2>
 </div>
 
       <div className="w-full rounded-xl p-3" style={{ background: "#060e1e" }}>

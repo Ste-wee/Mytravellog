@@ -15,6 +15,31 @@ catturato regressioni vere che gli altri non vedevano).
 | 4b | Traduzione | `npm run lingua` (serve un server) | **scritte rimaste in italiano con l'app in inglese**, pagina per pagina, etichette invisibili incluse | le schermate che si aprono solo con un'interazione (diario, pannello del piano, tutorial) |
 | 5 | Verifica sul deployato | script di sonda su `ste-wee.github.io/Mytravellog` | build minificato, service worker, cache, deploy riuscito | — |
 
+| 4c | Traduzione, rete STRUTTURALE | `npm run lingua:statico` | ogni scritta a mano fuori da `t()`, **senza indovinare la lingua** | i letterali che non stanno in testo JSX / attributi / toast (es. dentro un array) |
+
+⚠️ **Perché DUE reti per la stessa cosa.** La 4b guarda cosa *rende* a schermo,
+la 4c guarda il *codice*: hanno buchi opposti e servono insieme. La 4b non vede
+gli stati che non apre; la 4c non vede i letterali fuori dai posti che conosce.
+**Storia da non ripetere: ho creduto di aver finito quattro volte** con una rete
+verde e l'italiano a schermo — «Rivivi il 2026 in 3D» (nessuna parola-spia),
+«Itinerario» (una parola sola), «Mappa del mondo» (l'articolo «del» non era
+nella mia lista), i toast (nessun collaudo li fa scattare). Ogni volta il buco
+era nel **disegno della rete**, non nel codice.
+
+Da qui tre regole, valide oltre le lingue:
+1. **Chiedere una proprietà sintattica, non un'euristica.** «È un letterale
+   fuori da `t()`?» non ha buchi; «sembra italiano?» ne ha sempre. Il rumore si
+   toglie con eccezioni **dichiarate** (`RUMORE` in `lingua-statico.mjs`): se
+   sbaglio lì, sbaglio in modo leggibile.
+2. **Ogni rete dichiara cosa NON ha guardato.** `npm run lingua` stampa quante
+   superfici ha aperto e **legge le rotte da `src/main.tsx`**: se il router ha
+   una pagina che il collaudo non visita, fallisce invece di ignorarla. Uno
+   «0» ottenuto guardando zero è il guasto silenzioso classico.
+3. **Ogni rete ha la sua autoprova.** `npm run lingua:statico -- --autoprova`
+   inietta 8 casi che deve trovare e 7 che deve ignorare. Ha già ripagato: mentre
+   la rendevo più silenziosa l'ho resa cieca su `toast.error("…!")`, e me l'ha
+   detto subito.
+
 **Lo strato 4b (`e2e/lingua.mjs`) è il cancello della traduzione**: apre ogni
 pagina con la lingua inglese e cerca parole funzione italiane (nel testo E negli
 `aria-label`/`title`/`placeholder`), poi esce con codice ≠ 0 se ne trova. I dati

@@ -20,7 +20,7 @@
     "collaudo": "node e2e/collaudo.mjs",
     "confini": "node scripts/genera-confini.mjs",
     "coverage": "vitest run --coverage --coverage.include=src/lib/** --coverage.exclude=**/*.test.*",
-    "regressione": "npm run typecheck && eslint src scripts e2e && vitest run && npm run collaudo",
+    "regressione": "npm run typecheck && eslint src scripts e2e && vitest run && npm run lingua:statico -- --autoprova && npm run lingua:statico && npm run collaudo && npm run lingua",
     "iso": "node scripts/genera-iso.mjs",
     "lingua": "node e2e/lingua.mjs",
     "lingua:statico": "node e2e/lingua-statico.mjs"

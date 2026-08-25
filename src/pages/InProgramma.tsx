@@ -169,7 +169,7 @@ const InProgramma = () => {
             </div>
 
             {/* Titolo */}
-            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Titolo (opzionale)"
+            <input value={title} onChange={e => setTitle(e.target.value)} placeholder={t("Titolo (opzionale)")}
               style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "0.5px solid #1a2d4a", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#f0f4ff", outline: "none", fontFamily: "inherit", marginBottom: 12 }} />
 
             <button type="button" onClick={create} disabled={!canSave}

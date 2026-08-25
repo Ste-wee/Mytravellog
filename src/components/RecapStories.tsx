@@ -29,13 +29,13 @@ export function RecapStories({ recap: r, fmt, flagUrl, onClose }: { recap: YearR
     <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%" }}>
       <div style={kicker}>{t("Il tuo anno di viaggi")}</div>
       <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 800, fontSize: 96, lineHeight: 1, marginTop: 12, backgroundImage: "linear-gradient(120deg,#60a5fa,#34d399)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>{r.year}</div>
-      <div style={{ ...sub, marginTop: 18 }}>Ripercorriamolo insieme →</div>
+      <div style={{ ...sub, marginTop: 18 }}>{t("Ripercorriamolo insieme →")}</div>
     </div>
   );
 
   slides.push(
     <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%" }}>
-      <div style={sub}>Hai percorso</div>
+      <div style={sub}>{t("Hai percorso")}</div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 8 }}>
         <span style={big(80)}>{fmt.dist(r.km).replace(/\s*(km|mi)$/i, "")}</span>
         <span style={{ fontSize: 34, fontWeight: 700, color: "#fbbf24" }}>{/mi$/i.test(fmt.dist(r.km)) ? "mi" : "km"}</span>
@@ -48,7 +48,7 @@ export function RecapStories({ recap: r, fmt, flagUrl, onClose }: { recap: YearR
 
   slides.push(
     <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 18 }}>
-      <div style={sub}>Sei stato in</div>
+      <div style={sub}>{t("Sei stato in")}</div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}><span style={big(56, "#34d399")}>{r.countries}</span><span style={{ fontSize: 18, color: "rgba(255,255,255,0.7)" }}>{r.countries === 1 ? "paese" : "paesi"}</span></div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}><span style={big(56, "#60a5fa")}>{r.cities}</span><span style={{ fontSize: 18, color: "rgba(255,255,255,0.7)" }}>{r.cities === 1 ? "città" : "città"}</span></div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}><span style={big(56, "#fbbf24")}>{r.days}</span><span style={{ fontSize: 18, color: "rgba(255,255,255,0.7)" }}>{r.days === 1 ? "giorno in viaggio" : "giorni in viaggio"}</span></div>
@@ -101,7 +101,7 @@ export function RecapStories({ recap: r, fmt, flagUrl, onClose }: { recap: YearR
 
   // La riga di congedo vive sull'ULTIMA slide effettiva: sul momento se c'è
   // (chiusura calda con le parole dell'utente), altrimenti sul paese dell'anno.
-  const farewell = <div style={{ ...sub, marginTop: 24 }}>Alla prossima avventura ✦</div>;
+  const farewell = <div style={{ ...sub, marginTop: 24 }}>{t("Alla prossima avventura ✦")}</div>;
 
   if (r.topCountry) {
     slides.push(
@@ -181,8 +181,8 @@ export function RecapStories({ recap: r, fmt, flagUrl, onClose }: { recap: YearR
         </div>
 
         {/* Zone di tap: sinistra = indietro, destra = avanti */}
-        <button onClick={prev} aria-label="Slide precedente" style={{ position: "absolute", top: 40, left: 0, bottom: 0, width: "32%", background: "transparent", border: "none", cursor: "pointer" }} />
-        <button onClick={next} aria-label="Slide successiva" style={{ position: "absolute", top: 40, right: 0, bottom: 0, width: "68%", background: "transparent", border: "none", cursor: "pointer" }} />
+        <button onClick={prev} aria-label={t("Slide precedente")} style={{ position: "absolute", top: 40, left: 0, bottom: 0, width: "32%", background: "transparent", border: "none", cursor: "pointer" }} />
+        <button onClick={next} aria-label={t("Slide successiva")} style={{ position: "absolute", top: 40, right: 0, bottom: 0, width: "68%", background: "transparent", border: "none", cursor: "pointer" }} />
       </div>
     </div>,
     document.body

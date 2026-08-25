@@ -120,7 +120,7 @@ const ImportaGpx = () => {
         <button onClick={() => navigate(-1)} className="flex items-center gap-2" style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, marginBottom: 16, background: "none", border: "none", cursor: "pointer" }}>
           <ArrowLeft className="w-4 h-4" /> Indietro
         </button>
-        <h1 className="font-display" style={{ fontSize: 22, fontWeight: 700, color: "#f0f4ff", marginBottom: 6 }}>Importa da GPX</h1>
+        <h1 className="font-display" style={{ fontSize: 22, fontWeight: 700, color: "#f0f4ff", marginBottom: 6 }}>{t("Importa da GPX")}</h1>
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: 20 }}>
           {t("Carica una traccia .gpx (bici, moto, trekking…): il viaggio userà il percorso GPS reale. Partenza e arrivo li rilevo io, poi puoi rifinire tutto.")}
         </p>
@@ -149,7 +149,7 @@ const ImportaGpx = () => {
               <span>{fmtNumber(lengthKm)} km</span>
               <span>{coords.length} punti</span>
               {maxEle != null && <span>quota max {maxEle} m</span>}
-              {geocoding && <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Loader2 className="w-3 h-3 animate-spin" /> rilevo i luoghi…</span>}
+              {geocoding && <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Loader2 className="w-3 h-3 animate-spin" /> {t("rilevo i luoghi…")}</span>}
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
@@ -169,8 +169,8 @@ const ImportaGpx = () => {
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 24 }}>
-              <div><label style={label}>Data inizio</label><input type="date" style={field} value={dateStart} onChange={e => setDateStart(e.target.value)} /></div>
-              <div><label style={label}>Data fine</label><input type="date" style={field} value={dateEnd} onChange={e => setDateEnd(e.target.value)} /></div>
+              <div><label style={label}>{t("Data inizio")}</label><input type="date" style={field} value={dateStart} onChange={e => setDateStart(e.target.value)} /></div>
+              <div><label style={label}>{t("Data fine")}</label><input type="date" style={field} value={dateEnd} onChange={e => setDateEnd(e.target.value)} /></div>
               <div><label style={label}>{t("Mezzo")}</label>
                 <select style={field} value={mode} onChange={e => setMode(e.target.value as Mode)}>
                   {MODES.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}

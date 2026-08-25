@@ -98,6 +98,23 @@ const PAGINE = [
   ["recap", "#/recap"], ["editor-quadro", "#/editor-quadro"],
 ];
 
+/**
+ * ⚠️ COPERTURA: le rotte vere le dice il router, non questa lista.
+ *
+ * Un collaudo che dice «0» può voler dire due cose molto diverse: «tutto
+ * pulito» oppure «non ho guardato niente». È già capitato — la vista a griglia
+ * e il gate della città non venivano mai aperti, e il loro italiano è rimasto lì
+ * per giri interi con la rete verde. Qui si legge `src/main.tsx` e si pretende
+ * che ogni rotta dichiarata nel router compaia fra quelle visitate: se un domani
+ * si aggiunge una pagina e nessuno aggiorna questo file, **il collaudo fallisce
+ * invece di ignorarla in silenzio**.
+ */
+const rotteDelRouter = [...fs.readFileSync("src/main.tsx", "utf8")
+  .matchAll(/<Route\s+path="([^"]+)"/g)].map(m => m[1])
+  .filter(p => p !== "*" && !p.includes(":"));   // il 404 e le rotte con parametri hanno bisogno di dati, non di una lista
+const visitate = PAGINE.map(([, hash]) => hash.replace("#", ""));
+const nonVisitate = rotteDelRouter.filter(r => !visitate.includes(r));
+
 const esito = {};
 
 /** Cerca l'italiano rimasto: nel testo a schermo E nelle etichette invisibili
@@ -212,6 +229,17 @@ for (const [nome, v] of Object.entries(esito)) {
   v.slice(0, 6).forEach(r => console.log(`      ${r}`));
   if (v.length > 6) console.log(`      …e altre ${v.length - 6}`);
 }
-console.log(`\nscritte italiane rimaste in inglese: ${rimaste}`);
+// COSA HO GUARDATO: si stampa sempre, così uno "0" non si può confondere con
+// "non ho aperto niente". I numeri sono la differenza fra una rete verde e una
+// rete cieca.
+console.log(`\nsuperfici guardate: ${Object.keys(esito).length}`
+  + ` (${PAGINE.length} pagine + ${INTERAZIONI.length} interazioni)`);
+console.log(`rotte nel router: ${rotteDelRouter.length}, tutte visitate: ${nonVisitate.length === 0 ? "sì" : "NO"}`);
+console.log(`scritte italiane rimaste in inglese: ${rimaste}`);
 console.log(errori.length ? `errori JS: ${JSON.stringify(errori)}` : "nessun errore JS");
-process.exit(rimaste === 0 ? 0 : 1);
+
+if (nonVisitate.length) {
+  console.log(`\n⚠️  ROTTE MAI APERTE: ${nonVisitate.join(", ")}`);
+  console.log("   Il collaudo NON può dire niente su queste pagine: aggiungile a PAGINE.");
+}
+process.exit(rimaste === 0 && nonVisitate.length === 0 ? 0 : 1);

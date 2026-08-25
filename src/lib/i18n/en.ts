@@ -396,4 +396,41 @@ export const en = {
   "Itinerario": "Itinerary",
   "Tela": "Canvas",
 
+  // Trovate dal controllo STRUTTURALE (che non indovina): entrambe le reti
+  // euristiche le dichiaravano inesistenti. "Mappa del mondo" e' sfuggita perche'
+  // «del» non era fra i miei articoli italiani; le stories perche' non
+  // contengono nessuna parola-spia.
+  "Mappa del mondo": "World map",
+  "Chiudi mappa del paese": "Close country map",
+  "del paese visitato": "of the country visited",
+  "{quante} regione su {tutte}": "{quante} region out of {tutte}",
+  "{quante} regioni su {tutte}": "{quante} regions out of {tutte}",
+  "Ripercorriamolo insieme →": "Let us retrace it together →",
+  "Hai percorso": "You travelled",
+  "Sei stato in": "You have been to",
+  "Alla prossima avventura ✦": "Until the next adventure ✦",
+
+  // ── Trovate dal controllo STRUTTURALE (non indovina la lingua: cerca i
+  //    letterali). Fra queste, due avevano GIÀ la chiave nel dizionario e
+  //    non il t(): «Benvenuto su NAV·TA» e «Nessun risultato.» ────────────
+  "Slide precedente": "Previous slide",
+  "Slide successiva": "Next slide",
+  "Distanze": "Distances",
+  "chilometri percorsi in totale": "distance travelled in total",
+  "intorno al mondo": "around the world",
+  "alla luna": "to the moon",
+  "Temperatura in gradi": "Temperature in degrees",
+  "Chiudi anteprima rilievo": "Close relief preview",
+  "diario di bordo": "logbook",
+  "Durata": "Duration",
+  "Ritorno": "Return",
+  "rilevo i luoghi…": "detecting places…",
+  "Data inizio": "Start date",
+  "Data fine": "End date",
+  "Titolo (opzionale)": "Title (optional)",
+  "Editor quadro": "Picture editor",
+  "Ripeti (Ctrl/⌘+Shift+Z)": "Redo (Ctrl/⌘+Shift+Z)",
+  "Formato": "Format",
+  "Colore": "Colour",
+
 } as const;

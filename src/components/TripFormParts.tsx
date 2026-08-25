@@ -1117,7 +1117,7 @@ export function TripFormFields({
 
           {days && (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 8, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: 1 }}>Durata</span>
+              <span style={{ fontSize: 8, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: 1 }}>{t("Durata")}</span>
               <div style={{
                 background: "rgba(96, 165, 250, 0.15)", color: "#60a5fa",
                 fontWeight: 700, fontSize: 11, padding: "2px 8px",
@@ -1175,7 +1175,7 @@ export function TripFormFields({
 
           {/* RITORNO */}
           <div style={{ display:"flex", flexDirection:"column", flex:1, minWidth:0, marginLeft:2 }}>
-            <span style={{ fontSize:9, color:"rgba(255,255,255,0.6)", textTransform:"uppercase", letterSpacing:1 }}>Ritorno</span>
+            <span style={{ fontSize:9, color:"rgba(255,255,255,0.6)", textTransform:"uppercase", letterSpacing:1 }}>{t("Ritorno")}</span>
             <input type="date"
               min="1900-01-01" max="2100-12-31"
               style={{ background:"transparent", border:"none", outline:"none",

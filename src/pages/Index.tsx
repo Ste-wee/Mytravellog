@@ -290,7 +290,7 @@ function HomeInner() {
                   <div style={{width:48, height:48, borderRadius:"50%", background:"rgba(96,165,250,0.12)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 12px"}}>
                     <Plane style={{width:22, height:22, color:"#60a5fa"}}/>
                   </div>
-                  <div className="font-display" style={{fontSize:15, fontWeight:700, color:"#f0f4ff"}}>Benvenuto su NAV·TA</div>
+                  <div className="font-display" style={{fontSize:15, fontWeight:700, color:"#f0f4ff"}}>{t("Benvenuto su NAV·TA")}</div>
                   <p style={{fontSize:12, color:"rgba(255,255,255,0.6)", lineHeight:1.5, margin:"6px 0 16px"}}>
                     Aggiungi il tuo primo viaggio e guarda il globo prendere vita.
                   </p>

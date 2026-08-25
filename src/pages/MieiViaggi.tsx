@@ -346,7 +346,7 @@ export default function MieiViaggi() {
         {filtered.length === 0 ? (
           search || yearFilter ? (
             // Filtro/ricerca attivi: nessun risultato per i criteri correnti.
-            <p className="text-sm text-muted-foreground text-center py-16">Nessun risultato.</p>
+            <p className="text-sm text-muted-foreground text-center py-16">{t("Nessun risultato.")}</p>
           ) : (
             // Nessun viaggio ancora: invito ricco, coerente con Home e Statistiche
             // (prima qui c'era solo una frase nuda, unico dei tre a rompere lo schema).
