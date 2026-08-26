@@ -13,7 +13,7 @@ import { ricalcolaTracciati } from "@/lib/ricalcolaTracciati";
 import { recuperaDatiMancanti } from "@/lib/recuperaDatiMancanti";
 import { fmtDistance, fmtNumber, useSettings, useT } from "@/lib/settings";
 import { TRANSPORT, isTransportMode } from "@/lib/transport";
-import { Route, Globe, MapPin, Pencil, Plane, Plus, Sun, Video, X } from "lucide-react";
+import { Route, Globe, MapPin, Pencil, Plane, Plus, Video, X } from "lucide-react";
 import { WorldMap, CityInfo } from "@/components/WorldMap";
 import { StarField, StarFieldController } from "@/components/StarField";
 import { TripFlyover } from "@/components/TripFlyover";
@@ -427,9 +427,9 @@ function HomeInner() {
               // giornata: prima AL POSTO delle citta` (Stefano se n'e` accorto
               // subito), poi accanto. Ma cinque voci vanno a capo su un
               // telefono da 390px (misurato: 75px di riga invece di 41), e
-              // questa riga e` il colpo d'occhio della Home. Le gite si
-              // contano dove c'e` spazio per spiegarle: nell'elenco
-              // "I miei viaggi" e in "Come viaggi" dentro Statistiche.
+              // questa riga e` il colpo d'occhio della Home. (Le gite in
+              // giornata poi sono state rimosse del tutto, 2026-08-26 — ma
+              // il paletto delle quattro voci resta.)
               { Icona: Globe,  valore: fmtNumber(stats.countries), chiave:"paesi",  colore:"#f0f4ff", iconaColore:"#60a5fa" },
               { Icona: MapPin, valore: fmtNumber(stats.cities),    chiave:"citta",  colore:"#f0f4ff", iconaColore:"#60a5fa" },
               // L'ambra è dei km, come le rotte sul globo (regola di colore

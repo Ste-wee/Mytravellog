@@ -7,7 +7,7 @@ import { TripCardTicket } from "@/components/TripCardTicket";
 import { TripFlyover } from "@/components/TripFlyover";
 import { loadTrips, loadPlans, deleteTrip, parseLocalDate, Trip } from "@/lib/storage";
 import { deletePhotosForTrip } from "@/lib/photoStorage";
-import { Search, X, Video, Plane, Plus, Sparkles, Globe2, List, LayoutGrid, Sun } from "lucide-react";
+import { Search, X, Video, Plane, Plus, Sparkles, Globe2, List, LayoutGrid } from "lucide-react";
 import { transportColor } from "@/lib/transport";
 import { useT, tr } from "@/lib/settings";
 
