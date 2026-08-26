@@ -572,3 +572,34 @@ describe("MieiViaggi — le due schede: viaggi e gite", () => {
     expect(cittaAScehrmo()).toEqual(["Como"]);
   });
 });
+
+/**
+ * ⚠️ IL VICOLO CIECO (trovato in revisione, 2026-08-26). Cancellando l'ultima
+ * gita DALLA SUA SCHEDA, le schede sparivano (si disegnano solo se ci sono
+ * gite) e la pagina restava su «Nessuna gita, per ora» **senza più i bottoni
+ * per tornare ai viaggi**. Ora la scheda vera ricade sui viaggi da sé.
+ */
+describe("MieiViaggi — nessun vicolo cieco sulla scheda delle gite", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("cancellando l'ultima gita si torna ai viaggi, non a una pagina senza uscita", () => {
+    addTrip(baseTrip({ city: "Zurigo", title: "Zurigo", trip_date: "2026-06-01", date_end: "2026-06-05" }));
+    addTrip(baseTrip({ city: "Como", title: "Como", trip_date: "2026-11-14", date_end: "2026-11-14" }));
+    renderPage();
+    fireEvent.click(screen.getByRole("tab", { name: /Gite/ }));
+    expect(screen.getAllByTestId("trip-card").map(e => e.getAttribute("data-city"))).toEqual(["Como"]);
+
+    // Il cestino: la cancellazione è DIFFERITA (animazione + finestra di
+    // annullamento), quindi bisogna far passare il tempo — altrimenti si
+    // guarda la pagina un istante prima che la gita sparisca.
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByText("Elimina Como"));
+    act(() => { vi.advanceTimersByTime(200); });    // DELETE_ANIM_MS
+    act(() => { vi.advanceTimersByTime(6000); });   // scade la finestra: ora è via
+    vi.useRealTimers();
+
+    // niente più schede, e il viaggio vero è tornato a schermo da sé
+    expect(screen.queryByRole("tab", { name: /Gite/ })).toBeNull();
+    expect(screen.getAllByTestId("trip-card").map(e => e.getAttribute("data-city"))).toEqual(["Zurigo"]);
+  });
+});

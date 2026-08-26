@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { TripFormFields, TripFormActions } from "./TripFormParts";
 import { eGitaInGiornata } from "@/lib/gite";
@@ -65,6 +65,51 @@ describe("TripFormFields — modo gita: una data sola", () => {
       </MemoryRouter>
     );
     expect(screen.getByText("Salva gita")).toBeInTheDocument();
+  });
+
+  /**
+   * ⚠️ IL BUCO CHE LA SENTINELLA QUI SOTTO NON VEDEVA (trovato in revisione).
+   *
+   * In modo gita il ritorno è **nascosto, non inesistente**. Cambiando il giorno
+   * si muoveva solo la partenza, e il ritorno restava al giorno con cui il form
+   * era nato: si salvava un viaggio di N giorni credendo di salvare una gita.
+   *
+   * La sentinella provava la REGOLA («date uguali = gita») e passava benissimo.
+   * Quello che si rompe è il COLLEGAMENTO — ed è questo che va provato.
+   */
+  it("cambiando il giorno si muove ANCHE il ritorno nascosto", () => {
+    const setDateStart = vi.fn(), setDateEnd = vi.fn();
+    render(
+      <MemoryRouter>
+        <TripFormFields
+          title="" setTitle={() => {}}
+          dateStart="2026-08-26" setDateStart={setDateStart}
+          dateEnd="2026-08-26" setDateEnd={setDateEnd}
+          rating={0} setRating={() => {}}
+          unGiornoSolo
+        />
+      </MemoryRouter>
+    );
+    fireEvent.change(document.querySelector('input[type="date"]')!, { target: { value: "2026-03-15" } });
+    expect(setDateStart).toHaveBeenCalledWith("2026-03-15");
+    expect(setDateEnd).toHaveBeenCalledWith("2026-03-15");
+  });
+
+  it("nel form normale il ritorno NON segue la partenza: sono due scelte", () => {
+    const setDateStart = vi.fn(), setDateEnd = vi.fn();
+    render(
+      <MemoryRouter>
+        <TripFormFields
+          title="" setTitle={() => {}}
+          dateStart="2026-08-26" setDateStart={setDateStart}
+          dateEnd="" setDateEnd={setDateEnd}
+          rating={0} setRating={() => {}}
+        />
+      </MemoryRouter>
+    );
+    fireEvent.change(document.querySelectorAll('input[type="date"]')[0], { target: { value: "2026-03-15" } });
+    expect(setDateStart).toHaveBeenCalledWith("2026-03-15");
+    expect(setDateEnd).not.toHaveBeenCalled();
   });
 
   it("SENTINELLA: la gita la dicono le DATE, non un campo nel dato", () => {

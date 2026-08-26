@@ -71,7 +71,7 @@ export default function MieiViaggi() {
    * prima le avevi aperte è il tipo di memoria che disorienta invece di aiutare
    * (la vista lista/griglia si ricorda perché è una PREFERENZA, non un luogo).
    */
-  const [scheda, setScheda] = useState<"viaggi" | "gite">("viaggi");
+  const [schedaScelta, setScheda] = useState<"viaggi" | "gite">("viaggi");
   // Cambiando mucchio l'anno selezionato si azzera: i chip dei due mucchi non
   // coincidono, e restare su un 2017 che nelle gite non esiste darebbe una
   // schermata vuota che sembra un difetto.
@@ -190,6 +190,14 @@ export default function MieiViaggi() {
   // I due mucchi interi (non filtrati): servono ai conteggi delle schede e
   // agli anni disponibili.
   const { viaggi: tuttiViaggi, gite: tutteGite } = separaGite(trips);
+  /**
+   * ⚠️ La scheda VERA, non quella scelta: senza gite in archivio le schede non
+   * si disegnano, e restare su "gite" sarebbe un vicolo cieco — cancellando
+   * l'ultima gita dalla sua scheda ci si trovava davanti a «Nessuna gita, per
+   * ora» **senza più i bottoni per tornare ai viaggi**. Si ricade sui viaggi da
+   * sé, senza effetti né sfarfallii.
+   */
+  const scheda = tutteGite.length === 0 ? "viaggi" : schedaScelta;
   // Anni disponibili calcolati su tutti i viaggi (non sui filtrati): i chip
   // restano stabili mentre si scrive nella ricerca, invece di sparire.
   // ⚠️ Sono gli anni della SCHEDA ATTIVA, non di tutto l'archivio: prima erano

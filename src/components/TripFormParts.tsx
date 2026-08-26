@@ -1178,7 +1178,18 @@ export function TripFormFields({
               style={{ background:"transparent", border:"none", outline:"none",
                 color:"#f0f4ff", fontSize:12, fontWeight:600, width:"100%",
                 colorScheme:"dark", padding:0, marginTop:1 }}
-              value={dateStart} onChange={e => setDateStart(e.target.value)}/>
+              value={dateStart}
+              // ⚠️ In modo gita il ritorno è NASCOSTO, non inesistente: se
+              // cambio solo la partenza, il ritorno resta al giorno con cui il
+              // form è nato e il viaggio salvato NON è più una gita. Chi
+              // nasconde un campo si prende la responsabilità di tenerlo
+              // allineato. (Trovato in revisione: il test-sentinella che avevo
+              // scritto controllava la REGOLA — «date uguali = gita» — e non il
+              // collegamento, che è il pezzo che si rompe.)
+              onChange={e => {
+                setDateStart(e.target.value);
+                if (unGiornoSolo) setDateEnd(e.target.value);
+              }}/>
           </div>
 
           {/* CONNETTORE TRATTEGGIATO — solo quando c'è un ritorno da mostrare */}
