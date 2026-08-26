@@ -419,3 +419,61 @@ describe("buildPerTripRouteCoords", () => {
     expect(buildPerTripRouteCoords([noHome, ok])).toHaveLength(1);
   });
 });
+
+/**
+ * `senzaCasa` (2026-08-26). Stefano: «così è molto caotica, colleghiamo solo i
+ * viaggi senza partire da Milano». Ogni polilinea partiva da casa, quindi N
+ * viaggi = N raggi dallo stesso punto.
+ *
+ * ⚠️ Il prezzo, che questi test fissano nero su bianco: un viaggio con UNA meta
+ * sola senza la tratta da casa non è più una linea — è un punto, e sparisce dai
+ * segmenti. È una scelta consapevole, non un difetto: se un domani qualcuno
+ * "aggiusta" questo comportamento, deve prima leggere qui.
+ */
+describe("buildPerTripRouteCoords — senzaCasa", () => {
+  const conCasa = (over: Partial<Trip> = {}): Trip => ({
+    id: "t", created_at: "2024-01-01T00:00:00.000Z", title: "Zurigo", city: "Zurigo",
+    country: "Svizzera", country_code: "CH", trip_date: "2026-06-01", date_end: "2026-06-05",
+    rating: null, notes: null, transport_mode: "car", waypoints: [],
+    latitude: 47.37, longitude: 8.54,
+    home_latitude: 45.46, home_longitude: 9.19, home_label: "Milano",
+    route_geometry: null, temperature_c: null, altitude_m: null,
+    distance_from_home_km: null, max_distance_from_home_km: null, max_distance_city: null,
+    max_altitude_m: null, max_altitude_city: null, hottest_temp_c: null, hottest_city: null,
+    coldest_temp_c: null, coldest_city: null, region: null, region_details: null,
+    ...over,
+  } as Trip);
+
+  it("com'è oggi: la polilinea PARTE da casa", () => {
+    const [seg] = buildPerTripRouteCoords([conCasa()]);
+    expect(seg[0]).toEqual([9.19, 45.46]);
+  });
+
+  it("senzaCasa: la tratta da casa non c'è più", () => {
+    const segs = buildPerTripRouteCoords([conCasa({
+      waypoints: [{ id: "w", city: "Como", country: "Italia", country_code: "IT",
+        transport_mode: "car", lat: 45.81, lon: 9.08 }],
+    })], { senzaCasa: true });
+    expect(segs).toHaveLength(1);
+    expect(segs[0][0]).toEqual([9.08, 45.81]);   // parte da Como, non da Milano
+  });
+
+  it("IL PREZZO: un viaggio con una meta sola sparisce dai segmenti", () => {
+    // Casa → Zurigo, senza tappe: togliendo casa resta un punto, e un punto non
+    // è una linea. Sul globo resta il pallino della meta, non il tratto.
+    expect(buildPerTripRouteCoords([conCasa()], { senzaCasa: true })).toHaveLength(0);
+    expect(buildPerTripRouteCoords([conCasa()])).toHaveLength(1);
+  });
+
+  it("un viaggio senza casa dichiarata non perde la prima tappa", () => {
+    // Qui la prima tappa NON è casa: togliere il primo punto a caso
+    // mangerebbe una tappa vera.
+    const senzaCasaDichiarata = conCasa({
+      home_latitude: null, home_longitude: null,
+      waypoints: [{ id: "w", city: "Como", country: "Italia", country_code: "IT",
+        transport_mode: "car", lat: 45.81, lon: 9.08 }],
+    });
+    const [seg] = buildPerTripRouteCoords([senzaCasaDichiarata], { senzaCasa: true });
+    expect(seg[0]).toEqual([9.08, 45.81]);
+  });
+});

@@ -180,9 +180,16 @@ await prova("scheda_gite",
     nasconde_roma: await page.evaluate(() => !/Roma/.test(document.body.innerText)),
   }));
 
+// La mappa della vita ora ha dei comandi: i chip delle persone (Giulia è sul
+// viaggio di Roma nel seed) e i due interruttori di prova sulla forma. Senza
+// toccarli il collaudo non saprebbe niente di metà di quella schermata.
 await prova("mappa_della_vita",
   () => page.getByRole("button", { name: /mappa della mia vita/i }).click(),
-  async () => ({ aperta: await page.evaluate(() => !!document.querySelector("canvas.maplibregl-canvas")) }));
+  async () => ({
+    aperta: await page.evaluate(() => !!document.querySelector("canvas.maplibregl-canvas")),
+    chip_persona: await page.evaluate(() => /Giulia\s1/.test(document.body.innerText)),
+    interruttori: await page.evaluate(() => /Tratte da casa/.test(document.body.innerText)),
+  }));
 
 // I budget del seed devono essere stati cancellati da dropBudgetData:
 // nessun importo a schermo e nessuna traccia nello storage.

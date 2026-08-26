@@ -257,10 +257,31 @@ export function tracciaFittaSalvata(
  * concatena tutto in un'unica polilinea, aggiungendo linee di "ritorno a casa").
  * I viaggi senza punti sufficienti (< 2 tappe) vengono esclusi.
  */
-export function buildPerTripRouteCoords(trips: Trip[]): [number, number][][] {
+export function buildPerTripRouteCoords(
+  trips: Trip[],
+  opzioni: {
+    /**
+     * Via la tratta CASA → prima tappa, in ogni viaggio.
+     *
+     * ⚠️ Stefano: «così è molto caotica, colleghiamo solo i viaggi senza
+     * partire da Milano». La diagnosi è giusta — ogni polilinea parte da casa,
+     * quindi venticinque viaggi sono venticinque raggi dallo stesso punto.
+     * Il prezzo, misurato rendendo la mappa: un viaggio con UNA meta sola
+     * (casa → Zurigo) senza la tratta da casa è **un punto, non una linea**.
+     * Restano linee solo dove ci sono tappe intermedie. La mappa passa da
+     * «come ci sono andato» a «dove sono stato»: è una scelta, non un difetto.
+     */
+    senzaCasa?: boolean;
+  } = {},
+): [number, number][][] {
   const out: [number, number][][] = [];
   for (const t of trips) {
-    const stops = buildFlightPath([t]);
+    const tutte = buildFlightPath([t]);
+    // La prima tappa è casa solo se il viaggio ha una casa dichiarata: è
+    // `buildFlightPath` a metterla lì, e la si toglie con lo stesso criterio.
+    const stops = opzioni.senzaCasa && t.home_latitude != null && t.home_longitude != null
+      ? tutte.slice(1)
+      : tutte;
     const legs = buildFlightLegs(stops);
     if (legs.length === 0) continue;
     const coords: [number, number][] = [[stops[0].lon, stops[0].lat]];

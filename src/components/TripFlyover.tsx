@@ -9,6 +9,7 @@ import { createPortal } from "react-dom";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Trip, formatTripDate } from "@/lib/storage";
 import { buildFlightPath, buildFlightLegs, tripTotalKm, buildPerTripRouteCoords, FlightLeg } from "@/lib/flyover";
+import { compagniDeiViaggi, viaggiCon } from "@/lib/compagni";
 import { fetchMapStyle } from "@/components/WorldMap";
 import { saveReliefImage } from "@/lib/photoStorage";
 import { buildPosterSvg, loadCountryRings, routeBounds, unwrapSegments } from "@/lib/posterSvg";
@@ -272,17 +273,59 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   // La Mappa della vita parte (e resta) in Costellazione: niente Satellite,
   // che lì è quasi identico al globo della Home.
   const [styleMode, setStyleMode] = useState<MapStyleMode>(lifeMap ? "constellation" : "satellite");
+  /**
+   * ⚠️ PROVE TEMPORANEE sulla forma della Mappa della vita (2026-08-26).
+   * Stefano: «così è molto caotica… falle entrambe più b e d insieme, poi
+   * scelgo testando quale voglio». Due interruttori indipendenti danno le
+   * quattro combinazioni: com'era, senza-casa, tratto-fine, e le due insieme.
+   *
+   * QUANDO HA SCELTO: si cabla la vincente e **questi due interruttori si
+   * togliono**. Non sono una feature, sono un banco di prova — e due manopole
+   * permanenti su una schermata-poster sono esattamente il tipo di cosa che
+   * questa app ha già smesso di fare una volta.
+   * Si ricordano in localStorage così una prova sopravvive al ricaricamento.
+   */
+  const [senzaCasa, setSenzaCasa] = useState(() => {
+    try { return localStorage.getItem("navta.prova.mappa.senzacasa") === "1"; } catch { return false; }
+  });
+  const [trattoFine, setTrattoFine] = useState(() => {
+    try { return localStorage.getItem("navta.prova.mappa.trattofine") === "1"; } catch { return false; }
+  });
+  const cambiaProva = (quale: "senzaCasa" | "trattoFine", v: boolean) => {
+    if (quale === "senzaCasa") setSenzaCasa(v); else setTrattoFine(v);
+    try { localStorage.setItem(`navta.prova.mappa.${quale === "senzaCasa" ? "senzacasa" : "trattofine"}`, v ? "1" : "0"); } catch { /* quota */ }
+  };
+  /** Il compagno selezionato, o null per tutti. Filtra la costellazione. */
+  const [soloCon, setSoloCon] = useState<string | null>(null);
+  /**
+   * Le persone con cui hai viaggiato, in ordine di quante volte.
+   *
+   * ⚠️ Il confronto è senza maiuscole ma l'etichetta mostra la PRIMA forma
+   * incontrata: «giulia» e «Giulia» sono la stessa persona e un chip solo, non
+   * due. È lo stesso criterio del filtro che già esisteva sul biglietto.
+   */
+  const compagni = useMemo(() => compagniDeiViaggi(trips), [trips]);
+
+  /**
+   * L'insieme che la mappa disegna DAVVERO: filtrato per compagno.
+   *
+   * ⚠️ Da qui in giù nel componente si usa `viaggi`, non `trips`: se il filtro
+   * valesse solo per le linee, titolo, km e conteggi resterebbero quelli di
+   * tutti — la stessa mezza-verità che sulle gite aveva fatto dire a Stefano
+   * «qualcosa non torna».
+   */
+  const viaggi = useMemo(() => viaggiCon(trips, soloCon), [trips, soloCon]);
   const [switching, setSwitching] = useState(false);
 
-  const tripsCount = trips.length;
+  const tripsCount = viaggi.length;
   const legs = legsRef.current;
   // date_end può essere null (viaggio di un giorno): senza il check esplicito
   // il confronto era falso e si finiva in formatTripDate(null) → la didascalia
   // diceva "12 lug 2026 → Invalid Date" su card, JPEG e SVG.
   const dateRangeLabel = tripsCount === 1
-    ? (trips[0].date_end == null || trips[0].trip_date === trips[0].date_end
-      ? formatTripDate(trips[0].trip_date)
-      : `${formatTripDate(trips[0].trip_date)} → ${formatTripDate(trips[0].date_end)}`)
+    ? (viaggi[0].date_end == null || viaggi[0].trip_date === viaggi[0].date_end
+      ? formatTripDate(viaggi[0].trip_date)
+      : `${formatTripDate(viaggi[0].trip_date)} → ${formatTripDate(viaggi[0].date_end)}`)
     : null;
 
   // Codici bandiera dei paesi TOCCATI (destinazione + tappe), in ordine di
@@ -296,18 +339,18 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       seen.add(key);
       if (code) codes.push(code.toLowerCase());
     };
-    for (const t of trips) {
+    for (const t of viaggi) {
       for (const w of t.waypoints ?? []) add(w.country, w.country_code);
       add(t.country, t.country_code);
     }
     return codes.slice(0, 5);
-  }, [trips]);
+  }, [viaggi]);
 
   // Titolo del poster: dedicato per la Mappa della vita, altrimenti nome del
   // viaggio (singolo) o conteggio (recap multi-viaggio).
   const posterTitle = lifeMap
     ? "La mappa della mia vita"
-    : (tripsCount > 1 ? `${tripsCount} viaggi rivissuti` : trips[0].title);
+    : (tripsCount > 1 ? `${tripsCount} viaggi rivissuti` : viaggi[0].title);
 
   // Metriche mostrate su card/pillole: gli altri poster km · tappe come prima.
   // La Mappa della vita NON mostra statistiche (la mappa parla da sé): niente
@@ -374,7 +417,9 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         id: "flyover-route-casing", type: "line", source: "flyover-route",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: constellation
-          ? { "line-color": "rgba(255,255,255,0.18)", "line-width": 9, "line-blur": 4 }
+          ? trattoFine
+            ? { "line-color": "rgba(255,255,255,0.10)", "line-width": 5, "line-blur": 2 }
+            : { "line-color": "rgba(255,255,255,0.18)", "line-width": 9, "line-blur": 4 }
           : { "line-color": "rgba(6,14,30,0.65)", "line-width": 8.5 },
       });
     }
@@ -384,7 +429,9 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         id: "flyover-route", type: "line", source: "flyover-route",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: constellation
-          ? { "line-color": "#ffffff", "line-width": 2.5, "line-opacity": 1 }
+          ? trattoFine
+            ? { "line-color": "#ffffff", "line-width": 1.1, "line-opacity": 0.85 }
+            : { "line-color": "#ffffff", "line-width": 2.5, "line-opacity": 1 }
           : { "line-color": "#fbbf24", "line-width": 4.5, "line-opacity": 1 },
       });
     }
@@ -746,8 +793,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     if (savingRelief) return;
     setSavingRelief(true);
     const blob = await captureSnapshotBlob();
-    if (blob && trips.length === 1) {
-      try { await saveReliefImage(trips[0].id, blob); } catch { /* IndexedDB non disponibile: non bloccare la chiusura */ }
+    if (blob && viaggi.length === 1) {
+      try { await saveReliefImage(viaggi[0].id, blob); } catch { /* IndexedDB non disponibile: non bloccare la chiusura */ }
     }
     onClose();
   };
@@ -756,9 +803,9 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   const handleSharePoster = async () => {
     const blob = await captureSnapshotBlob();
     if (!blob) return;
-    const name = lifeMap ? "mappa-della-vita" : (tripsCount === 1 ? trips[0].title : "viaggio").replace(/[^\w.-]+/g, "_").slice(0, 40) || "viaggio";
+    const name = lifeMap ? "mappa-della-vita" : (tripsCount === 1 ? viaggi[0].title : "viaggio").replace(/[^\w.-]+/g, "_").slice(0, 40) || "viaggio";
     const file = new File([blob], `${name}-3d.jpg`, { type: "image/jpeg" });
-    await shareOrDownload(file, lifeMap ? posterTitle : (tripsCount > 1 ? "Il mio viaggio in 3D" : trips[0].title));
+    await shareOrDownload(file, lifeMap ? posterTitle : (tripsCount > 1 ? "Il mio viaggio in 3D" : viaggi[0].title));
   };
 
   // "Esporta SVG" (solo Costellazione): master VETTORIALE a livelli per la stampa
@@ -775,11 +822,11 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         rings = await loadCountryRings(routeBounds(route.length ? route : stops.map(s => [s.lon, s.lat] as [number, number])));
       } catch { /* confini non disponibili: esporta comunque rotta+stelle */ }
       // Mappa della vita: SVG "nudo" (nessuna caption) → niente titolo/date/stat.
-      const title = lifeMap ? "" : (tripsCount > 1 ? `${tripsCount} viaggi` : trips[0].title);
+      const title = lifeMap ? "" : (tripsCount > 1 ? `${tripsCount} viaggi` : viaggi[0].title);
       const stats = statLine();
       const svg = buildPosterSvg({ routeSegments: routeSegsRef.current, stops, borders: rings, title, dateLabel: lifeMap ? null : dateRangeLabel, stats, hideLabels: lifeMap });
       const blob = new Blob([svg], { type: "image/svg+xml" });
-      const base = lifeMap ? "mappa-della-vita" : (tripsCount === 1 ? trips[0].title : "viaggio").replace(/[^\w.-]+/g, "_").slice(0, 40) || "viaggio";
+      const base = lifeMap ? "mappa-della-vita" : (tripsCount === 1 ? viaggi[0].title : "viaggio").replace(/[^\w.-]+/g, "_").slice(0, 40) || "viaggio";
       downloadBlob(blob, `${base}-costellazione.svg`);
     } catch { /* export fallito: non bloccare */ }
     finally {
@@ -795,13 +842,13 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     // storia in git (fix leak WebGL).
     let cancelled = false;
 
-    const stops = buildFlightPath(trips);
+    const stops = buildFlightPath(viaggi);
     const legsLocal = buildFlightLegs(stops);
     legsRef.current = legsLocal;
     stopsRef.current = stops.map(s => ({ lat: s.lat, lon: s.lon, label: s.label }));
     // Km percorsi: stessa fonte UNICA di Home/Statistiche/card (tripTotalKm =
     // stradali reali dove c'è route_geometry, linea d'aria altrimenti).
-    totalKmRef.current = trips.reduce((sum, t) => sum + tripTotalKm(t), 0);
+    totalKmRef.current = viaggi.reduce((sum, t) => sum + tripTotalKm(t), 0);
     // Mappa della vita: un segmento per viaggio (linee separate). Altri poster:
     // un unico segmento concatenato. allCoordsRef resta l'unione di tutti i punti
     // (per fitBounds e per il riquadro dell'export SVG).
@@ -810,7 +857,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     // vita due viaggi ai lati opposti dell'antimeridiano restano nella stessa
     // finestra di 360° (prima: fitBounds inquadrava il mondo intero). Le
     // longitudini possono uscire da ±180 — MapLibre le avvolge da sé.
-    const segs = unwrapSegments(lifeMap ? buildPerTripRouteCoords(trips) : [buildFlyoverRouteCoords(stops, legsLocal)]);
+    const segs = unwrapSegments(lifeMap ? buildPerTripRouteCoords(viaggi, { senzaCasa }) : [buildFlyoverRouteCoords(stops, legsLocal)]);
     routeSegsRef.current = segs;
     allCoordsRef.current = segs.flat();
 
@@ -906,8 +953,14 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       mountedRef.current = false;
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
     };
+  // ⚠️ Dipendenze NON vuote: la mappa si ricostruisce quando cambia il filtro
+  // per compagno o una delle due prove sulla forma. Ricostruire è il prezzo
+  // giusto qui — l'effetto è già scritto per essere montato più volte
+  // (StrictMode), la pulizia fa `map.remove()` e la riga 819 rimette
+  // `mountedRef` a true. L'alternativa (aggiornare sorgente e vernice a mano)
+  // reggerebbe le linee ma non i limiti della vista né i conteggi.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [viaggi, senzaCasa, trattoFine]);
 
   // Portal su document.body: senza, il modale (position:fixed) verrebbe confinato
   // al primo antenato con `transform` (es. il wrapper .animate-fade-up della card
@@ -1080,6 +1133,91 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
 
             {/* Azioni: Salva (solo single-trip, → biglietto) + Condividi (immagine)
                 + Esporta SVG (solo Costellazione: master vettoriale per stampa). */}
+            {/* CON CHI — la costellazione dei viaggi fatti con una persona.
+                ⚠️ Il filtro esisteva GIÀ (chip del compagno sul biglietto) e non
+                si trovava: 2,1 schermate di scorrimento, e per vedere «tutti i
+                viaggi con Giulia» bisognava prima TROVARE un viaggio con
+                Giulia — circolare. Qui sei già davanti alla mappa e la filtri
+                mentre la guardi. Il chip sul biglietto resta come scorciatoia.
+                La riga scorre di lato: con dieci persone non deve mangiare la
+                mappa su un telefono. */}
+            {lifeMap && compagni.length > 0 && (
+              // ⚠️ Riga PROPRIA sopra le azioni, non in basso a sinistra: a
+              // 390px i chip finivano SOTTO «Esporta SVG / Ritaglia / Condividi»
+              // — illeggibili e non toccabili (il collaudo dal vivo è andato in
+              // timeout proprio su questo). Visto solo guardando lo screenshot
+              // mobile: a 900px sembrava a posto.
+              <div style={{ position: "absolute", left: 16, right: 16, bottom: 66, zIndex: 26,
+                display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+                <button type="button" onClick={() => setSoloCon(null)} aria-pressed={soloCon === null}
+                  style={{
+                    flexShrink: 0, fontSize: 11, fontWeight: soloCon === null ? 700 : 500, cursor: "pointer",
+                    padding: "6px 12px", borderRadius: 999, fontFamily: "inherit",
+                    background: soloCon === null ? "rgba(96,165,250,0.18)" : "rgba(255,255,255,0.06)",
+                    border: soloCon === null ? "1px solid #60a5fa" : "0.5px solid rgba(255,255,255,0.25)",
+                    color: soloCon === null ? "#93c5fd" : "rgba(255,255,255,0.6)",
+                  }}>
+                  {t("Tutti")} {trips.length}
+                </button>
+                {compagni.map(c => {
+                  const attivo = soloCon?.toLowerCase() === c.nome.toLowerCase();
+                  return (
+                    <button key={c.nome} type="button" aria-pressed={attivo}
+                      onClick={() => setSoloCon(attivo ? null : c.nome)}
+                      style={{
+                        flexShrink: 0, fontSize: 11, fontWeight: attivo ? 700 : 500, cursor: "pointer",
+                        padding: "6px 12px", borderRadius: 999, fontFamily: "inherit",
+                        background: attivo ? "rgba(96,165,250,0.18)" : "rgba(255,255,255,0.06)",
+                        border: attivo ? "1px solid #60a5fa" : "0.5px solid rgba(255,255,255,0.25)",
+                        color: attivo ? "#93c5fd" : "rgba(255,255,255,0.6)",
+                      }}>
+                      {c.nome} {c.quanti}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* ⏳ BANCO DI PROVA sulla forma, DA TOGLIERE dopo la scelta di
+                Stefano (2026-08-26): «falle entrambe più b e d insieme, poi
+                scelgo testando quale voglio». Due interruttori = quattro
+                combinazioni. Quando ha deciso, si cabla la vincente e questo
+                blocco sparisce: due manopole permanenti su una schermata-poster
+                sono il tipo di cosa che questa app ha già smesso di fare. */}
+            {lifeMap && (
+              // top:60 e non 16: a 16 finiva SOTTO il pulsante di chiusura
+              // (top:16, left:16, 34px), che lo copriva.
+              <div style={{ position: "absolute", left: 16, top: 60, zIndex: 26, display: "flex", flexDirection: "column", gap: 6 }}>
+                {/* ⚠️ L'interruttore dice «Tratte da casa» ACCESE, ma lo stato si
+                    chiama `senzaCasa`: sono l'opposto, e il click li tiene
+                    allineati una volta sola qui invece di girare la negazione
+                    dentro il disegno. */}
+                {([["senzaCasa" as const, t("Tratte da casa"), !senzaCasa, () => cambiaProva("senzaCasa", !senzaCasa)],
+                   ["trattoFine" as const, t("Tratto sottile"), trattoFine, () => cambiaProva("trattoFine", !trattoFine)],
+                  ] as const).map(([quale, etichetta, acceso, tocca]) => (
+                  <button key={quale} type="button" aria-pressed={acceso} onClick={tocca}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 7, fontSize: 11, cursor: "pointer",
+                      padding: "5px 10px", borderRadius: 999, fontFamily: "inherit",
+                      background: "rgba(10,22,40,0.75)", border: "0.5px solid rgba(255,255,255,0.2)",
+                      color: acceso ? "#93c5fd" : "rgba(255,255,255,0.45)",
+                    }}>
+                    <span aria-hidden style={{
+                      width: 20, height: 11, borderRadius: 999, flexShrink: 0, position: "relative",
+                      background: acceso ? "rgba(96,165,250,0.5)" : "rgba(255,255,255,0.15)",
+                    }}>
+                      <span style={{
+                        position: "absolute", top: 1.5, left: acceso ? 10.5 : 1.5,
+                        width: 8, height: 8, borderRadius: "50%", background: acceso ? "#93c5fd" : "rgba(255,255,255,0.5)",
+                        transition: "left 140ms ease",
+                      }}/>
+                    </span>
+                    {etichetta}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div style={{ position: "absolute", right: 16, bottom: 20, zIndex: 26, display: "flex", gap: 10 }}>
               {styleMode === "constellation" && (
                 <button onClick={handleExportSvg} disabled={exportingSvg}

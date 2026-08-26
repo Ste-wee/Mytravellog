@@ -658,4 +658,9 @@ export const en = {
   "Salva gita": "Save day trip",
   "Es. Domenica al lago…": "E.g. Sunday by the lake…",
 
+
+  // ── Mappa della vita: le due prove sulla forma, e i compagni ──────────────
+  "Tratte da casa": "Legs from home",
+  "Tratto sottile": "Thin stroke",
+
 } as const;
