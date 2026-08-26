@@ -660,7 +660,5 @@ export const en = {
 
 
   // ── Mappa della vita: le due prove sulla forma, e i compagni ──────────────
-  "Tratte da casa": "Legs from home",
-  "Tratto sottile": "Thin stroke",
 
 } as const;

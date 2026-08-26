@@ -275,28 +275,6 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   // La Mappa della vita parte (e resta) in Costellazione: niente Satellite,
   // che lì è quasi identico al globo della Home.
   const [styleMode, setStyleMode] = useState<MapStyleMode>(lifeMap ? "constellation" : "satellite");
-  /**
-   * ⚠️ PROVE TEMPORANEE sulla forma della Mappa della vita (2026-08-26).
-   * Stefano: «così è molto caotica… falle entrambe più b e d insieme, poi
-   * scelgo testando quale voglio». Due interruttori indipendenti danno le
-   * quattro combinazioni: com'era, senza-casa, tratto-fine, e le due insieme.
-   *
-   * QUANDO HA SCELTO: si cabla la vincente e **questi due interruttori si
-   * togliono**. Non sono una feature, sono un banco di prova — e due manopole
-   * permanenti su una schermata-poster sono esattamente il tipo di cosa che
-   * questa app ha già smesso di fare una volta.
-   * Si ricordano in localStorage così una prova sopravvive al ricaricamento.
-   */
-  const [senzaCasa, setSenzaCasa] = useState(() => {
-    try { return localStorage.getItem("navta.prova.mappa.senzacasa") === "1"; } catch { return false; }
-  });
-  const [trattoFine, setTrattoFine] = useState(() => {
-    try { return localStorage.getItem("navta.prova.mappa.trattofine") === "1"; } catch { return false; }
-  });
-  const cambiaProva = (quale: "senzaCasa" | "trattoFine", v: boolean) => {
-    if (quale === "senzaCasa") setSenzaCasa(v); else setTrattoFine(v);
-    try { localStorage.setItem(`navta.prova.mappa.${quale === "senzaCasa" ? "senzacasa" : "trattofine"}`, v ? "1" : "0"); } catch { /* quota */ }
-  };
   /** Il compagno selezionato, o null per tutti. Filtra la costellazione. */
   const [soloCon, setSoloCon] = useState<string | null>(null);
   /**
@@ -419,9 +397,11 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         id: "flyover-route-casing", type: "line", source: "flyover-route",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: constellation
-          ? trattoFine
-            ? { "line-color": "rgba(255,255,255,0.10)", "line-width": 5, "line-blur": 2 }
-            : { "line-color": "rgba(255,255,255,0.18)", "line-width": 9, "line-blur": 4 }
+          // Alone dimezzato (era 9/blur 4). Con venticinque viaggi che partono
+          // tutti da casa gli aloni si fondevano in una macchia bianca sul
+          // perno: metà del "caos" segnalato da Stefano era questo, non la
+          // topologia. Scelto da lui provandolo (2026-08-26).
+          ? { "line-color": "rgba(255,255,255,0.10)", "line-width": 5, "line-blur": 2 }
           : { "line-color": "rgba(6,14,30,0.65)", "line-width": 8.5 },
       });
     }
@@ -431,9 +411,11 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         id: "flyover-route", type: "line", source: "flyover-route",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: constellation
-          ? trattoFine
-            ? { "line-color": "#ffffff", "line-width": 1.1, "line-opacity": 0.85 }
-            : { "line-color": "#ffffff", "line-width": 2.5, "line-opacity": 1 }
+          // 1.1 invece di 2.5: le rotte si distinguono una per una invece di
+          // impastarsi. ⚠️ Se un domani si vuole tornare più spesso, ricordarsi
+          // che i confini sono tarati CONTRO questo spessore (CONFINI in
+          // lib/posterSvg, portati a 0.45 proprio dopo questo cambio).
+          ? { "line-color": "#ffffff", "line-width": 1.1, "line-opacity": 0.85 }
           : { "line-color": "#fbbf24", "line-width": 4.5, "line-opacity": 1 },
       });
     }
@@ -859,7 +841,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     // vita due viaggi ai lati opposti dell'antimeridiano restano nella stessa
     // finestra di 360° (prima: fitBounds inquadrava il mondo intero). Le
     // longitudini possono uscire da ±180 — MapLibre le avvolge da sé.
-    const segs = unwrapSegments(lifeMap ? buildPerTripRouteCoords(viaggi, { senzaCasa }) : [buildFlyoverRouteCoords(stops, legsLocal)]);
+    const segs = unwrapSegments(lifeMap ? buildPerTripRouteCoords(viaggi) : [buildFlyoverRouteCoords(stops, legsLocal)]);
     routeSegsRef.current = segs;
     allCoordsRef.current = segs.flat();
 
@@ -955,14 +937,14 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       mountedRef.current = false;
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
     };
-  // ⚠️ Dipendenze NON vuote: la mappa si ricostruisce quando cambia il filtro
-  // per compagno o una delle due prove sulla forma. Ricostruire è il prezzo
-  // giusto qui — l'effetto è già scritto per essere montato più volte
-  // (StrictMode), la pulizia fa `map.remove()` e la riga 819 rimette
-  // `mountedRef` a true. L'alternativa (aggiornare sorgente e vernice a mano)
-  // reggerebbe le linee ma non i limiti della vista né i conteggi.
+  // ⚠️ Dipendenza NON vuota: la mappa si ricostruisce quando cambia il filtro
+  // per compagno. Ricostruire è il prezzo giusto qui — l'effetto è già scritto
+  // per essere montato più volte (StrictMode), la pulizia fa `map.remove()` e
+  // la riga in cima rimette `mountedRef` a true. L'alternativa (aggiornare
+  // sorgente e vernice a mano) reggerebbe le linee ma non i limiti della vista
+  // né i conteggi.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viaggi, senzaCasa, trattoFine]);
+  }, [viaggi]);
 
   // Portal su document.body: senza, il modale (position:fixed) verrebbe confinato
   // al primo antenato con `transform` (es. il wrapper .animate-fade-up della card
@@ -1177,46 +1159,6 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                     </button>
                   );
                 })}
-              </div>
-            )}
-
-            {/* ⏳ BANCO DI PROVA sulla forma, DA TOGLIERE dopo la scelta di
-                Stefano (2026-08-26): «falle entrambe più b e d insieme, poi
-                scelgo testando quale voglio». Due interruttori = quattro
-                combinazioni. Quando ha deciso, si cabla la vincente e questo
-                blocco sparisce: due manopole permanenti su una schermata-poster
-                sono il tipo di cosa che questa app ha già smesso di fare. */}
-            {lifeMap && (
-              // top:60 e non 16: a 16 finiva SOTTO il pulsante di chiusura
-              // (top:16, left:16, 34px), che lo copriva.
-              <div style={{ position: "absolute", left: 16, top: 60, zIndex: 26, display: "flex", flexDirection: "column", gap: 6 }}>
-                {/* ⚠️ L'interruttore dice «Tratte da casa» ACCESE, ma lo stato si
-                    chiama `senzaCasa`: sono l'opposto, e il click li tiene
-                    allineati una volta sola qui invece di girare la negazione
-                    dentro il disegno. */}
-                {([["senzaCasa" as const, t("Tratte da casa"), !senzaCasa, () => cambiaProva("senzaCasa", !senzaCasa)],
-                   ["trattoFine" as const, t("Tratto sottile"), trattoFine, () => cambiaProva("trattoFine", !trattoFine)],
-                  ] as const).map(([quale, etichetta, acceso, tocca]) => (
-                  <button key={quale} type="button" aria-pressed={acceso} onClick={tocca}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 7, fontSize: 11, cursor: "pointer",
-                      padding: "5px 10px", borderRadius: 999, fontFamily: "inherit",
-                      background: "rgba(10,22,40,0.75)", border: "0.5px solid rgba(255,255,255,0.2)",
-                      color: acceso ? "#93c5fd" : "rgba(255,255,255,0.45)",
-                    }}>
-                    <span aria-hidden style={{
-                      width: 20, height: 11, borderRadius: 999, flexShrink: 0, position: "relative",
-                      background: acceso ? "rgba(96,165,250,0.5)" : "rgba(255,255,255,0.15)",
-                    }}>
-                      <span style={{
-                        position: "absolute", top: 1.5, left: acceso ? 10.5 : 1.5,
-                        width: 8, height: 8, borderRadius: "50%", background: acceso ? "#93c5fd" : "rgba(255,255,255,0.5)",
-                        transition: "left 140ms ease",
-                      }}/>
-                    </span>
-                    {etichetta}
-                  </button>
-                ))}
               </div>
             )}
 
