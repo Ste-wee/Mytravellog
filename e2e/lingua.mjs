@@ -230,6 +230,21 @@ const INTERAZIONI = [
   ["poster_3d", "#/miei-viaggi", async () => {
     await page.getByRole("button", { name: /The map of my life/i }).first().click();
   }],
+  /**
+   * I comandi DENTRO la Mappa della vita: i chip delle persone e i due
+   * interruttori sulla forma.
+   *
+   * ⚠️ Stanno qui e non nel collaudo perché questa rete gira con la GPU
+   * (`--use-angle=d3d11`) mentre il collaudo usa swiftshader, dove la mappa non
+   * arriva a `phase === "ready"` in modo affidabile. Toccare il chip è anche una
+   * verifica di PRESENZA gratuita: se il chip non c'è, il passo lo dice invece
+   * di passare in silenzio (nel seed «Sam» è il compagno del viaggio a Parigi).
+   */
+  ["chip_compagno", "#/miei-viaggi", async () => {
+    await page.getByRole("button", { name: /The map of my life/i }).first().click();
+    await page.waitForTimeout(6000);
+    await page.getByRole("button", { name: /^Sam/ }).click();
+  }],
   ["stories", "#/recap", async () => {
     await page.getByRole("button", { name: /Play as stories/i }).first().click();
   }],

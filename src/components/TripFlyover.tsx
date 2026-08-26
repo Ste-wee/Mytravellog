@@ -12,7 +12,7 @@ import { buildFlightPath, buildFlightLegs, tripTotalKm, buildPerTripRouteCoords,
 import { compagniDeiViaggi, viaggiCon } from "@/lib/compagni";
 import { fetchMapStyle } from "@/components/WorldMap";
 import { saveReliefImage } from "@/lib/photoStorage";
-import { buildPosterSvg, loadCountryRings, routeBounds, unwrapSegments } from "@/lib/posterSvg";
+import { buildPosterSvg, loadCountryRings, routeBounds, unwrapSegments, CONFINI } from "@/lib/posterSvg";
 import { X, Share2, Loader2, Download, Frame } from "lucide-react";
 import { canShareFile, downloadBlob, shareOrDownload } from "@/lib/share";
 import { useNavigate } from "react-router-dom";
@@ -51,7 +51,9 @@ async function buildSatelliteStyle(): Promise<StyleSpecification> {
 // sfondo stellato senza rubare contrasto al tracciato/alle stelle. Pensata come
 // master di stampa (resina + LED): piatta dall'alto, alto contrasto b/n.
 const CONST_WIDTH: StyleExpr = ["interpolate", ["linear"], ["zoom"], 1, 0.35, 4, 0.7, 8, 1.1];
-const CONST_COLOR = "rgba(255,255,255,0.32)";
+// Confini e coste della costellazione: stessa fonte del master di stampa
+// (vedi CONFINI in lib/posterSvg), così schermo e poster non divergono.
+const CONST_COLOR = `rgba(255,255,255,${CONFINI.opacita})`;
 const CONST_BORDER_FILTER: StyleExpr = ["all", ["<=", ["get", "admin_level"], 2], ["!=", ["get", "maritime"], 1]];
 
 export function buildConstellationStyle(): StyleSpecification {

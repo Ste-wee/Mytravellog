@@ -12,6 +12,29 @@ import { LOGO_DATA_URI } from "./brandLogo";
  * testabili; il fetch dei confini (world-atlas) è a parte e asincrono.
  */
 
+/**
+ * I confini degli stati: **una sola fonte per lo schermo e per la stampa.**
+ *
+ * ⚠️ Prima questi due numeri erano scritti a mano in due file — la costellazione
+ * su MapLibre (`TripFlyover`) e il master SVG qui — con l'idea che restassero
+ * uguali. Quel tipo di accoppiamento per buona volontà va alla deriva al primo
+ * ritocco: si cambia lo schermo, si dimentica la stampa, e il poster smette di
+ * somigliare a quello che hai guardato. Ora c'è un posto solo.
+ *
+ * Portati da 0.32 a **0.45** su richiesta di Stefano (2026-08-26): a 0.32 le
+ * coste si leggevano ma i confini INTERNI (Austria, Ungheria, Slovacchia) quasi
+ * svanivano, e su una mappa che serve a riconoscere dove sei stato quella è
+ * l'informazione che manca. Provato anche 0.60: funziona, ma i confini
+ * cominciano a competere con le rotte e la mappa somiglia a un atlante invece
+ * che a una costellazione.
+ */
+export const CONFINI = {
+  colore: "#ffffff",
+  opacita: 0.45,
+  /** Spessore nel master di stampa (sullo schermo cresce con lo zoom). */
+  spessore: 1.1,
+} as const;
+
 export interface Stop { lon: number; lat: number; label: string }
 
 export interface PosterSvgInput {
@@ -250,7 +273,7 @@ export function buildPosterSvg(input: PosterSvgInput): string {
   const dividerEl = hasCaption ? `<line x1="${pad}" y1="${n(mapH)}" x2="${W - pad}" y2="${n(mapH)}" stroke="#ffffff" stroke-opacity="0.2" stroke-width="1"/>` : "";
 
   const starGlowDef = `<radialGradient id="starGlow"><stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/><stop offset="35%" stop-color="#ffffff" stop-opacity="0.35"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0"/></radialGradient>`;
-  const confiniG = `<g id="confini" fill="none" stroke="#ffffff" stroke-opacity="0.32" stroke-width="1.1" stroke-linejoin="round">${bordersPaths}</g>`;
+  const confiniG = `<g id="confini" fill="none" stroke="${CONFINI.colore}" stroke-opacity="${CONFINI.opacita}" stroke-width="${CONFINI.spessore}" stroke-linejoin="round">${bordersPaths}</g>`;
   const tracciatoG = routePaths.length ? `<g id="tracciato" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">${routePaths.map(d => `<path d="${d}"/>`).join("")}</g>` : "";
   const stelleG = `<g id="stelle">${starEls}</g>`;
   const etichetteG = `<g id="etichette">${labelEls}</g>`;

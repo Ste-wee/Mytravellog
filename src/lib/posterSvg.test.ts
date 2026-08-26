@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildPosterSvg, buildEditorQuadroSvg, panelGeoBounds, panelBorderPath, pickPanelIndex, routeBounds, unwrapNear, unwrapPath, unwrapSegments, mercY, type EditorPanel } from "./posterSvg";
+import { buildPosterSvg, buildEditorQuadroSvg, panelGeoBounds, panelBorderPath, pickPanelIndex, routeBounds, unwrapNear, unwrapPath, unwrapSegments, mercY, type EditorPanel, CONFINI } from "./posterSvg";
 
 const INPUT = {
   routeCoords: [[9.19, 45.46], [11.39, 47.27], [13.78, 45.65]] as [number, number][],
@@ -374,5 +374,34 @@ describe("routeBounds", () => {
     expect(b.lonMax).toBe(14);
     expect(b.latMin).toBe(44);
     expect(b.latMax).toBe(48);
+  });
+});
+
+/**
+ * ⚠️ SCHERMO E STAMPA LEGGONO LA STESSA COSTANTE (2026-08-26).
+ *
+ * L'opacità dei confini era scritta a mano in DUE file — la costellazione su
+ * MapLibre e questo master SVG — con l'idea che restassero uguali. Un
+ * accoppiamento per buona volontà va alla deriva al primo ritocco: si cambia lo
+ * schermo, si dimentica la stampa, e il poster smette di somigliare a quello che
+ * hai guardato. Questi test tengono il legame.
+ */
+describe("CONFINI — una sola fonte per schermo e stampa", () => {
+  it("il master SVG disegna i confini coi valori della costante", () => {
+    const svg = buildPosterSvg({
+      stops: [{ lon: 9.19, lat: 45.46, label: "Milano" }, { lon: 8.54, lat: 47.37, label: "Zurigo" }],
+      borders: [[[8, 45], [10, 45], [10, 47], [8, 45]]],
+      title: "prova",
+    });
+    expect(svg).toContain(`stroke-opacity="${CONFINI.opacita}"`);
+    expect(svg).toContain(`stroke-width="${CONFINI.spessore}"`);
+    expect(svg).toContain(`stroke="${CONFINI.colore}"`);
+  });
+
+  it("l'opacità è quella scelta guardando la mappa, non un numero a caso", () => {
+    // 0.32 lasciava svanire i confini interni (Austria, Ungheria); 0.60 li
+    // faceva competere con le rotte. Se un domani qualcuno la cambia, che sia
+    // dopo aver guardato — non per sbaglio.
+    expect(CONFINI.opacita).toBe(0.45);
   });
 });
