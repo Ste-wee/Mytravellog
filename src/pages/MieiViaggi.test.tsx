@@ -490,3 +490,85 @@ describe("MieiViaggi — vista a griglia", () => {
     expect(screen.getByRole("button", { name: "Apri il biglietto di Capitale" })).toBeInTheDocument();
   });
 });
+
+/**
+ * Le DUE SCHEDE (2026-08-26). Stefano: «non sono convinto che le gite in
+ * giornata debbano stare insieme ai miei viaggi». Prima erano una sezione
+ * dentro l'elenco dei viaggi — separate a metà; ora sono una scheda a sé.
+ *
+ * ⚠️ Questi test guardano la SEPARAZIONE, che è il punto: una gita non deve
+ * comparire mentre guardi i viaggi, e viceversa. Se un domani qualcuno fa
+ * partire l'elenco da `trips` grezzo invece che da `separaGite`, cadono qui.
+ */
+describe("MieiViaggi — le due schede: viaggi e gite", () => {
+  // ⚠️ Serve anche qui: il `beforeEach` che azzera vive dentro l'altro
+  // `describe`, e senza questo i primi test leggevano i viaggi lasciati dai
+  // test precedenti — «Viaggi 2» con un viaggio solo in archivio, e zero card
+  // perché era rimasta accesa la vista a griglia.
+  beforeEach(() => localStorage.clear());
+
+  const conGite = () => {
+    addTrip(baseTrip({ city: "Zurigo", title: "Zurigo", trip_date: "2026-06-01", date_end: "2026-06-05" }));
+    addTrip(baseTrip({ city: "Como", title: "Como", trip_date: "2026-11-14", date_end: "2026-11-14" }));
+    addTrip(baseTrip({ city: "Mantova", title: "Mantova", trip_date: "2025-04-06", date_end: "2025-04-06" }));
+  };
+  const cittaAScehrmo = () =>
+    screen.queryAllByTestId("trip-card").map(e => e.getAttribute("data-city"));
+
+  it("mostra due schede col conteggio dei due mucchi", () => {
+    conGite();
+    renderPage();
+    expect(screen.getByRole("tab", { name: /Viaggi/ })).toHaveTextContent("1");
+    expect(screen.getByRole("tab", { name: /Gite/ })).toHaveTextContent("2");
+  });
+
+  it("la scheda Viaggi non mostra le gite", () => {
+    conGite();
+    renderPage();
+    expect(cittaAScehrmo()).toEqual(["Zurigo"]);
+  });
+
+  it("la scheda Gite mostra SOLO le gite", () => {
+    conGite();
+    renderPage();
+    fireEvent.click(screen.getByRole("tab", { name: /Gite/ }));
+    expect(cittaAScehrmo().sort()).toEqual(["Como", "Mantova"]);
+  });
+
+  it("senza gite in archivio le schede non compaiono affatto", () => {
+    addTrip(baseTrip({ city: "Zurigo", trip_date: "2026-06-01", date_end: "2026-06-05" }));
+    renderPage();
+    expect(screen.queryByRole("tab", { name: /Gite/ })).toBeNull();
+    expect(screen.queryAllByTestId("trip-card").length).toBe(1);
+  });
+
+  it("i chip degli anni sono quelli della scheda attiva", () => {
+    conGite();
+    renderPage();
+    // viaggi: solo 2026 → un anno solo, niente chip
+    expect(screen.queryByRole("button", { name: "2025" })).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: /Gite/ }));
+    // gite: 2026 e 2025
+    expect(screen.getByRole("button", { name: "2025" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "2026" })).toBeInTheDocument();
+  });
+
+  it("cambiando scheda l'anno selezionato si azzera", () => {
+    conGite();
+    renderPage();
+    fireEvent.click(screen.getByRole("tab", { name: /Gite/ }));
+    fireEvent.click(screen.getByRole("button", { name: "2025" }));
+    expect(cittaAScehrmo()).toEqual(["Mantova"]);
+    // Tornando ai viaggi, un 2025 rimasto acceso darebbe una pagina vuota
+    fireEvent.click(screen.getByRole("tab", { name: /Viaggi/ }));
+    expect(cittaAScehrmo()).toEqual(["Zurigo"]);
+  });
+
+  it("la ricerca vale dentro la scheda aperta", () => {
+    conGite();
+    renderPage();
+    fireEvent.click(screen.getByRole("tab", { name: /Gite/ }));
+    fireEvent.change(screen.getByPlaceholderText(/Cerca/), { target: { value: "como" } });
+    expect(cittaAScehrmo()).toEqual(["Como"]);
+  });
+});

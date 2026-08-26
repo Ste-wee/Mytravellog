@@ -213,6 +213,14 @@ const INTERAZIONI = [
   ["menu_del_biglietto", "#/miei-viaggi", async () => {
     await page.getByRole("button", { name: /Trip actions/i }).first().click();
   }],
+  // Le due superfici nate col modello a schede (2026-08-26). La scheda «Gite»
+  // ha scritte sue (la riga che spiega cosa sono, lo stato vuoto), e il form in
+  // modo gita cambia tre etichette: senza aprirli, la rete direbbe zero su
+  // roba che non ha guardato.
+  ["scheda_gite", "#/miei-viaggi", async () => {
+    await page.getByRole("tab", { name: /Day trips/i }).click();
+  }],
+  ["nuova_gita", "#/nuovo-viaggio?gita=1", async () => { /* la pagina è già lo stato */ }],
   ["aggiungi_tappa", "#/nuovo-viaggio", async () => {
     await page.getByRole("button", { name: /\+ Add stop/i }).first().click();
   }],

@@ -1090,12 +1090,22 @@ export function ItineraryPanel(props: RouteHeroProps) {
 /** Nome, Periodo (con durata ed errore date invertite) e Valutazione: la parte alta della colonna destra. */
 export function TripFormFields({
   title, setTitle, dateStart, setDateStart, dateEnd, setDateEnd,
-  rating, setRating,
+  rating, setRating, unGiornoSolo = false,
 }: {
   title: string; setTitle: (v: string) => void;
   dateStart: string; setDateStart: (v: string) => void;
   dateEnd: string; setDateEnd: (v: string) => void;
   rating: number; setRating: (v: number) => void;
+  /**
+   * Modo GITA: una data sola invece di partenza e ritorno.
+   *
+   * ⚠️ Cambia solo il FORM, non il dato: il ritorno viene scritto uguale alla
+   * partenza da chi possiede lo stato (vedi NuovoViaggio), e resta la data a
+   * dire che è una gita — `eGitaInGiornata` non guarda nessun contrassegno.
+   * Se questa scorciatoia salvasse un "tipo" a parte avremmo due fonti che
+   * possono contraddirsi: una «gita» lunga tre giorni.
+   */
+  unGiornoSolo?: boolean;
 }) {
   const t = useT();
   const [hoverRating, setHoverRating] = useState(0);
@@ -1107,12 +1117,12 @@ export function TripFormFields({
       {/* Nome */}
       <div style={{ background:"#0a1628", border:"0.5px solid #1a2d4a", borderRadius:8, padding:"14px 16px" }}>
         <label style={{ fontSize:9, color:"rgba(255,255,255,0.6)", letterSpacing:"1.5px",
-          textTransform:"uppercase", display:"block", marginBottom:6 }}>{t("Nome del viaggio")} <span style={{ opacity:0.4, fontSize:9, textTransform:"none" }}>{t("(opzionale)")}</span></label>
+          textTransform:"uppercase", display:"block", marginBottom:6 }}>{unGiornoSolo ? t("Nome della gita") : t("Nome del viaggio")} <span style={{ opacity:0.4, fontSize:9, textTransform:"none" }}>{t("(opzionale)")}</span></label>
         <input style={{ background:"#060e1e", border:"0.5px solid #1a2d4a", borderRadius:8,
           padding:"9px 12px", fontSize:13, color:"#f0f4ff", width:"100%",
           outline:"none", boxSizing:"border-box" }}
           value={title} onChange={e => setTitle(e.target.value)}
-          placeholder={t("Es. Viaggio di nozze…")}
+          placeholder={unGiornoSolo ? t("Es. Domenica al lago…") : t("Es. Viaggio di nozze…")}
           onFocus={e => (e.target.style.borderColor="#60a5fa")}
           onBlur={e => (e.target.style.borderColor="#1a2d4a")}/>
       </div>
@@ -1123,10 +1133,10 @@ export function TripFormFields({
         {/* Riga superiore: Titolo a sinistra, Durata a destra */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <label style={{ fontSize:9, color:"rgba(255,255,255,0.6)", letterSpacing:"1.5px", textTransform:"uppercase", display:"block", margin: 0 }}>
-            {t("Periodo")}
+            {unGiornoSolo ? t("Giorno") : t("Periodo")}
           </label>
 
-          {days && (
+          {!unGiornoSolo && days && (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 8, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: 1 }}>{t("Durata")}</span>
               <div style={{
@@ -1158,7 +1168,9 @@ export function TripFormFields({
 
           {/* PARTENZA */}
           <div style={{ display:"flex", flexDirection:"column", flex:1, minWidth:0, marginLeft:4 }}>
-            <span style={{ fontSize:9, color:"rgba(255,255,255,0.6)", textTransform:"uppercase", letterSpacing:1 }}>{t("Partenza")}</span>
+            {!unGiornoSolo && (
+              <span style={{ fontSize:9, color:"rgba(255,255,255,0.6)", textTransform:"uppercase", letterSpacing:1 }}>{t("Partenza")}</span>
+            )}
             <input type="date"
               // min/max: su desktop l'anno si digita a mano e un refuso tipo
               // "20261" produceva una data che avvelenava biglietto/timeline.
@@ -1169,7 +1181,8 @@ export function TripFormFields({
               value={dateStart} onChange={e => setDateStart(e.target.value)}/>
           </div>
 
-          {/* CONNETTORE TRATTEGGIATO */}
+          {/* CONNETTORE TRATTEGGIATO — solo quando c'è un ritorno da mostrare */}
+          {!unGiornoSolo && (<>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"center", padding:"0 6px", flexShrink:0 }}>
             <div style={{
               height:2, width:16, position:"relative",
@@ -1194,8 +1207,14 @@ export function TripFormFields({
                 colorScheme:"dark", padding:0, marginTop:1 }}
               value={dateEnd} onChange={e => setDateEnd(e.target.value)}/>
           </div>
+          </>)}
 
         </div>
+        {unGiornoSolo && (
+          <p style={{ fontSize:11, color:"rgba(255,255,255,0.45)", marginTop:8 }}>
+            {t("Parti e torni lo stesso giorno.")}
+          </p>
+        )}
         {/* Prima si salvava senza errori anche con il ritorno prima della
             partenza: la durata spariva silenziosamente (daysBetween
             tornava null), senza dire perché. */}
@@ -1248,10 +1267,12 @@ export function TripFormFields({
 
 
 /** Annulla + Salva viaggio, con lo stato di salvataggio esplicito. */
-export function TripFormActions({ saving, confirmDiscard, onSave }: {
+export function TripFormActions({ saving, confirmDiscard, onSave, unGiornoSolo = false }: {
   saving: boolean;
   confirmDiscard: (e: React.MouseEvent) => void;
   onSave: () => void;
+  /** Modo gita: il bottone dice «Salva gita». */
+  unGiornoSolo?: boolean;
 }) {
   const t = useT();
   return (
@@ -1270,7 +1291,7 @@ export function TripFormActions({ saving, confirmDiscard, onSave }: {
             color:"#060e1e", background:"#60a5fa", border:"none", cursor:"pointer",
             display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
           {saving && <Loader2 className="w-4 h-4 animate-spin"/>}
-          {saving ? t("Salvataggio…") : t("Salva viaggio")}
+          {saving ? t("Salvataggio…") : unGiornoSolo ? t("Salva gita") : t("Salva viaggio")}
         </button>
       </div>
       {/* Un viaggio con più tappe può richiedere qualche secondo: senza

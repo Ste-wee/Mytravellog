@@ -57,8 +57,6 @@ export const en = {
   "Aggiungi il tuo primo viaggio: comparirà qui, sul globo e nelle statistiche.":
     "Add your first trip: it will show up here, on the globe and in the stats.",
   "Gite in giornata": "Day trips",
-  "Parti e torni lo stesso giorno: contate a parte, fuori da statistiche e recap.":
-    "You leave and come back the same day: counted separately, outside stats and recap.",
   "La mappa della mia vita": "The map of my life",
   "Diario": "Diary",
   "Apri il biglietto di {viaggio}": "Open the ticket for {viaggio}",
@@ -425,7 +423,6 @@ export const en = {
   "Formato": "Format",
   "Colore": "Colour",
 
-  "GITE IN GIORNATA": "DAY TRIPS",
 
   "{mese}: nessun giorno di viaggio, {gite}": "{mese}: no travel days, {gite}",
   "{mese}: {quanti} giorno di viaggio, {gite}": "{mese}: {quanti} travel day, {gite}",
@@ -643,4 +640,22 @@ export const en = {
   "Ancora nessun viaggio: il recap si popola man mano che aggiungi i tuoi viaggi.": "No trips yet: the recap fills up as you add them.",
 
   "giorni": "days",
+
+  // ── Le due schede di «I miei viaggi» ──────────────────────────────────────
+  "Viaggi": "Trips",
+  "Gite": "Day trips",
+  "Cosa vuoi vedere": "What do you want to see",
+  "Nessuna gita in giornata, per ora.": "No day trips yet.",
+  "Parti e torni lo stesso giorno. Contate a parte: fuori da statistiche, record e recap, ma sul globo ci sono.":
+    "You leave and come back the same day. Counted separately: outside stats, records and the recap — but they are on the globe.",
+
+
+  // ── «Nuova gita»: lo stesso form con una data sola ────────────────────────
+  "Nuova gita": "New day trip",
+  "Nome della gita": "Day trip name",
+  "Giorno": "Day",
+  "Parti e torni lo stesso giorno.": "You leave and come back the same day.",
+  "Salva gita": "Save day trip",
+  "Es. Domenica al lago…": "E.g. Sunday by the lake…",
+
 } as const;

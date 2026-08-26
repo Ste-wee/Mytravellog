@@ -25,6 +25,12 @@ const TRIPS = [
   mk({ id: "v2", title: "Giro dell'Est", city: "Vienna", country: "Austria", country_code: "AT",
     trip_date: "2026-03-02", date_end: "2026-03-09", latitude: 48.21, longitude: 16.37, transport_mode: "train",
     waypoints: [{ id: "w1", city: "Innsbruck", country: "Austria", country_code: "AT", transport_mode: "car", lat: 47.27, lon: 11.39 }] }),
+  // ⚠️ Una GITA in giornata. Senza di lei la scheda «Gite» di "I miei viaggi"
+  // non compare mai e il collaudo non può dire niente su metà della pagina —
+  // la stessa dimenticanza che aveva tenuto nascosta per giorni la sezione
+  // gite messa sopra i filtri: quella schermata non l'aveva vista nessuno.
+  mk({ id: "g1", title: "Como", city: "Como", trip_date: "2025-11-14", date_end: "2025-11-14",
+    latitude: 45.81, longitude: 9.08, transport_mode: "car" }),
 ];
 const PLANS = [
   mk({ id: "p1", title: "Barcellona", city: "Barcellona", country: "Spagna", country_code: "ES",
@@ -107,7 +113,10 @@ const visita = async (nome, hash, attese) => {
 };
 
 await visita("home", "#/", ["NAV·TA"]);
-await visita("miei-viaggi", "#/miei-viaggi", ["1 in programma", "Roma", "Diario", "Vacanza"]);
+// Le due schede: la pagina si apre sui VIAGGI, con la gita non a schermo.
+await visita("miei-viaggi", "#/miei-viaggi", ["1 in programma", "Viaggi", "Gite", "Roma", "Diario", "Vacanza"]);
+// Il form in modo gita: una data sola, e lo dice.
+await visita("nuova-gita", "#/nuovo-viaggio?gita=1", ["Giorno", "Nome della gita", "Salva gita"]);
 await visita("statistiche", "#/statistiche", ["Highlights di viaggio", "Distanze", "Quando viaggi", "Come viaggi"]);
 await visita("in-programma", "#/in-programma", ["Barcellona", "DA ORGANIZZARE", "Da prenotare"]);
 await visita("nuovo-viaggio", "#/nuovo-viaggio", ["Itinerario", "Periodo", "Valutazione", "Compagni"]);
@@ -155,6 +164,21 @@ errori = [];
 await prova("apre_diario",
   () => page.getByRole("button", { name: /Apri il diario/i }).first().click(),
   async () => ({ pannello: await page.evaluate(() => /diario di bordo|Colazione/.test(document.body.innerText)) }));
+
+// La scheda delle gite: Como c'è, Roma no. La separazione È il punto della
+// scelta di Stefano («non credo vadano trattate come veri e propri viaggi»): se
+// un domani l'elenco ripartisse da `trips` grezzo invece che da `separaGite`,
+// cade qui.
+// ⚠️ DOPO il diario, non prima: `prova` chiude con Esc, che non riporta sulla
+// scheda dei viaggi — e lì il bottone «Diario» sarebbe quello di Como, che non
+// ha nessuna pagina scritta. Messo prima, il passo del diario falliva additando
+// l'app, che era sana.
+await prova("scheda_gite",
+  () => page.getByRole("tab", { name: /Gite/ }).click(),
+  async () => ({
+    mostra_como: await page.evaluate(() => /Como/.test(document.body.innerText)),
+    nasconde_roma: await page.evaluate(() => !/Roma/.test(document.body.innerText)),
+  }));
 
 await prova("mappa_della_vita",
   () => page.getByRole("button", { name: /mappa della mia vita/i }).click(),
