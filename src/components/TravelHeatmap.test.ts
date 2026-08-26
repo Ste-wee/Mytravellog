@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeMonthlyTravelDays, daysSinceLastTrip, computeSeasonality, tripsInMonthAnyYear, gitePerMese, TravelHeatmap } from "./TravelHeatmap";
+import { computeMonthlyTravelDays, daysSinceLastTrip, computeSeasonality, tripsInMonthAnyYear, TravelHeatmap } from "./TravelHeatmap";
 import type { Trip } from "@/lib/storage";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -350,36 +350,22 @@ describe("TravelHeatmap — riepilogo del mese al click", () => {
   });
 });
 
-// Le gite sul grafico dei mesi sono un livello SEPARATO (scelta di Stefano,
-// 2026-08-25): il blu conta i giorni dei viaggi, un puntino ambra dice "qui
-// c'era anche una gita". Mescolarle ricreerebbe la mezza-verità che l'aveva
-// insospettito — statistiche che dicono "gite escluse" e grafico che le include.
-describe("gitePerMese — il secondo livello della striscia", () => {
-  const gita = (d: string) => makeTrip({ trip_date: d, date_end: d });
-
-  it("conta le gite nel loro mese, su tutti gli anni insieme", () => {
-    const per = gitePerMese([gita("2026-04-29"), gita("2017-08-30"), gita("2023-04-02")]);
-    expect(per[3]).toBe(2);   // aprile: 2026 e 2023
-    expect(per[7]).toBe(1);   // agosto
-    expect(per.reduce((a, b) => a + b, 0)).toBe(3);
+// Per due giorni le gite in giornata erano un livello SEPARATO sulla striscia:
+// un puntino ambra sotto la cella, fuori dal blu dei giorni in viaggio. La
+// feature è stata rimossa il 2026-08-26 e con lei `gitePerMese`: un viaggio di
+// un giorno solo è un giorno in viaggio, e sta nel blu con tutti gli altri.
+describe("un viaggio di un giorno solo sta nel blu, non in un livello a parte", () => {
+  it("vale un giorno nel suo mese", () => {
+    const giorni = computeSeasonality([makeTrip({ trip_date: "2026-04-29", date_end: "2026-04-29" })]);
+    expect(giorni[3]).toBe(1);
+    expect(giorni.reduce((x, y) => x + y, 0)).toBe(1);
   });
 
-  it("nessuna gita: dodici zeri, la striscia si comporta come prima", () => {
-    expect(gitePerMese([])).toEqual(new Array(12).fill(0));
-  });
-
-  it("una data malformata non sposta niente e non fa NaN", () => {
-    const per = gitePerMese([gita(""), gita("non-una-data"), gita("2026-13-01")]);
-    expect(per).toEqual(new Array(12).fill(0));
-  });
-
-  it("⚠️ NON tocca i giorni in viaggio: sono due conti diversi", () => {
-    // È l'invariante che tiene onesto il grafico: le gite non entrano nel blu.
-    const viaggi = [makeTrip({ trip_date: "2026-04-01", date_end: "2026-04-05" })];
-    const giorni = computeSeasonality(viaggi);
-    const conGite = computeSeasonality(viaggi);   // le gite NON passano da qui
-    expect(conGite[3]).toBe(giorni[3]);
-    expect(giorni[3]).toBe(5);
-    expect(gitePerMese([gita("2026-04-29")])[3]).toBe(1);
+  it("si somma ai giorni degli altri viaggi dello stesso mese", () => {
+    const giorni = computeSeasonality([
+      makeTrip({ trip_date: "2026-04-01", date_end: "2026-04-05" }),   // 5 giorni
+      makeTrip({ trip_date: "2026-04-29", date_end: "2026-04-29" }),   // 1 giorno
+    ]);
+    expect(giorni[3]).toBe(6);
   });
 });

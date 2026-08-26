@@ -29,11 +29,11 @@ describe("risolviLingua — da 'sistema' alla lingua vera", () => {
 
 describe("traduci — l'italiano è la chiave", () => {
   it("in italiano ritorna la chiave stessa", () => {
-    expect(traduci("it", "Gite in giornata")).toBe("Gite in giornata");
+    expect(traduci("it", "Nuovo viaggio")).toBe("Nuovo viaggio");
   });
 
   it("in inglese ritorna la traduzione", () => {
-    expect(traduci("en", "Gite in giornata")).toBe("Day trips");
+    expect(traduci("en", "Nuovo viaggio")).toBe("New trip");
   });
 
   it("riempie i segnaposto in entrambe le lingue", () => {
@@ -55,7 +55,7 @@ describe("traduci — l'italiano è la chiave", () => {
 
   it("una traduzione vuota nel dizionario vale come mancante", () => {
     const dizionario = en as unknown as Record<string, string>;
-    const chiave = "Gite in giornata";
+    const chiave = "Nuovo viaggio";
     const vera = dizionario[chiave];
     try {
       dizionario[chiave] = "";

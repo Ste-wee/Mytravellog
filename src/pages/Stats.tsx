@@ -4,7 +4,6 @@ import { Link, useLocation } from "react-router-dom";
 import { PieChart, Sparkles } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { Trip, loadTrips } from "@/lib/storage";
-import { separaGite } from "@/lib/gite";
 import { useT } from "@/lib/settings";
 import { StatsSection } from "@/components/StatsSection";
 import { ContinentsMap } from "@/components/ContinentsMap";
@@ -20,15 +19,6 @@ const Stats = () => {
     setTrips(loadTrips());
   }, [location]);
 
-  /**
-   * Le statistiche parlano dei VIAGGI: le gite in giornata sono contate a
-   * parte (scelta di Stefano, 2026-08-24 — vedi lib/gite.ts), quindi restano
-   * fuori da record, distanze, elenco paesi, continenti e "quando viaggi".
-   *
-   * L'unica sezione che riceve TUTTO è `ComeViaggi`: separa lei i due mucchi,
-   * perché è il posto dove le gite vengono nominate e spiegate.
-   */
-  const { viaggi, gite } = separaGite(trips);
   const t = useT();
 
 
@@ -36,11 +26,7 @@ const Stats = () => {
     <main>
       <AppHeader/>
 
-      {/* `viaggi`, non `trips`: con SOLO gite in giornata le sezioni
-          mostrerebbero zeri senza dire perché — le gite sono contate a parte,
-          e uno zero inspiegato è precisamente il difetto che stiamo chiudendo.
-          Il testo qui sotto cambia in quel caso. */}
-      {viaggi.length === 0 ? (
+      {trips.length === 0 ? (
         /* Senza viaggi le sezioni mostravano un misto di zeri, un messaggio
            isolato e la heatmap sparita in silenzio: meglio un unico invito. */
         <div className="container mx-auto px-6" style={{paddingTop:80, paddingBottom:8, display:"flex", justifyContent:"center"}}>
@@ -50,11 +36,7 @@ const Stats = () => {
             </div>
             <div className="font-display" style={{fontSize:15, fontWeight:700, color:"#f0f4ff"}}>{t("Ancora nessuna statistica")}</div>
             <p style={{fontSize:12, color:"rgba(255,255,255,0.6)", lineHeight:1.5, margin:"6px 0 16px"}}>
-              {trips.length > 0
-                ? t(trips.length === 1
-                  ? "Per ora hai solo una gita in giornata: sono contate a parte e non entrano nelle statistiche. Aggiungi un viaggio con almeno una notte fuori."
-                  : "Per ora hai solo gite in giornata: sono contate a parte e non entrano nelle statistiche. Aggiungi un viaggio con almeno una notte fuori.")
-                : t("Le statistiche si costruiscono da sole man mano che aggiungi i tuoi viaggi.")}
+              {t("Le statistiche si costruiscono da sole man mano che aggiungi i tuoi viaggi.")}
             </p>
             <Link to="/nuovo-viaggio"
               style={{
@@ -85,18 +67,18 @@ const Stats = () => {
             <span style={{ color: "#60a5fa", fontSize: 20 }}>→</span>
           </Link>
 
-          <StatsSection trips={viaggi} />
+          <StatsSection trips={trips} />
 
-          <ContinentsMap trips={viaggi} />
+          <ContinentsMap trips={trips} />
 
           {/* Dopo la geografia (dove sei stato), prima dei record (quanto in
               alto, quanto lontano): risponde a una domanda diversa, che tipo
               di viaggiatore sei. Posizione scelta da Stefano. */}
           <ComeViaggi trips={trips} />
 
-          <TravelHighlights trips={viaggi} />
+          <TravelHighlights trips={trips} />
 
-          <TravelHeatmap trips={viaggi} gite={gite} />
+          <TravelHeatmap trips={trips} />
         </div>
       )}
     </main>

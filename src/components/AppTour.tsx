@@ -58,7 +58,7 @@ const SECTIONS: Record<string, Section> = {
     label: "Statistiche",
     steps: [
       { Icon: PieChart, title: "Le tue statistiche", body: "Km percorsi, paesi e città visitati e i tuoi record di viaggio, in un colpo d'occhio." },
-      { Icon: Shapes, title: "Come e quando viaggi", body: "Le tue forme di viaggio — in giornata, tappa fissa, itineranti — e i mesi in cui parti di più, anno per anno." },
+      { Icon: Shapes, title: "Come e quando viaggi", body: "Le tue forme di viaggio — tappa fissa o itineranti — e i mesi in cui parti di più, anno per anno." },
       { Icon: Share2, title: "Il recap dell'anno", body: "Genera «Il tuo anno di viaggi» e condividilo come immagine o come stories." },
     ],
   },

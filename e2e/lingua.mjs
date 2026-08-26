@@ -59,7 +59,7 @@ const TRIPS = [
     diary: [{ date: "2026-05-02", text: "Breakfast by the river.", highlight: true }],
   }),
   trip("t2", "Berlin", "DE", 52.52, 13.4, "2026-07-10", "2026-07-14"),
-  trip("t3", "Oxford", "GB", 51.75, -1.26, "2026-04-29", "2026-04-29"),   // gita
+  trip("t3", "Oxford", "GB", 51.75, -1.26, "2026-04-29", "2026-04-29"),   // un giorno solo
 ];
 const PLANS = [trip("p1", "Madrid", "ES", 40.42, -3.7, "2099-09-01", "2099-09-08", {
   status: "planned", checklist: [{ text: "Book hotel", done: true }],
@@ -213,14 +213,6 @@ const INTERAZIONI = [
   ["menu_del_biglietto", "#/miei-viaggi", async () => {
     await page.getByRole("button", { name: /Trip actions/i }).first().click();
   }],
-  // Le due superfici nate col modello a schede (2026-08-26). La scheda «Gite»
-  // ha scritte sue (la riga che spiega cosa sono, lo stato vuoto), e il form in
-  // modo gita cambia tre etichette: senza aprirli, la rete direbbe zero su
-  // roba che non ha guardato.
-  ["scheda_gite", "#/miei-viaggi", async () => {
-    await page.getByRole("tab", { name: /Day trips/i }).click();
-  }],
-  ["nuova_gita", "#/nuovo-viaggio?gita=1", async () => { /* la pagina è già lo stato */ }],
   ["aggiungi_tappa", "#/nuovo-viaggio", async () => {
     await page.getByRole("button", { name: /\+ Add stop/i }).first().click();
   }],

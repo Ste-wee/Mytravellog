@@ -90,35 +90,12 @@ export function daysSinceLastTrip(trips: Trip[]): number | null {
   return Number.isFinite(diff) ? Math.max(0, diff) : null;
 }
 
-/**
- * Quante gite in giornata cadono in ciascun mese (0-11), su tutti gli anni.
- *
- * ⚠️ È un livello SEPARATO, non un addendo: i "giorni in viaggio" restano solo
- * dei viaggi veri. Le gite si vedono come puntino ambra sotto la cella, con la
- * stessa logica del globo — presenti perché ci sei stato, riconoscibili perché
- * non sono la stessa cosa. Mescolarle nel blu ricreerebbe la mezza-verità che
- * Stefano aveva fiutato: statistiche che dicono "gite escluse" e un grafico che
- * le include (vedi lib/gite.ts).
- */
-export function gitePerMese(gite: Trip[]): number[] {
-  const perMese = new Array(12).fill(0) as number[];
-  for (const g of gite) {
-    const mese = parseInt((g.trip_date || "").slice(5, 7), 10) - 1;
-    if (mese >= 0 && mese < 12) perMese[mese]++;
-  }
-  return perMese;
-}
-
 interface Props {
   trips: Trip[];
-  /** Le gite in giornata: un livello a parte sulla striscia dei mesi.
-   *  Assenti = la striscia si comporta come prima. */
-  gite?: Trip[];
 }
 
-export function TravelHeatmap({ trips, gite = [] }: Props) {
+export function TravelHeatmap({ trips }: Props) {
   const t = useT();
-  const giteMese = useMemo(() => gitePerMese(gite), [gite]);
   // I mesi seguono la lingua: si ricalcolano quando cambia il locale.
   const MESI = etichetteMesi(localeAttivo());
   const monthlyDays = useMemo(() => computeMonthlyTravelDays(trips), [trips]);
@@ -163,13 +140,6 @@ export function TravelHeatmap({ trips, gite = [] }: Props) {
   const viaggiDelMese = useMemo(
     () => meseAperto == null ? [] : tripsInMonthAnyYear(trips, meseAperto),
     [trips, meseAperto],
-  );
-  // Le gite di quel mese, con la stessa funzione: il riquadro deve avere
-  // qualcosa da dire anche quando lo si apre da una cella che ha SOLO gite —
-  // altrimenti il puntino invita al tocco e poi mostra una lista vuota.
-  const giteDelMese = useMemo(
-    () => meseAperto == null ? [] : tripsInMonthAnyYear(gite, meseAperto),
-    [gite, meseAperto],
   );
 
   return (
@@ -218,42 +188,21 @@ export function TravelHeatmap({ trips, gite = [] }: Props) {
         ))}
         {MESI.map((label, m) => {
           const days = stagionalita[m];
-          const quanteGite = giteMese[m];
           const aperto = meseAperto === m;
-          // La voce dice le DUE cose separate: i giorni di viaggio e, se ci
-          // sono, le gite. Anche per chi ascolta con lo screen reader — un
-          // puntino che non si vede deve avere una voce.
-          const dettaglioGite = t(quanteGite === 1 ? "{quante} gita" : "{quante} gite", { quante: quanteGite });
-          const voce = quanteGite === 0
-            ? t(days === 1 ? "{mese}: {quanti} giorno di viaggio in tutto" : "{mese}: {quanti} giorni di viaggio in tutto", { mese: label, quanti: days })
-            : days === 0
-              ? t("{mese}: nessun giorno di viaggio, {gite}", { mese: label, gite: dettaglioGite })
-              : t(days === 1 ? "{mese}: {quanti} giorno di viaggio, {gite}" : "{mese}: {quanti} giorni di viaggio, {gite}",
-                  { mese: label, quanti: days, gite: dettaglioGite });
+          const voce = t(days === 1 ? "{mese}: {quanti} giorno di viaggio in tutto" : "{mese}: {quanti} giorni di viaggio in tutto", { mese: label, quanti: days });
           const stile = {
             height: 34, borderRadius: 5, background: cellColor(days),
             outline: aperto ? "1.5px solid #60a5fa" : "none", outlineOffset: 1,
-            position: "relative" as const,
-          };
-          // Il puntino ambra: sotto, piccolo, fuori dal colore della cella.
-          const puntino = quanteGite > 0 ? (
-            <span aria-hidden style={{
-              position: "absolute", left: "50%", bottom: 3, transform: "translateX(-50%)",
-              width: 5, height: 5, borderRadius: "50%", background: "#fbbf24",
-            }}/>
-          ) : null;
-          // ⚠️ Una cella con SOLE gite è toccabile: prima le celle a zero giorni
-          // erano <div> muti, e un puntino che invita al tocco senza aprire
-          // niente è peggio di nessun puntino.
-          if (days === 0 && quanteGite === 0) {
+          } as const;
+          // Le celle senza giorni non sono interattive: restano <div>, fuori
+          // dal giro del Tab. Quelle con giorni sono <button> reali.
+          if (days === 0) {
             return <div key={m} title={voce} style={{ ...stile, cursor: "default" }} />;
           }
           return (
             <button key={m} type="button" onClick={() => setMeseAperto(aperto ? null : m)}
               title={voce} aria-label={voce} aria-pressed={aperto}
-              style={{ ...stile, cursor: "pointer", border: "none", padding: 0, font: "inherit" }}>
-              {puntino}
-            </button>
+              style={{ ...stile, cursor: "pointer", border: "none", padding: 0, font: "inherit" }} />
           );
         })}
       </div>
@@ -265,12 +214,6 @@ export function TravelHeatmap({ trips, gite = [] }: Props) {
           <div key={a} style={{ width: 10, height: 10, borderRadius: 3, background: a === 0 ? "rgba(255,255,255,0.06)" : `rgba(96,165,250,${a})` }} />
         ))}
         <span style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>{t("{quanti} giorni", { quanti: maxDays })}</span>
-        {gite.length > 0 && (
-          <>
-            <span aria-hidden style={{ width: 5, height: 5, borderRadius: "50%", background: "#fbbf24", marginLeft: 8 }}/>
-            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>{t("una gita")}</span>
-          </>
-        )}
       </div>
       )}
 
@@ -278,11 +221,8 @@ export function TravelHeatmap({ trips, gite = [] }: Props) {
         <div style={{ marginTop: 14, padding: "12px 14px", background: "#0a1e38", border: "0.5px solid #1a2d4a", borderRadius: 10 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: "#f0f4ff" }}>
-              {stagionalita[meseAperto] === 0 && giteDelMese.length > 0
-                ? t(giteDelMese.length === 1 ? "{mese} — {quante} gita" : "{mese} — {quante} gite",
-                    { mese: MESI[meseAperto], quante: giteDelMese.length })
-                : t(stagionalita[meseAperto] === 1 ? "{mese} — {quanti} giorno" : "{mese} — {quanti} giorni",
-                    { mese: MESI[meseAperto], quanti: stagionalita[meseAperto] })}
+              {t(stagionalita[meseAperto] === 1 ? "{mese} — {quanti} giorno" : "{mese} — {quanti} giorni",
+                { mese: MESI[meseAperto], quanti: stagionalita[meseAperto] })}
             </span>
             <button type="button" onClick={() => setMeseAperto(null)} aria-label={t("Chiudi")}
               style={{ background: "none", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", display: "flex" }}>
@@ -304,27 +244,6 @@ export function TravelHeatmap({ trips, gite = [] }: Props) {
                 </span>
               </div>
             ))}
-            {/* Le gite del mese, in un gruppo a parte e in ambra: si vedono,
-                si distinguono, e non entrano nei giorni contati sopra. */}
-            {giteDelMese.length > 0 && (
-              <div style={{ marginTop: viaggiDelMese.length ? 8 : 0, paddingTop: viaggiDelMese.length ? 8 : 0,
-                borderTop: viaggiDelMese.length ? "0.5px solid rgba(251,191,36,0.2)" : "none" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
-                  <span aria-hidden style={{ width: 5, height: 5, borderRadius: "50%", background: "#fbbf24" }}/>
-                  <span style={{ fontSize: 10, letterSpacing: "0.5px", textTransform: "uppercase", color: "rgba(251,191,36,0.85)" }}>
-                    {t("Gite in questo mese")}
-                  </span>
-                </div>
-                {giteDelMese.map(g => (
-                  <div key={g.id} style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
-                    <span style={{ display: "block", lineHeight: 1.5 }}>{stopChain(g) ?? g.city}</span>
-                    <span style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>
-                      {formatTripDate(g.trip_date)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       )}

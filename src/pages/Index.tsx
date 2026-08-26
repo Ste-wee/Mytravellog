@@ -8,7 +8,6 @@ import { hasCoords } from "@/lib/coords";
 import { tripTotalKm } from "@/lib/flyover";
 import { stopChain } from "@/lib/stops";
 import { paeseVisibileDiViaggio, paeseVisibileDiTappa } from "@/lib/paesi";
-import { separaGite } from "@/lib/gite";
 import { ricalcolaTemperature } from "@/lib/ricalcolaTemperature";
 import { ricalcolaTracciati } from "@/lib/ricalcolaTracciati";
 import { recuperaDatiMancanti } from "@/lib/recuperaDatiMancanti";
@@ -24,10 +23,7 @@ import { TripFlyover } from "@/components/TripFlyover";
  * Ogni viaggio tocca anche i paesi/città delle tappe intermedie (waypoint),
  * non solo la destinazione finale (stessa logica di StatsSection.tsx).
  */
-export function computeHomeStats(allTrips: Trip[]) {
-  // Le gite in giornata stanno FUORI da tutti i conti (scelta di Stefano,
-  // 2026-08-24): hanno la loro riga qui sotto. Vedi lib/gite.ts per il perché.
-  const { viaggi: trips, gite } = separaGite(allTrips);
+export function computeHomeStats(trips: Trip[]) {
   const countries = new Set<string>();
   const cities = new Set<string>();
   // Deduplica i paesi per NOME normalizzato, non per `country_code || country`:
@@ -61,22 +57,11 @@ export function computeHomeStats(allTrips: Trip[]) {
   // viaggio vivono nella heatmap (TravelHeatmap), con conteggio INCLUSIVO
   // (Gen 1→Gen 5 = 5 giorni), coerente con TripCardTicket. Il vecchio `days`
   // di questa funzione era codice morto e per giunta non inclusivo: rimosso.
-  // Le gite: contate a parte, con le SOLE città che non hai visto in nessun
-  // viaggio vero (Torino vista solo in gita conta 1; Roma vista anche in un
-  // viaggio vero non si conta due volte). La riga della Home resta a QUATTRO
-  // voci — cinque vanno a capo su un telefono — e le gite vivono nella riga
-  // sotto, che è dichiarata e quindi non sembra un errore.
-  const cittaSoloInGita = new Set<string>();
-  for (const g of gite) {
-    const suoi = [`${g.city}|${g.country}`, ...(g.waypoints ?? []).map(w => `${w.city}|${w.country}`)];
-    for (const c of suoi) if (!cities.has(c)) cittaSoloInGita.add(c);
-  }
-  return {
-    trips: trips.length, countries: countries.size, cities: cities.size, km,
-    gite: gite.length,
-    giteCitta: cittaSoloInGita.size,
-    giteKm: gite.reduce((s, t) => s + tripTotalKm(t), 0),
-  };
+  // ⚠️ QUATTRO voci, sempre le stesse: viaggi, paesi, città, km. Cinque vanno a
+  // capo su un telefono da 390px (75px di riga invece di 41) e questa riga è il
+  // colpo d'occhio della Home. Ci ho provato due volte con una quinta e Stefano
+  // l'ha bocciata entrambe.
+  return { trips: trips.length, countries: countries.size, cities: cities.size, km };
 }
 
 /**
@@ -464,28 +449,6 @@ function HomeInner() {
           );
         })()}
 
-        {/* Le gite in giornata: una riga dichiarata, fuori dai quattro numeri.
-            Prima erano un'incoerenza silenziosa (fuori dal conteggio viaggi,
-            dentro città e km): scelta di Stefano il 2026-08-24, le gite hanno
-            una casa loro. Le città contate qui sono SOLO quelle che nessun
-            viaggio vero tocca, così il totale sopra più questo non conta due
-            volte lo stesso posto. Compare solo se ne hai. */}
-        {stats.gite > 0 && (
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-            padding:"0 12px 8px", fontSize:11.5, color:"rgba(255,255,255,0.5)" }}>
-            <Sun className="w-[12px] h-[12px]" style={{ color:"#fbbf24" }} aria-hidden/>
-            <span>
-              {/* NB: qui c'era «e inoltre», un connettivo verso la riga dei
-                  numeri qui sopra. Rimosso su richiesta di Stefano: la riga si
-                  legge meglio asciutta, e non deve più appoggiarsi a qualcosa
-                  che potrebbe non esserci (con sole gite quei numeri sono
-                  quattro zeri e la riga non viene disegnata affatto). */}
-              {t(stats.gite === 1 ? "{quante} gita in giornata" : "{quante} gite in giornata", { quante: stats.gite })}
-              {stats.giteCitta > 0 && " · " + t("{quante} città", { quante: stats.giteCitta })}
-              {stats.giteKm >= 1 && ` · ${fmtDistance(stats.giteKm, distanceUnit)}`}
-            </span>
-          </div>
-        )}
       </div>
 
       {selectedCity && (

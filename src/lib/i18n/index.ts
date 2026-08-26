@@ -3,11 +3,11 @@ import { en } from "./en";
 /**
  * Traduzione dell'interfaccia.
  *
- * ⚠️ **L'italiano È la chiave.** `t("Gite in giornata")` ritorna quella stringa
+ * ⚠️ **L'italiano È la chiave.** `t("Nuovo viaggio")` ritorna quella stringa
  * in italiano e la sua traduzione in inglese. Scelta deliberata contro le
- * chiavi inventate (`t("trips.dayTrips")`), per tre motivi concreti:
+ * chiavi inventate (`t("trips.newTrip")`), per tre motivi concreti:
  *
- * 1. **Il diff resta leggibile**: `"Gite in giornata"` → `t("Gite in giornata")`.
+ * 1. **Il diff resta leggibile**: `"Nuovo viaggio"` → `t("Nuovo viaggio")`.
  *    Con 200 stringhe su 27 file, un diff dove ogni riga cambia in una sigla
  *    non è più revisionabile da nessuno.
  * 2. **Una chiave sbagliata non può rendere una scritta vuota**: il peggio che

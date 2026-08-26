@@ -1,13 +1,17 @@
 import { Trip } from "./storage";
-import { eGitaInGiornata } from "./gite";
 import { riconosciBase, fermateDiViaggio } from "./base";
 import { hasCoords } from "./coords";
 
 /**
  * La FORMA di un viaggio: che tipo di viaggio è stato.
  *
- * Tre forme che si escludono a vicenda e coprono tutto, così i conteggi
+ * Due forme che si escludono a vicenda e coprono tutto, così i conteggi
  * sommano sempre al totale dei viaggi.
+ *
+ * ⚠️ Erano TRE: c'era anche "giornata" (parti e torni lo stesso giorno). La
+ * feature delle gite in giornata è stata rimossa per intero il 2026-08-26 su
+ * richiesta di Stefano — l'app censisce solo viaggi con più giorni. Il posto
+ * dove la durata conta ora è la validazione del form, non una casella qui.
  *
  * ⚠️ Storia da non ripetere. Il primo taglio ne aveva QUATTRO, con "base" (una
  * meta con gite che ne partono) separata da "diretto" (una meta e basta).
@@ -20,15 +24,14 @@ import { hasCoords } from "./coords";
  * hai dormito in un posto — e le gite dalla base sono un DETTAGLIO, non una
  * forma di viaggio a sé.
  */
-export type Forma = "giornata" | "fissa" | "itinerante";
+export type Forma = "fissa" | "itinerante";
 
 /**
  * In quale casella finisce questo viaggio.
  *
- * L'ordine delle domande È la definizione, e non è arbitrario: la durata viene
- * prima della struttura (una gita resta una gita anche con due tappe), e la
- * base prima delle tappe (chi rientra sempre nello stesso posto sta fermo lì,
- * anche se fra i rientri si è mosso).
+ * L'ordine delle domande È la definizione, e non è arbitrario: la base viene
+ * prima delle tappe (chi rientra sempre nello stesso posto sta fermo lì, anche
+ * se fra i rientri si è mosso).
  */
 export function formaDiViaggio(t: Trip): Forma {
   return conForma(t).forma;
@@ -42,7 +45,6 @@ export function formaDiViaggio(t: Trip): Forma {
  * viaggio: `riconosciBase` confronta ogni fermata con tutte le precedenti.
  */
 function conForma(t: Trip): { forma: Forma; base: ReturnType<typeof riconosciBase> } {
-  if (eGitaInGiornata(t)) return { forma: "giornata", base: null };
   const base = hasCoords(t.home_latitude, t.home_longitude) ? riconosciBase(fermateDiViaggio(t)) : null;
   if (base) return { forma: "fissa", base };   // una meta, con gite che ne partono
   const tappe = (t.waypoints ?? []).filter(w => hasCoords(w.lat, w.lon));
@@ -52,7 +54,6 @@ function conForma(t: Trip): { forma: Forma; base: ReturnType<typeof riconosciBas
 }
 
 export interface ContoForme {
-  giornata: number;
   fissa: number;
   itinerante: number;
   /** Quanti dei viaggi a tappa fissa hanno gite che partono dalla base: è il
@@ -67,7 +68,7 @@ export interface ContoForme {
 
 /** Quanti viaggi per forma, più i due dettagli che valgono la pena di dire. */
 export function contaForme(trips: Trip[]): ContoForme {
-  const conto: ContoForme = { giornata: 0, fissa: 0, itinerante: 0, conGite: 0, giteDallaBase: 0, tappeMedie: 0 };
+  const conto: ContoForme = { fissa: 0, itinerante: 0, conGite: 0, giteDallaBase: 0, tappeMedie: 0 };
   let tappeItineranti = 0;
   for (const t of trips) {
     const { forma, base } = conForma(t);

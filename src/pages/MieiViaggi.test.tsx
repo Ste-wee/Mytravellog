@@ -492,114 +492,46 @@ describe("MieiViaggi — vista a griglia", () => {
 });
 
 /**
- * Le DUE SCHEDE (2026-08-26). Stefano: «non sono convinto che le gite in
- * giornata debbano stare insieme ai miei viaggi». Prima erano una sezione
- * dentro l'elenco dei viaggi — separate a metà; ora sono una scheda a sé.
+ * ⚠️ IL PALETTO DELLA RIMOZIONE (2026-08-26). Per due giorni «I miei viaggi»
+ * aveva due schede — Viaggi | Gite — perché le gite in giornata stavano in un
+ * mucchio a parte. La feature è stata rimossa per intero: l'app censisce solo
+ * viaggi, e la pagina è tornata a UN elenco raggruppato per anno.
  *
- * ⚠️ Questi test guardano la SEPARAZIONE, che è il punto: una gita non deve
- * comparire mentre guardi i viaggi, e viceversa. Se un domani qualcuno fa
- * partire l'elenco da `trips` grezzo invece che da `separaGite`, cadono qui.
+ * Questi test cadono se qualcuno rimette un mucchio separato: un viaggio che
+ * parte e torna lo stesso giorno deve stare nell'elenco con tutti gli altri.
  */
-describe("MieiViaggi — le due schede: viaggi e gite", () => {
-  // ⚠️ Serve anche qui: il `beforeEach` che azzera vive dentro l'altro
-  // `describe`, e senza questo i primi test leggevano i viaggi lasciati dai
-  // test precedenti — «Viaggi 2» con un viaggio solo in archivio, e zero card
-  // perché era rimasta accesa la vista a griglia.
+describe("MieiViaggi — un elenco solo, senza schede", () => {
   beforeEach(() => localStorage.clear());
 
-  const conGite = () => {
+  const archivio = () => {
     addTrip(baseTrip({ city: "Zurigo", title: "Zurigo", trip_date: "2026-06-01", date_end: "2026-06-05" }));
     addTrip(baseTrip({ city: "Como", title: "Como", trip_date: "2026-11-14", date_end: "2026-11-14" }));
     addTrip(baseTrip({ city: "Mantova", title: "Mantova", trip_date: "2025-04-06", date_end: "2025-04-06" }));
   };
-  const cittaAScehrmo = () =>
-    screen.queryAllByTestId("trip-card").map(e => e.getAttribute("data-city"));
 
-  it("mostra due schede col conteggio dei due mucchi", () => {
-    conGite();
+  it("i viaggi di un giorno solo stanno nell'elenco con gli altri", () => {
+    archivio();
     renderPage();
-    expect(screen.getByRole("tab", { name: /Viaggi/ })).toHaveTextContent("1");
-    expect(screen.getByRole("tab", { name: /Gite/ })).toHaveTextContent("2");
+    expect(screen.getAllByTestId("trip-card").map(e => e.getAttribute("data-city")).sort())
+      .toEqual(["Como", "Mantova", "Zurigo"]);
   });
 
-  it("la scheda Viaggi non mostra le gite", () => {
-    conGite();
+  it("non ci sono schede da scegliere", () => {
+    archivio();
     renderPage();
-    expect(cittaAScehrmo()).toEqual(["Zurigo"]);
+    expect(screen.queryAllByRole("tab")).toEqual([]);
   });
 
-  it("la scheda Gite mostra SOLO le gite", () => {
-    conGite();
+  it("il conteggio in testata dice TUTTI i viaggi", () => {
+    archivio();
     renderPage();
-    fireEvent.click(screen.getByRole("tab", { name: /Gite/ }));
-    expect(cittaAScehrmo().sort()).toEqual(["Como", "Mantova"]);
+    expect(screen.getByText("3 viaggi")).toBeTruthy();
   });
 
-  it("senza gite in archivio le schede non compaiono affatto", () => {
-    addTrip(baseTrip({ city: "Zurigo", trip_date: "2026-06-01", date_end: "2026-06-05" }));
+  it("i chip degli anni coprono tutto l'archivio", () => {
+    archivio();
     renderPage();
-    expect(screen.queryByRole("tab", { name: /Gite/ })).toBeNull();
-    expect(screen.queryAllByTestId("trip-card").length).toBe(1);
-  });
-
-  it("i chip degli anni sono quelli della scheda attiva", () => {
-    conGite();
-    renderPage();
-    // viaggi: solo 2026 → un anno solo, niente chip
-    expect(screen.queryByRole("button", { name: "2025" })).toBeNull();
-    fireEvent.click(screen.getByRole("tab", { name: /Gite/ }));
-    // gite: 2026 e 2025
-    expect(screen.getByRole("button", { name: "2025" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "2026" })).toBeInTheDocument();
-  });
-
-  it("cambiando scheda l'anno selezionato si azzera", () => {
-    conGite();
-    renderPage();
-    fireEvent.click(screen.getByRole("tab", { name: /Gite/ }));
-    fireEvent.click(screen.getByRole("button", { name: "2025" }));
-    expect(cittaAScehrmo()).toEqual(["Mantova"]);
-    // Tornando ai viaggi, un 2025 rimasto acceso darebbe una pagina vuota
-    fireEvent.click(screen.getByRole("tab", { name: /Viaggi/ }));
-    expect(cittaAScehrmo()).toEqual(["Zurigo"]);
-  });
-
-  it("la ricerca vale dentro la scheda aperta", () => {
-    conGite();
-    renderPage();
-    fireEvent.click(screen.getByRole("tab", { name: /Gite/ }));
-    fireEvent.change(screen.getByPlaceholderText(/Cerca/), { target: { value: "como" } });
-    expect(cittaAScehrmo()).toEqual(["Como"]);
-  });
-});
-
-/**
- * ⚠️ IL VICOLO CIECO (trovato in revisione, 2026-08-26). Cancellando l'ultima
- * gita DALLA SUA SCHEDA, le schede sparivano (si disegnano solo se ci sono
- * gite) e la pagina restava su «Nessuna gita, per ora» **senza più i bottoni
- * per tornare ai viaggi**. Ora la scheda vera ricade sui viaggi da sé.
- */
-describe("MieiViaggi — nessun vicolo cieco sulla scheda delle gite", () => {
-  beforeEach(() => localStorage.clear());
-
-  it("cancellando l'ultima gita si torna ai viaggi, non a una pagina senza uscita", () => {
-    addTrip(baseTrip({ city: "Zurigo", title: "Zurigo", trip_date: "2026-06-01", date_end: "2026-06-05" }));
-    addTrip(baseTrip({ city: "Como", title: "Como", trip_date: "2026-11-14", date_end: "2026-11-14" }));
-    renderPage();
-    fireEvent.click(screen.getByRole("tab", { name: /Gite/ }));
-    expect(screen.getAllByTestId("trip-card").map(e => e.getAttribute("data-city"))).toEqual(["Como"]);
-
-    // Il cestino: la cancellazione è DIFFERITA (animazione + finestra di
-    // annullamento), quindi bisogna far passare il tempo — altrimenti si
-    // guarda la pagina un istante prima che la gita sparisca.
-    vi.useFakeTimers();
-    fireEvent.click(screen.getByText("Elimina Como"));
-    act(() => { vi.advanceTimersByTime(200); });    // DELETE_ANIM_MS
-    act(() => { vi.advanceTimersByTime(6000); });   // scade la finestra: ora è via
-    vi.useRealTimers();
-
-    // niente più schede, e il viaggio vero è tornato a schermo da sé
-    expect(screen.queryByRole("tab", { name: /Gite/ })).toBeNull();
-    expect(screen.getAllByTestId("trip-card").map(e => e.getAttribute("data-city"))).toEqual(["Zurigo"]);
+    expect(screen.getByRole("button", { name: "2026" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "2025" })).toBeTruthy();
   });
 });

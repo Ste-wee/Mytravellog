@@ -37,7 +37,6 @@ export const en = {
     "Your stats: {voce}. Show the countries you have visited on the globe",
   "Le tue statistiche: {voce}. Torna ai pallini dei viaggi sul globo":
     "Your stats: {voce}. Back to the trip dots on the globe",
-  "gita": "day trip",
   "in giornata": "same day",
   "Chiudi scheda viaggio": "Close trip card",
   "Chiudi scheda città": "Close city card",
@@ -56,7 +55,6 @@ export const en = {
   "Nessun viaggio ancora": "No trips yet",
   "Aggiungi il tuo primo viaggio: comparirà qui, sul globo e nelle statistiche.":
     "Add your first trip: it will show up here, on the globe and in the stats.",
-  "Gite in giornata": "Day trips",
   "La mappa della mia vita": "The map of my life",
   "Diario": "Diary",
   "Apri il biglietto di {viaggio}": "Open the ticket for {viaggio}",
@@ -65,8 +63,6 @@ export const en = {
 
   // ── In programma / card del piano ─────────────────────────────────────────
   "{quanti} in programma": "{quanti} planned",
-  "{quante} gita in giornata": "{quante} day trip",
-  "{quante} gite in giornata": "{quante} day trips",
   "DA ORGANIZZARE": "TO SORT OUT",
   "Prenotato": "Booked",
   "Da prenotare": "To book",
@@ -82,10 +78,6 @@ export const en = {
   "Ancora nessuna statistica": "No stats yet",
   "Le statistiche si costruiscono da sole man mano che aggiungi i tuoi viaggi.":
     "The stats build themselves as you add your trips.",
-  "Per ora hai solo una gita in giornata: sono contate a parte e non entrano nelle statistiche. Aggiungi un viaggio con almeno una notte fuori.":
-    "So far you only have one day trip: those are counted separately and stay out of the stats. Add a trip with at least one night away.",
-  "Per ora hai solo gite in giornata: sono contate a parte e non entrano nelle statistiche. Aggiungi un viaggio con almeno una notte fuori.":
-    "So far you only have day trips: those are counted separately and stay out of the stats. Add a trip with at least one night away.",
   "Il tuo anno di viaggi": "Your year in trips",
   "Apri il recap annuale, bello e condivisibile": "Open the yearly recap, pretty and shareable",
   "Come viaggi": "How you travel",
@@ -133,8 +125,6 @@ export const en = {
   "{quanti} viaggi": "{quanti} trips",
   "{quanti} giorno": "{quanti} day",
 
-  "gita in giornata, contate a parte: parti e torni lo stesso giorno.": "day trip, counted separately: you leave and come back the same day.",
-  "gite in giornata, contate a parte: parti e torni lo stesso giorno.": "day trips, counted separately: you leave and come back the same day.",
 
   // ── Impostazioni ──────────────────────────────────────────────────────────
   "Misure": "Units",
@@ -201,7 +191,6 @@ export const en = {
   "{quanti} paesi": "{quanti} countries",
   "{quanti} città": "{quanti} cities",
   "{quanti} percorsi": "{quanti} travelled",
-  "{quante} città": "{quante} cities",
 
   "🔒 Solo tu puoi leggerli: nel database ogni archivio è legato al suo account, e nessun altro account può aprirlo.":
     "🔒 Only you can read them: in the database each archive is tied to its own account, and no other account can open it.",
@@ -247,8 +236,8 @@ export const en = {
   "Km percorsi, paesi e città visitati e i tuoi record di viaggio, in un colpo d'occhio.":
     "Distance travelled, countries and cities visited and your travel records, at a glance.",
   "Come e quando viaggi": "How and when you travel",
-  "Le tue forme di viaggio — in giornata, tappa fissa, itineranti — e i mesi in cui parti di più, anno per anno.":
-    "Your travel shapes — day trips, one base, roaming — and the months you leave most, year by year.",
+  "Le tue forme di viaggio — tappa fissa o itineranti — e i mesi in cui parti di più, anno per anno.":
+    "Your travel shapes — one base or roaming — and the months you leave most, year by year.",
   "Il recap dell'anno": "The year recap",
   "Genera «Il tuo anno di viaggi» e condividilo come immagine o come stories.":
     "Generate «Your year in trips» and share it as an image or as stories.",
@@ -424,16 +413,7 @@ export const en = {
   "Colore": "Colour",
 
 
-  "{mese}: nessun giorno di viaggio, {gite}": "{mese}: no travel days, {gite}",
-  "{mese}: {quanti} giorno di viaggio, {gite}": "{mese}: {quanti} travel day, {gite}",
-  "{mese}: {quanti} giorni di viaggio, {gite}": "{mese}: {quanti} travel days, {gite}",
-  "{quante} gita": "{quante} day trip",
-  "{quante} gite": "{quante} day trips",
-  "una gita": "a day trip",
 
-  "{mese} — {quante} gita": "{mese} — {quante} day trip",
-  "{mese} — {quante} gite": "{mese} — {quante} day trips",
-  "Gite in questo mese": "Day trips this month",
 
 
   // ── Le 60 scritte che nessuna delle due reti vedeva ───────────────────────
@@ -506,8 +486,6 @@ export const en = {
   "Vuoi aprirlo invece di crearne un altro?": "Do you want to open it instead of creating another one?",
   "fatte": "done",
   "PNG {w}×{h}px, pronto per la stampa. SVG vettoriale per Illustrator.": "PNG {w}×{h}px, ready to print. Vector SVG for Illustrator.",
-  "Nel {anno} hai fatto solo gite in giornata: sono contate a parte e non entrano nel recap.": "In {anno} you only took day trips: they're counted separately and don't go into the recap.",
-  "Vai al {anno}": "Go to {anno}",
   "posizione agganciata ({lat}, {lon})": "position locked ({lat}, {lon})",
   "destinazione": "destination",
 
@@ -635,28 +613,12 @@ export const en = {
   "★ IL MOMENTO DELL'ANNO": "★ THE MOMENT OF THE YEAR",
   "{quanti} mese in viaggio": "{quanti} month travelling",
   "{quanti} mesi in viaggio": "{quanti} months travelling",
-  "Nel {anno} ci sono solo gite in giornata: sono contate a parte e non entrano nel recap. Serve un viaggio con almeno una notte fuori.": "In {anno} there are only day trips: they're counted separately and don't go into the recap. A trip needs at least one night away.",
-  "tuo archivio": "your archive",
   "Ancora nessun viaggio: il recap si popola man mano che aggiungi i tuoi viaggi.": "No trips yet: the recap fills up as you add them.",
 
   "giorni": "days",
 
-  // ── Le due schede di «I miei viaggi» ──────────────────────────────────────
-  "Viaggi": "Trips",
-  "Gite": "Day trips",
-  "Cosa vuoi vedere": "What do you want to see",
-  "Nessuna gita in giornata, per ora.": "No day trips yet.",
-  "Parti e torni lo stesso giorno. Contate a parte: fuori da statistiche, record e recap, ma sul globo ci sono.":
-    "You leave and come back the same day. Counted separately: outside stats, records and the recap — but they are on the globe.",
 
 
-  // ── «Nuova gita»: lo stesso form con una data sola ────────────────────────
-  "Nuova gita": "New day trip",
-  "Nome della gita": "Day trip name",
-  "Giorno": "Day",
-  "Parti e torni lo stesso giorno.": "You leave and come back the same day.",
-  "Salva gita": "Save day trip",
-  "Es. Domenica al lago…": "E.g. Sunday by the lake…",
 
 
   // ── Mappa della vita: le due prove sulla forma, e i compagni ──────────────

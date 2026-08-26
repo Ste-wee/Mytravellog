@@ -2,7 +2,7 @@
 import { useRef } from "react";
 import { useT } from "@/lib/settings";
 import { Link } from "react-router-dom";
-import { Plane, PieChart, Settings, Plus, Menu, Upload, CalendarClock, HelpCircle, Sun } from "lucide-react";
+import { Plane, PieChart, Settings, Plus, Menu, Upload, CalendarClock, HelpCircle } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   DropdownMenuLabel,
@@ -88,16 +88,6 @@ export function AppHeader({ onTripsClick }: Props) {
             <DropdownMenuItem asChild>
               <Link to="/nuovo-viaggio" className="flex items-center gap-2 cursor-pointer font-semibold" style={{ color: "#60a5fa" }}>
                 <Plus className="w-4 h-4"/> {t("Nuovo viaggio")}
-              </Link>
-            </DropdownMenuItem>
-            {/* La gita SOTTO il viaggio: il viaggio è l'azione principale (blu,
-                in grassetto), la gita la scorciatoia per quando non dormi
-                fuori. Porta allo stesso form con `?gita=1`, che chiede una data
-                sola — la gita resta un viaggio con partenza uguale al ritorno,
-                nessun tipo nuovo nel dato. */}
-            <DropdownMenuItem asChild>
-              <Link to="/nuovo-viaggio?gita=1" className="flex items-center gap-2 cursor-pointer" style={{ color: "#fbbf24" }}>
-                <Sun className="w-4 h-4"/> {t("Nuova gita")}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>

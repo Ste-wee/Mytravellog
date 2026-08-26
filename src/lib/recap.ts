@@ -2,7 +2,6 @@ import { Trip } from "@/lib/storage";
 import { calendarDayKeys } from "@/lib/travelDays";
 import { tripTotalKm } from "@/lib/flyover";
 import { computeKmByTransportMode } from "@/components/TravelHighlights";
-import { separaGite } from "@/lib/gite";
 
 /**
  * Dati (puri) per il "Recap annuale" — un riassunto dei viaggi di UN anno.
@@ -37,14 +36,14 @@ export interface YearRecap {
 /**
  * Gli anni che hanno qualcosa da raccontare.
  *
- * ⚠️ Le gite in giornata NON fanno anno: sono contate a parte in tutta l'app
- * (scelta di Stefano, 2026-08-24 — il perché sta in lib/gite.ts). Un anno con
- * sole gite non compare qui, e chi ci arriva con un link vecchio trova il
- * messaggio onesto in Recap.tsx invece di un poster vuoto o dell'anno sbagliato.
+ * ⚠️ Ogni viaggio fa anno. Per due giorni (2026-08-24 → 26) le gite in giornata
+ * erano escluse da qui, e questa funzione aveva un gemello `anniDiSoleGite` per
+ * distinguere «anno di sole gite» da «anno vuoto». La feature è stata rimossa:
+ * un viaggio è un viaggio.
  */
 export function availableYears(trips: Trip[]): number[] {
   const set = new Set<number>();
-  for (const t of separaGite(trips).viaggi) {
+  for (const t of trips) {
     const y = parseInt((t.trip_date || "").slice(0, 4), 10);
     if (Number.isFinite(y)) set.add(y);
   }
@@ -53,21 +52,8 @@ export function availableYears(trips: Trip[]): number[] {
 
 const tripYear = (t: Trip): number => parseInt((t.trip_date || "").slice(0, 4), 10);
 
-/** Gli anni in cui hai fatto SOLO gite: il recap non li racconta, ma vanno
- *  distinti da un anno in cui non hai fatto niente (Recap.tsx lo dice). */
-export function anniDiSoleGite(trips: Trip[]): number[] {
-  const { viaggi, gite } = separaGite(trips);
-  const conViaggi = new Set(viaggi.map(tripYear));
-  return [...new Set(gite.map(tripYear))]
-    .filter(a => Number.isFinite(a) && !conViaggi.has(a))
-    .sort((a, b) => b - a);
-}
-
 export function computeYearRecap(allTrips: Trip[], year: number): YearRecap {
-  // Il filtro delle gite sta QUI, non nei chiamanti: recap e "quando viaggi"
-  // leggono entrambi da questa funzione, e una copia della regola in due posti
-  // è il modo in cui due schermate finiscono per dire numeri diversi.
-  const trips = separaGite(allTrips).viaggi.filter(t => tripYear(t) === year);
+  const trips = allTrips.filter(t => tripYear(t) === year);
 
   const countryNames = new Set<string>();
   const cities = new Set<string>();

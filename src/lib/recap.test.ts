@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeYearRecap, availableYears, anniDiSoleGite } from "./recap";
+import { computeYearRecap, availableYears } from "./recap";
 import type { Trip } from "@/lib/storage";
 
 function makeTrip(o: Partial<Trip> = {}): Trip {
@@ -131,41 +131,25 @@ describe("il momento dell'anno (diario → recap)", () => {
   });
 });
 
-// Le gite in giornata sono contate a parte in tutta l'app (scelta di Stefano,
-// 2026-08-24): il recap racconta i viaggi, e un anno di sole gite non è un
-// anno vuoto — va detto, non sostituito in silenzio da un altro anno.
-describe("il recap non racconta le gite in giornata", () => {
-  const gita = (d: string, o: Partial<Trip> = {}) => makeTrip({ trip_date: d, date_end: d, ...o });
-
-  it("una gita non entra nei numeri dell'anno", () => {
+// Per due giorni le gite in giornata stavano FUORI dal recap, e un anno di
+// sole gite andava detto invece di sparire (`anniDiSoleGite`). La feature è
+// stata rimossa il 2026-08-26: un viaggio di un giorno solo è un viaggio, e
+// il suo anno è un anno. Questo blocco è il paletto che tiene la regola nuova.
+describe("un viaggio di un giorno solo è un viaggio come gli altri", () => {
+  it("entra nei numeri dell'anno", () => {
     const r = computeYearRecap([
       makeTrip({ trip_date: "2026-06-01", date_end: "2026-06-05", city: "Zurigo", country: "Svizzera", country_code: "CH" }),
-      gita("2026-05-10", { city: "Como", country: "Italia" }),
+      makeTrip({ trip_date: "2026-05-10", date_end: "2026-05-10", city: "Como", country: "Italia" }),
     ], 2026);
-    expect(r.trips).toBe(1);
-    expect(r.cities).toBe(1);
+    expect(r.trips).toBe(2);
+    expect(r.cities).toBe(2);
   });
 
-  it("un anno di sole gite non compare fra gli anni disponibili", () => {
+  it("il suo anno compare fra gli anni disponibili", () => {
     const anni = availableYears([
       makeTrip({ trip_date: "2026-06-01", date_end: "2026-06-05" }),
-      gita("2017-08-30"),
+      makeTrip({ trip_date: "2017-08-30", date_end: "2017-08-30" }),
     ]);
-    expect(anni).toEqual([2026]);
-  });
-
-  it("...ma anniDiSoleGite lo sa, così si può dirlo invece di ignorarlo", () => {
-    const trips = [
-      makeTrip({ trip_date: "2026-06-01", date_end: "2026-06-05" }),
-      gita("2017-08-30"),
-      gita("2023-04-29"),
-      // 2026 ha ANCHE un viaggio vero: non è un anno di sole gite
-      gita("2026-04-01"),
-    ];
-    expect(anniDiSoleGite(trips)).toEqual([2023, 2017]);
-  });
-
-  it("nessuna gita: nessun anno da segnalare", () => {
-    expect(anniDiSoleGite([makeTrip({ trip_date: "2026-06-01", date_end: "2026-06-05" })])).toEqual([]);
+    expect(anni).toEqual([2026, 2017]);
   });
 });

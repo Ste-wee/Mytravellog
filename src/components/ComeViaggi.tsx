@@ -1,13 +1,12 @@
 import { Trip } from "@/lib/storage";
 import { contaForme } from "@/lib/forme";
-import { separaGite } from "@/lib/gite";
 import { useT } from "@/lib/settings";
-import { Sun, Tent, Waypoints } from "lucide-react";
+import { Tent, Waypoints } from "lucide-react";
 
 /**
  * "Come viaggi": le forme dei viaggi, in Statistiche.
  *
- * Tre caselle che si escludono a vicenda e sommano al totale — la differenza
+ * Due caselle che si escludono a vicenda e sommano al totale — la differenza
  * con gli "Highlights di viaggio" qui accanto è che quelli sono RECORD ("il
  * più alto", "il più lontano") e questi sono CONTEGGI: risponde a "che tipo di
  * viaggiatore sei", non a "qual è il tuo primato". Per questo è una sezione
@@ -18,11 +17,10 @@ import { Sun, Tent, Waypoints } from "lucide-react";
  * entrambe dormi in un posto solo — e Stefano l'ha visto dai suoi numeri, 0
  * contro 10. Le gite dalla base ora sono un dettaglio nel sottotitolo.
  *
- * Poi sono diventate DUE: le gite in giornata sono uscite dalle statistiche
- * (scelta di Stefano, 2026-08-24 — vedi lib/gite.ts). Non erano una forma di
- * viaggio come le altre: erano un'altra cosa messa in fila con le forme. Ora
- * hanno la loro riga sotto le caselle, dove si può anche dire che stanno fuori
- * dai conti — cosa che una casella in griglia non può spiegare.
+ * Poi sono diventate DUE: per due giorni c'era anche "in giornata", con una
+ * riga sotto le caselle che spiegava che quelle stavano fuori dai conti. La
+ * feature delle gite in giornata è stata rimossa per intero il 2026-08-26 —
+ * l'app censisce solo viaggi con più giorni — e con lei la casella e la riga.
  *
  * Le caselle a zero si mostrano comunque: in una scomposizione uno zero è
  * un'informazione ("non fai viaggi itineranti").
@@ -30,9 +28,7 @@ import { Sun, Tent, Waypoints } from "lucide-react";
 export function ComeViaggi({ trips }: { trips: Trip[] }) {
   const t = useT();
   if (trips.length === 0) return null;   // niente caselle a zero su un archivio vuoto
-  // Le forme si contano sui VIAGGI: le gite stanno fuori dalle statistiche.
-  const { viaggi, gite } = separaGite(trips);
-  const c = contaForme(viaggi);
+  const c = contaForme(trips);
 
   const caselle = [
     { label: t("Tappa fissa"), valore: c.fissa, colore: "#5dcaa5", Icona: Tent,
@@ -50,12 +46,11 @@ export function ComeViaggi({ trips }: { trips: Trip[] }) {
   return (
     <section className="mb-8 animate-fade-up">
       <h2 className="text-lg font-bold mb-1">{t("Come viaggi")}</h2>
-      {/* Il numero qui DEVE essere quello della Home: stessa `separaGite`,
-          quindi non possono divergere. Le gite si nominano nella riga sotto
-          le caselle, non qui, per non dire due volte la stessa cosa. */}
+      {/* Il numero qui DEVE essere quello della Home: entrambi contano `trips`
+          senza filtri, quindi non possono divergere. */}
       <p className="text-xs text-muted-foreground mb-4">
         {t("Ogni viaggio in una casella sola: {quanti}.", {
-          quanti: t(viaggi.length === 1 ? "{quanti} viaggio" : "{quanti} viaggi", { quanti: viaggi.length }),
+          quanti: t(trips.length === 1 ? "{quanti} viaggio" : "{quanti} viaggi", { quanti: trips.length }),
         })}
       </p>
       {/* Due in riga: erano tre quando c'era anche "in giornata". Con due
@@ -81,23 +76,6 @@ export function ComeViaggi({ trips }: { trips: Trip[] }) {
           </div>
         ))}
       </div>
-      {/* Le gite: fuori dai conti, dette qui. Una riga può spiegare quello che
-          una casella in griglia non può — ed è la spiegazione che mancava
-          quando la stessa gita era fuori dal numero dei viaggi e dentro le
-          città. Compare solo se ne hai. */}
-      {gite.length > 0 && (
-        <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:10,
-          padding:"10px 12px", background:"rgba(251,191,36,0.07)",
-          border:"0.5px solid rgba(251,191,36,0.25)", borderRadius:12 }}>
-          <Sun style={{ width:16, height:16, color:"#fbbf24", flexShrink:0 }}/>
-          <span style={{ fontSize:12, color:"rgba(255,255,255,0.7)" }}>
-            <b className="font-mono" style={{ color:"#fbbf24", fontWeight:700 }}>{gite.length}</b>
-            {" "}{t(gite.length === 1
-              ? "gita in giornata, contate a parte: parti e torni lo stesso giorno."
-              : "gite in giornata, contate a parte: parti e torni lo stesso giorno.")}
-          </span>
-        </div>
-      )}
     </section>
   );
 }

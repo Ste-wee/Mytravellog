@@ -47,9 +47,10 @@ describe("ComeViaggi", () => {
   });
 
   // L'invariante che rende la sezione onesta: se la somma delle caselle non fa
-  // il totale dichiarato, la pagina sta mentendo. Ora il totale sono i VIAGGI,
-  // gite escluse — e le gite si contano nella loro riga.
-  it("la somma delle caselle fa i viaggi, e le gite stanno nella loro riga", () => {
+  // il totale dichiarato, la pagina sta mentendo. Il totale sono TUTTI i
+  // viaggi — per due giorni le gite in giornata erano una terza casella e poi
+  // una riga a parte, rimosse col resto della feature il 2026-08-26.
+  it("la somma delle caselle fa il totale dei viaggi", () => {
     const trips = [
       viaggio({ trip_date: "2026-05-10", date_end: "2026-05-10" }),
       viaggio({ city: "Firenze", latitude: 43.7696, longitude: 11.2558,
@@ -58,28 +59,19 @@ describe("ComeViaggi", () => {
       viaggio(),
     ];
     render(<ComeViaggi trips={trips} />);
-    // Il primo .font-mono della riga gite è il suo numero: si scarta contando
-    // solo le caselle, che sono due.
     const caselle = numeri().slice(0, 2).reduce((s, n) => s + Number(n), 0);
-    expect(caselle).toBe(3);   // 4 schede - 1 gita
-    expect(screen.getByText(/3 viaggi\./)).toBeTruthy();
-    expect(screen.getByText(/gita in giornata, contate a parte/)).toBeTruthy();
+    expect(caselle).toBe(4);
+    expect(screen.getByText(/4 viaggi\./)).toBeTruthy();
   });
 
-  // Il caso che prima non esisteva: solo gite. Le caselle sono tutte a zero e
-  // la riga delle gite è l'unica cosa vera in pagina — deve esserci, o la
-  // sezione dice "0 viaggi" senza spiegare dove sono finite le schede.
-  it("con SOLE gite le caselle sono a zero e la riga delle gite spiega perché", () => {
+  // Il paletto della rimozione: niente più riga «contate a parte», nemmeno
+  // quando l'archivio è fatto di soli viaggi di un giorno.
+  it("un archivio di soli viaggi di un giorno non ha righe a parte", () => {
     render(<ComeViaggi trips={[
       viaggio({ trip_date: "2026-05-10", date_end: "2026-05-10" }),
       viaggio({ trip_date: "2026-07-20", date_end: "2026-07-20" }),
     ]} />);
-    expect(numeri().slice(0, 2)).toEqual(["0", "0"]);
-    expect(screen.getByText(/gite in giornata, contate a parte/)).toBeTruthy();
-  });
-
-  it("senza gite la loro riga non compare", () => {
-    render(<ComeViaggi trips={[viaggio()]} />);
+    expect(numeri().slice(0, 2)).toEqual(["2", "0"]);
     expect(screen.queryByText(/contate a parte/)).toBeNull();
   });
 

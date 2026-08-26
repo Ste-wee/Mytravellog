@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
-import { contaViaggiEGite, separaGite } from "@/lib/gite";
 import { TripCardTicket } from "@/components/TripCardTicket";
 import { TripFlyover } from "@/components/TripFlyover";
 import { loadTrips, loadPlans, deleteTrip, parseLocalDate, Trip } from "@/lib/storage";
@@ -54,8 +53,6 @@ const UNDO_GRACE_MS = 5000;
 export default function MieiViaggi() {
   const t = useT();
   const [trips, setTrips] = useState<Trip[]>([]);
-  // Viaggi e gite in giornata, contati a parte come in Home.
-  const conteggi = contaViaggiEGite(trips);
   // Viaggi "in programma": vivono in un bucket separato (fuori da statistiche,
   // globo e recap) e si guardano nella loro pagina. Qui servono SOLO per il
   // conteggio nell'intestazione: la striscia che li mostrava è stata rimossa
@@ -63,19 +60,6 @@ export default function MieiViaggi() {
   const [plans, setPlans] = useState<Trip[]>([]);
   const [search, setSearch] = useState("");
   const [yearFilter, setYearFilter] = useState<string | null>(null);
-  /**
-   * Quale dei due mucchi si sta guardando.
-   *
-   * ⚠️ Non si ricorda fra una visita e l'altra, di proposito: «I miei viaggi»
-   * deve aprirsi sui viaggi. Tornare e trovarsi nelle gite perché tre giorni
-   * prima le avevi aperte è il tipo di memoria che disorienta invece di aiutare
-   * (la vista lista/griglia si ricorda perché è una PREFERENZA, non un luogo).
-   */
-  const [schedaScelta, setScheda] = useState<"viaggi" | "gite">("viaggi");
-  // Cambiando mucchio l'anno selezionato si azzera: i chip dei due mucchi non
-  // coincidono, e restare su un 2017 che nelle gite non esiste darebbe una
-  // schermata vuota che sembra un difetto.
-  const cambiaScheda = (v: "viaggi" | "gite") => { setScheda(v); setYearFilter(null); };
   const [leavingId, setLeavingId] = useState<string | null>(null);
   const [flyoverYear, setFlyoverYear] = useState<string | null>(null);
   const [showLifeMap, setShowLifeMap] = useState(false);
@@ -187,25 +171,9 @@ export default function MieiViaggi() {
     return Number.isFinite(y) ? y.toString() : "—";
   };
 
-  // I due mucchi interi (non filtrati): servono ai conteggi delle schede e
-  // agli anni disponibili.
-  const { viaggi: tuttiViaggi, gite: tutteGite } = separaGite(trips);
-  /**
-   * ⚠️ La scheda VERA, non quella scelta: senza gite in archivio le schede non
-   * si disegnano, e restare su "gite" sarebbe un vicolo cieco — cancellando
-   * l'ultima gita dalla sua scheda ci si trovava davanti a «Nessuna gita, per
-   * ora» **senza più i bottoni per tornare ai viaggi**. Si ricade sui viaggi da
-   * sé, senza effetti né sfarfallii.
-   */
-  const scheda = tutteGite.length === 0 ? "viaggi" : schedaScelta;
-  // Anni disponibili calcolati su tutti i viaggi (non sui filtrati): i chip
+  // Anni disponibili calcolati su TUTTI i viaggi (non sui filtrati): i chip
   // restano stabili mentre si scrive nella ricerca, invece di sparire.
-  // ⚠️ Sono gli anni della SCHEDA ATTIVA, non di tutto l'archivio: prima erano
-  // tutti gli anni «perché il filtro serve a trovare le cose, non a
-  // nasconderle», ma con due mucchi separati un chip che non ha niente da
-  // mostrare non trova niente — mostra il vuoto.
-  const allYears = Array.from(new Set((scheda === "gite" ? tutteGite : tuttiViaggi).map(tripYear)))
-    .sort((a, b) => b.localeCompare(a));
+  const allYears = Array.from(new Set(trips.map(tripYear))).sort((a, b) => b.localeCompare(a));
 
   // Anche le tappe intermedie e le note: prima "Firenze" non trovava un
   // viaggio in cui Firenze era solo una tappa (e non la destinazione), pur
@@ -224,15 +192,7 @@ export default function MieiViaggi() {
     (!search || matchesSearch(t, search)) && (!yearFilter || tripYear(t) === yearFilter)
   );
 
-  // Le gite in giornata hanno una casa loro (scelta di Stefano, 2026-08-24):
-  // stanno sotto il diario, in una sezione dichiarata, invece di mescolarsi
-  // agli anni. Restano cercabili e filtrabili come tutto il resto — il filtro
-  // è già applicato qui sopra, questa è solo la divisione dei due mucchi.
-  const { viaggi: soloViaggi, gite: soloGite } = separaGite(filtered);
-  // Quello che si sta guardando adesso: da qui in giù la pagina disegna questo.
-  const inVista = scheda === "gite" ? soloGite : soloViaggi;
-
-  const byYear = soloViaggi.reduce((acc, t) => {
+  const byYear = filtered.reduce((acc, t) => {
     const year = tripYear(t);
     if (!acc[year]) acc[year] = [];
     acc[year].push(t);
@@ -252,12 +212,7 @@ export default function MieiViaggi() {
           <div>
             <h2 className="text-2xl font-bold">{t("I miei viaggi")}</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              {/* Stessa distinzione della Home: le gite in giornata hanno il
-                  loro numero. Due conteggi diversi per la stessa cosa in due
-                  schermate è il pasticcio già fatto oggi con la promessa sulla
-                  privacy, corretta in un posto solo su due. */}
-              {t(conteggi.viaggi === 1 ? "{quanti} viaggio" : "{quanti} viaggi", { quanti: conteggi.viaggi })}
-              {conteggi.gite > 0 && " · " + t(conteggi.gite === 1 ? "{quante} gita in giornata" : "{quante} gite in giornata", { quante: conteggi.gite })}
+              {t(trips.length === 1 ? "{quanti} viaggio" : "{quanti} viaggi", { quanti: trips.length })}
               {plans.length > 0 && " · " + t("{quanti} in programma", { quanti: plans.length })}
             </p>
           </div>
@@ -273,37 +228,6 @@ export default function MieiViaggi() {
             </button>
           )}
         </div>
-
-        {/* Le DUE SCHEDE: viaggi e gite sono due cose diverse, e questo è il
-            posto dove si scegli quale guardare. Compaiono solo se ci sono gite:
-            una scheda «Gite 0» accanto ai viaggi sarebbe rumore per tutti quelli
-            che non ne hanno.
-            ⚠️ SOPRA la ricerca, non sotto: la scheda scegli l'insieme, ricerca e
-            filtri lo restringono — e un comando non sta sotto la cosa che
-            comanda. */}
-        {tutteGite.length > 0 && (
-          <div role="tablist" aria-label={t("Cosa vuoi vedere")}
-            style={{display:"flex",gap:6,marginBottom:14,background:"rgba(255,255,255,0.04)",
-              border:"0.5px solid #1a2d4a",borderRadius:10,padding:3}}>
-            {([["viaggi", t("Viaggi"), tuttiViaggi.length, "#60a5fa"],
-               ["gite", t("Gite"), tutteGite.length, "#fbbf24"]] as const).map(([id, etichetta, quanti, tinta]) => {
-              const attiva = scheda === id;
-              return (
-                <button key={id} type="button" role="tab" aria-selected={attiva}
-                  onClick={() => cambiaScheda(id)}
-                  style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,
-                    padding:"8px 10px",borderRadius:8,border:"none",cursor:"pointer",fontFamily:"inherit",
-                    fontSize:12.5,fontWeight:attiva ? 700 : 500,
-                    background: attiva ? `${tinta}26` : "transparent",
-                    color: attiva ? tinta : "rgba(255,255,255,0.5)"}}>
-                  {id === "gite" ? <Sun style={{width:13,height:13}}/> : <Plane style={{width:13,height:13}}/>}
-                  {etichetta}
-                  <span className="font-mono" style={{fontSize:11,opacity:0.75}}>{quanti}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
 
         {/* Search — sticky sotto l'AppHeader (sticky top:0, alto 65px) mentre si
             scorre l'elenco, con sfondo pieno per non far intravedere il
@@ -383,26 +307,11 @@ export default function MieiViaggi() {
             </div>
         </div>
 
-        {/* La riga che spiega cosa sono, UNA volta, dentro la loro scheda.
-            Prima era una sezione dentro l'elenco dei viaggi: Stefano non era
-            convinto («non credo vadano trattati come veri e propri viaggi»), e
-            aveva ragione — la sezione li separava a metà, la scheda li separa
-            del tutto. Le card poi le disegna il ramo comune qui sotto. */}
-        {scheda === "gite" && tutteGite.length > 0 && (
-          <p style={{fontSize:11.5,color:"rgba(255,255,255,0.45)",margin:"0 0 14px",lineHeight:1.5}}>
-            {t("Parti e torni lo stesso giorno. Contate a parte: fuori da statistiche, record e recap, ma sul globo ci sono.")}
-          </p>
-        )}
-
         {/* Trips */}
-        {inVista.length === 0 ? (
+        {filtered.length === 0 ? (
           search || yearFilter ? (
             // Filtro/ricerca attivi: nessun risultato per i criteri correnti.
             <p className="text-sm text-muted-foreground text-center py-16">{t("Nessun risultato.")}</p>
-          ) : scheda === "gite" ? (
-            // Scheda delle gite, archivio senza gite: una riga, non l'invito
-            // ricco dei viaggi. Una gita non è una cosa da spingere a fare.
-            <p className="text-sm text-muted-foreground text-center py-16">{t("Nessuna gita in giornata, per ora.")}</p>
           ) : (
             // Nessun viaggio ancora: invito ricco, coerente con Home e Statistiche
             // (prima qui c'era solo una frase nuda, unico dei tre a rompere lo schema).
@@ -420,33 +329,6 @@ export default function MieiViaggi() {
                   <Plus style={{width:14, height:14}}/> {t("Aggiungi il primo viaggio")}
                 </Link>
               </div>
-            </div>
-          )
-        ) : scheda === "gite" ? (
-          vista === "griglia" ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
-              {soloGite.map((g, i) => (
-                <div key={g.id} className="animate-fade-up" style={{ animationDelay: `${i * 40}ms`, display: "grid", minWidth: 0 }}>
-                  <SchedaCompatta trip={g} anno={tripYear(g)} onApri={apriDallaGriglia}/>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {soloGite.map((g, i) => (
-                <div key={g.id} id={`viaggio-${g.id}`} className="animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
-                  <div style={{
-                    transition: `opacity ${DELETE_ANIM_MS}ms ease, transform ${DELETE_ANIM_MS}ms ease, box-shadow 300ms ease`,
-                    opacity: leavingId === g.id ? 0 : 1,
-                    transform: leavingId === g.id ? "scale(0.95)" : "none",
-                    boxShadow: evidenziaId === g.id ? "0 0 0 2px #60a5fa, 0 0 24px rgba(96,165,250,0.35)" : "none",
-                    borderRadius: 16,
-                  }}>
-                    <TripCardTicket trip={g} onDeleteRequested={handleDeleteRequested}
-                      onSelectCompanion={setCompanionMap}/>
-                  </div>
-                </div>
-              ))}
             </div>
           )
         ) : (

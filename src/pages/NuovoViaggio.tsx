@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useT, useSettings, tr } from "@/lib/settings";
 import { AppHeader } from "@/components/AppHeader";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { fetchElevation, fetchTemperature, fetchRegion, fetchDrivingRoute, mergeRegions, distanceKm, GeoResult } from "@/lib/geo";
 import { usePlaceSearch } from "@/lib/usePlaceSearch";
 import { hasCoords } from "@/lib/coords";
@@ -18,32 +18,15 @@ import {
   TripFormActions, useUnsavedChangesGuard, isReturnBeforeDeparture,
 } from "@/components/TripFormParts";
 import { TripPurposeCompanions } from "@/components/TripPurposeCompanions";
-import { CalendarClock, ArrowRight, Sun } from "lucide-react";
+import { CalendarClock, ArrowRight } from "lucide-react";
 
 const NuovoViaggio = () => {
   const t = useT();
   const navigate = useNavigate();
   const s = useSettings();
-  /**
-   * `?gita=1` — la scorciatoia «Nuova gita» del menu.
-   *
-   * ⚠️ Cambia il FORM, non il modello: la gita resta un viaggio con partenza e
-   * ritorno lo stesso giorno, e `eGitaInGiornata` continua a dedurlo dalle date.
-   * Niente campo "tipo" nel dato, perché due fonti di verità possono
-   * contraddirsi (una «gita» lunga tre giorni) e la data vince sempre.
-   *
-   * Si legge una volta al mount: se un domani si potesse passare da viaggio a
-   * gita mentre si compila, questa riga andrebbe rifatta come stato.
-   */
-  const [parametri] = useSearchParams();
-  const [unGiornoSolo] = useState(() => parametri.get("gita") === "1");
-
   const [title, setTitle] = useState("");
   const [dateStart, setDateStart] = useState(() => todayLocalISO());
-  // In modo gita il ritorno NON è un campo: è la partenza. Parte già scritto
-  // così, altrimenti la prima gita salvata avrebbe durata sconosciuta invece di
-  // un giorno — e non risulterebbe una gita.
-  const [dateEnd, setDateEnd] = useState(() => (unGiornoSolo ? todayLocalISO() : ""));
+  const [dateEnd, setDateEnd] = useState("");
   // Note rimosse dal form (2026-08-20): il valore resta per il salvataggio
   // (i viaggi vecchi lo conservano); in un viaggio nuovo è sempre vuoto.
   const [notes] = useState("");
@@ -331,7 +314,6 @@ const NuovoViaggio = () => {
         {/* RIGHT — Form compatto */}
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
           <TripFormFields
-            unGiornoSolo={unGiornoSolo}
             title={title} setTitle={setTitle}
             dateStart={dateStart} setDateStart={setDateStart}
             dateEnd={dateEnd} setDateEnd={setDateEnd}
@@ -356,7 +338,7 @@ const NuovoViaggio = () => {
 
           <TripPurposeCompanions purpose={purpose} setPurpose={setPurpose} companions={companions} setCompanions={setCompanions}/>
 
-          <TripFormActions saving={saving} confirmDiscard={confirmDiscard} onSave={() => handleSave()} unGiornoSolo={unGiornoSolo}/>
+          <TripFormActions saving={saving} confirmDiscard={confirmDiscard} onSave={() => handleSave()}/>
         </div>
       </div>
 

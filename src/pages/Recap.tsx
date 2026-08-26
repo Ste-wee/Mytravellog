@@ -5,7 +5,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { loadTrips, parseLocalDate } from "@/lib/storage";
 import { transportColor, transportLabel } from "@/lib/transport";
 import { useSettings, useT, tr, formatDistanceKm, formatAltitudeM, formatTemperatureC, localeAttivo } from "@/lib/settings";
-import { computeYearRecap, availableYears, anniDiSoleGite, YearRecap } from "@/lib/recap";
+import { computeYearRecap, availableYears, YearRecap } from "@/lib/recap";
 import { canShareFile, shareOrDownload } from "@/lib/share";
 import { RecapStories } from "@/components/RecapStories";
 
@@ -226,13 +226,6 @@ const Recap = () => {
     return Number.isFinite(q) && years.includes(q) ? q : (years[0] ?? new Date().getFullYear());
   }, [params, years]);
   const recap = useMemo(() => computeYearRecap(trips, year), [trips, year]);
-  // Anni presenti nell'archivio con SOLE gite: non hanno recap, ma non sono
-  // "niente" — vanno detti invece di sostituiti in silenzio da un altro anno.
-  const annoSoleGite = useMemo(() => anniDiSoleGite(trips), [trips]);
-  const annoRichiestoSoleGite = useMemo(() => {
-    const q = parseInt(params.get("anno") || "", 10);
-    return Number.isFinite(q) && annoSoleGite.includes(q) ? q : null;
-  }, [params, annoSoleGite]);
   const fmt: Fmt = useMemo(() => ({
     dist: (km) => formatDistanceKm(km, distanceUnit),
     alt: (m) => formatAltitudeM(m, distanceUnit),
@@ -289,26 +282,7 @@ const Recap = () => {
 
         {years.length === 0 ? (
           <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, textAlign: "center", padding: "60px 0" }}>
-            {/* Distinguere "non hai viaggiato" da "hai fatto solo gite" è il
-                punto: le gite sono fuori dal recap (contate a parte, vedi
-                lib/gite.ts), e un poster vuoto senza spiegazione sembrerebbe
-                un dato perso. */}
-            {annoSoleGite.length > 0
-              ? t("Nel {anno} ci sono solo gite in giornata: sono contate a parte e non entrano nel recap. Serve un viaggio con almeno una notte fuori.",
-                  { anno: annoSoleGite.length === 1 ? annoSoleGite[0] : t("tuo archivio") })
-              : t("Ancora nessun viaggio: il recap si popola man mano che aggiungi i tuoi viaggi.")}
-          </p>
-        ) : annoRichiestoSoleGite ? (
-          /* L'anno chiesto nell'URL esiste nell'archivio ma ha solo gite: un
-             link vecchio (o un segnalibro) non deve atterrare in silenzio
-             sull'anno sbagliato — prima il fallback lo faceva. */
-          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, textAlign: "center", padding: "60px 0" }}>
-            {t("Nel {anno} hai fatto solo gite in giornata: sono contate a parte e non entrano nel recap.",
-              { anno: annoRichiestoSoleGite })}{" "}
-            <button type="button" onClick={() => setParams({})}
-              style={{ background: "none", border: "none", color: "#60a5fa", cursor: "pointer", fontSize: 14, padding: 0 }}>
-              {t("Vai al {anno}", { anno: years[0] })}
-            </button>
+            {t("Ancora nessun viaggio: il recap si popola man mano che aggiungi i tuoi viaggi.")}
           </p>
         ) : (
           <>

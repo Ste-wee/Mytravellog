@@ -6,7 +6,6 @@ import { unwrapPath } from "@/lib/lonWrap";
 import { hasCoords } from "@/lib/coords";
 import { TRANSPORT, TRANSPORT_MODES, TRANSPORT_FALLBACK_COLOR } from "@/lib/transport";
 import { caricaPaesi, paesiVisitati, centroPaese } from "@/lib/paesi";
-import { separaGite, eGitaInGiornata } from "@/lib/gite";
 import { gradiDiRotazione } from "@/lib/rotazione";
 import { Hand } from "lucide-react";
 // SOLO i tipi: `import type` sparisce alla compilazione, quindi maplibre-gl
@@ -335,18 +334,6 @@ export function WorldMap({
       .filter(t => hasCoords(t.latitude, t.longitude))
       .sort((a,b) => a.trip_date.localeCompare(b.trip_date)), [trips]);
 
-  /**
-   * I soli viaggi (gite in giornata escluse), per la MODALITÀ PAESI.
-   *
-   * Le gite restano disegnate come puntine e rotte — più leggere, vedi
-   * `gita` nelle feature — perché ci sei stato davvero. Ma i paesi colorati
-   * devono dire lo stesso numero della riga dei conteggi qui sopra, che le
-   * esclude (scelta di Stefano, 2026-08-24): un paese acceso sul globo e non
-   * contato nella riga sarebbe la stessa incoerenza che abbiamo appena chiuso,
-   * spostata di dieci pixel.
-   */
-  const soloViaggi = useMemo(() => separaGite(ordered).viaggi, [ordered]);
-
 
   // ── Init MapLibre ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -618,14 +605,10 @@ export function WorldMap({
         type: "geojson",
         data: { type:"Feature", properties: {}, geometry:{ type:"LineString", coordinates: coords } },
       });
-      // Anche la rotta di una gita è più leggera (una gita PUÒ avere tappe:
-      // Milano → Como → Bellagio → Como in un giorno). Qui basta un valore
-      // fisso, non un'espressione: una source per viaggio.
-      const eGita = eGitaInGiornata(t);
       map.addLayer({
         id: lineId, type: "line", source: lineId,
-        paint: { "line-color": lineColor, "line-width": eGita ? 1.2 : 1.8,
-          "line-opacity": eGita ? 0.3 : 0.55, "line-dasharray": [4, 3] },
+        paint: { "line-color": lineColor, "line-width": 1.8,
+          "line-opacity": 0.55, "line-dasharray": [4, 3] },
       });
     });
 
@@ -648,7 +631,7 @@ export function WorldMap({
       .filter((t: Trip) => !t.waypoints?.length)
       .map((t: Trip) => ({
         type: "Feature" as const,
-        properties: { id: t.id, transport: t.transport_mode ?? "plane", gita: eGitaInGiornata(t) ? 1 : 0 },
+        properties: { id: t.id, transport: t.transport_mode ?? "plane" },
         geometry: { type: "Point" as const, coordinates: [t.longitude, t.latitude] }
       }));
 
@@ -657,7 +640,7 @@ export function WorldMap({
       .filter((t: Trip) => (t.waypoints?.length ?? 0) > 0)
       .map((t: Trip) => ({
         type: "Feature" as const,
-        properties: { id: t.id, transport: t.transport_mode ?? "plane", gita: eGitaInGiornata(t) ? 1 : 0 },
+        properties: { id: t.id, transport: t.transport_mode ?? "plane" },
         geometry: { type: "Point" as const, coordinates: [t.longitude, t.latitude] }
       }));
 
@@ -677,13 +660,8 @@ export function WorldMap({
           "circle-color": color,
           "circle-stroke-width": 1.5,
           "circle-stroke-color": "#ffffff",
-          // Le gite in giornata restano sul globo — ci sei stato — ma più
-          // leggere: sono contate a parte (vedi lib/gite.ts), e il globo lo
-          // dice con l'occhio invece di una legenda. Data-driven sulla
-          // property `gita`: nessun layer in più da creare, nascondere e
-          // tenere in sincrono con la modalità paesi.
-          "circle-opacity": ["case", ["==", ["get", "gita"], 1], 0.45, 1] as unknown as number,
-          "circle-stroke-opacity": ["case", ["==", ["get", "gita"], 1], 0.4, 0.9] as unknown as number,
+          "circle-opacity": 1,
+          "circle-stroke-opacity": 0.9,
         }
       });
       // NB: qui c'era anche un layer "symbol" con l'emoji del mezzo dentro il
@@ -799,14 +777,14 @@ export function WorldMap({
     const prev = appliedSelRef.current;
     if (prev === selId) return;
 
-    // Deselezionando si torna al paint di PARTENZA, che per una gita è più
-    // leggero (vedi dove nasce il layer): senza questo `gita`, la prima
-    // deselezione promuoveva la gita al tratto pieno dei viaggi e il globo
-    // smetteva di distinguerle. Selezionata invece si vede come le altre —
-    // l'hai scelta tu, in quel momento è la protagonista.
-    const routePaint = (id: string, sel: boolean, gita = false) => {
-      map.setPaintProperty(id, "line-width", sel ? 2.5 : (gita ? 1.2 : 1.8));
-      map.setPaintProperty(id, "line-opacity", sel ? 0.9 : (gita ? 0.3 : 0.55));
+    // Deselezionando si torna al paint di PARTENZA: un solo peso per tutte
+    // le rotte, deciso qui in un posto solo, così la deselezione non può
+    // inventarsi un tratto diverso da quello con cui il layer è nato.
+    // (Per due giorni le gite in giornata avevano un tratto più leggero: era
+    // qui che la prima deselezione le promuoveva al peso dei viaggi.)
+    const routePaint = (id: string, sel: boolean) => {
+      map.setPaintProperty(id, "line-width", sel ? 2.5 : 1.8);
+      map.setPaintProperty(id, "line-opacity", sel ? 0.9 : 0.55);
     };
 
     // Spegni la selezione precedente
@@ -814,7 +792,7 @@ export function WorldMap({
       const prevTrip = orderedRef.current.find((t: Trip) => t.id === prev);
       const prevId = "route-" + prev;
       if (prevTrip?.waypoints?.length) {
-        if (map.getLayer(prevId)) routePaint(prevId, false, eGitaInGiornata(prevTrip));
+        if (map.getLayer(prevId)) routePaint(prevId, false);
       } else {
         // Viaggio secco (o eliminato): la sua rotta rosa esiste solo da selezionato
         if (map.getLayer(prevId)) map.removeLayer(prevId);
@@ -1029,7 +1007,7 @@ export function WorldMap({
       // `ordered` del render, non orderedRef: il ref lo riempie l'effetto dei
       // viaggi, che passa da un import asincrono — entrando in modalità paesi
       // troppo presto sarebbe ancora vuoto e non si colorerebbe niente.
-      const visitati = [...paesiVisitati(soloViaggi, paesi).values()];
+      const visitati = [...paesiVisitati(ordered, paesi).values()];
       if (!visitati.length) { rinuncia(); return; }
 
       const poligoni: GeoJSON.Feature[] = [];
