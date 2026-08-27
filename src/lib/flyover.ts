@@ -280,7 +280,12 @@ export function tracciaFittaSalvata(
 export function buildPerTripRouteCoords(trips: Trip[]): [number, number][][] {
   const out: [number, number][][] = [];
   for (const t of trips) {
-    const stops = buildFlightPath([t]).filter(s => !s.casa);
+    // ⚠️ La casa si toglie DAL VIAGGIO, non filtrando le tappe dopo:
+    // buildFlightPath unisce tappe consecutive con le stesse coordinate, e una
+    // prima tappa censita proprio a casa verrebbe inghiottita dalla
+    // tappa-casa — filtrata via con lei, portandosi dietro la prima tratta
+    // (trovato in revisione con una prova secca, non a occhio).
+    const stops = buildFlightPath([{ ...t, home_latitude: null, home_longitude: null }]);
     const legs = buildFlightLegs(stops);
     if (legs.length === 0) continue;
     const coords: [number, number][] = [[stops[0].lon, stops[0].lat]];

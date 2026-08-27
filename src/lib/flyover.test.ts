@@ -466,6 +466,20 @@ describe("buildPerTripRouteCoords — la tratta da casa NON si disegna", () => {
     expect(buildPerTripRouteCoords([conCasa()])).toHaveLength(0);
   });
 
+  // ⚠️ Trovato in revisione: la prima versione FILTRAVA le tappe-casa dopo
+  // buildFlightPath, ma il dedup delle coordinate uguali aveva già inghiottito
+  // una prima tappa censita proprio a casa — e il filtro le buttava via
+  // insieme, con la prima tratta. La casa va tolta DAL VIAGGIO, prima.
+  it("una prima tappa censita alle coordinate di casa NON sparisce", () => {
+    const [seg] = buildPerTripRouteCoords([conCasa({
+      waypoints: [
+        { id: "w0", city: "Milano", country: "Italia", transport_mode: "car", lat: 45.46, lon: 9.19 },
+        { id: "w1", city: "Lucerna", country: "Svizzera", transport_mode: "car", lat: 47.05, lon: 8.31 },
+      ],
+    })]);
+    expect(seg[0]).toEqual([9.19, 45.46]);   // la tappa Milano c'è: è una TAPPA, non la casa
+  });
+
   it("la casa nel path è contrassegnata, così la costellazione può spegnerne la stella", () => {
     const stops = buildFlightPath([conCasa()]);
     expect(stops.map(s => [s.label, s.casa ?? false])).toEqual([["Milano", true], ["Zurigo", false]]);

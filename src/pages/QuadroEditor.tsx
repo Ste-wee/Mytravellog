@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, ZoomIn, ZoomOut, Download, Hand, Move, RotateCcw, Undo2, Redo2, Loader2 } from "lucide-react";
 import { loadTrips } from "@/lib/storage";
 import { downloadBlob } from "@/lib/share";
-import { buildFlightPath } from "@/lib/flyover";
+import { buildFlightPath, buildPerTripRouteCoords } from "@/lib/flyover";
 import {
   EditorPanel, projectStopInPanel, panelGeoBounds, pickPanelIndex, panelBorderPath,
   buildEditorQuadroSvg, loadCountryRings, mercY, latFromMercY,
@@ -157,15 +157,19 @@ export default function QuadroEditor() {
 
   const trips = useMemo(() => loadTrips(), []);
   const { links, stops } = useMemo(() => {
-    const links = trips
-      .map(t => buildFlightPath([t]).map(s => [s.lon, s.lat] as [number, number]))
-      .filter(seg => seg.length > 0);
-    // Città DEDUPLICATE per coordinata: buildFlightPath ripete la casa per ogni
-    // viaggio → senza dedup l'hub avrebbe N aloni sovrapposti (glow sparato) e
-    // N punti-LED coincidenti nel master di stampa.
+    // Stesse rotte della Mappa della vita (il quadro È quella mappa da
+    // stampare): solo le tappe, niente raggi da casa. Prima costruiva i
+    // segmenti per conto suo con buildFlightPath e la casa dentro — la mappa
+    // a schermo e il quadro divergevano al primo cambio di disegno.
+    const links = buildPerTripRouteCoords(trips);
+    // Città DEDUPLICATE per coordinata: due viaggi che toccano la stessa tappa
+    // farebbero aloni sovrapposti (glow sparato) e punti-LED coincidenti nel
+    // master di stampa. La casa si salta come sulla mappa (`casa`): senza
+    // tratte sarebbe una stella accesa e scollegata su Milano.
     const seen = new Set<string>();
     const stops: { lon: number; lat: number }[] = [];
     for (const s of buildFlightPath(trips)) {
+      if (s.casa) continue;
       const k = `${s.lon.toFixed(5)},${s.lat.toFixed(5)}`;
       if (!seen.has(k)) { seen.add(k); stops.push({ lon: s.lon, lat: s.lat }); }
     }
