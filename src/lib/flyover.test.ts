@@ -391,47 +391,56 @@ describe("tripTotalKm", () => {
 });
 
 describe("buildPerTripRouteCoords", () => {
+  const lione = { id: "wp-l", city: "Lione", country: "Francia", transport_mode: "train" as const, lat: 45.76, lon: 4.83 };
+
   it("restituisce una polilinea separata per ogni viaggio (nessun collegamento tra viaggi)", () => {
-    const t1 = makeTrip({ home_latitude: 45.5, home_longitude: 9.2, latitude: 48.86, longitude: 2.35 }); // Milano→Parigi
-    const t2 = makeTrip({ home_latitude: 45.5, home_longitude: 9.2, latitude: 41.39, longitude: 2.17 }); // Milano→Barcellona
+    const t1 = makeTrip({ home_latitude: 45.5, home_longitude: 9.2, waypoints: [lione], latitude: 48.86, longitude: 2.35 }); // →Lione→Parigi
+    const t2 = makeTrip({ home_latitude: 45.5, home_longitude: 9.2,
+      waypoints: [{ ...lione, id: "wp-g", city: "Girona", lat: 41.98, lon: 2.82 }], latitude: 41.39, longitude: 2.17 });    // →Girona→Barcellona
     const segs = buildPerTripRouteCoords([t1, t2]);
     expect(segs).toHaveLength(2);
-    // ogni segmento va da casa alla destinazione, senza tratta di ritorno
-    expect(segs[0][0]).toEqual([9.2, 45.5]);
+    // ogni segmento va dalla PRIMA TAPPA alla destinazione: niente casa, niente ritorno
+    expect(segs[0][0]).toEqual([4.83, 45.76]);
     expect(segs[0][segs[0].length - 1]).toEqual([2.35, 48.86]);
-    expect(segs[1][0]).toEqual([9.2, 45.5]);
+    expect(segs[1][0]).toEqual([2.82, 41.98]);
     expect(segs[1][segs[1].length - 1]).toEqual([2.17, 41.39]);
   });
 
   it("segue il tracciato stradale reale quando presente", () => {
     const road = makeTrip({
+      home_latitude: 45.5, home_longitude: 9.2,
+      waypoints: [{ id: "wp-t", city: "Trento", country: "Italia", transport_mode: "car", lat: 46, lon: 11 }],
       transport_mode: "car",
-      route_geometry: [[9.2, 45.5], [11, 46], [2.35, 48.86]],
+      // il tracciato della tratta Trento→Parigi (il disegno di ARRIVO alla destinazione)
+      route_geometry: [[11, 46], [7.5, 47.2], [2.35, 48.86]],
       latitude: 48.86, longitude: 2.35,
     });
     const [seg] = buildPerTripRouteCoords([road]);
-    expect(seg).toEqual([[9.2, 45.5], [11, 46], [2.35, 48.86]]);
+    expect(seg).toEqual([[11, 46], [7.5, 47.2], [2.35, 48.86]]);
   });
 
   it("esclude i viaggi senza punti sufficienti", () => {
-    const noHome = makeTrip({ home_latitude: null, home_longitude: null });
-    const ok = makeTrip({ home_latitude: 45.5, home_longitude: 9.2, latitude: 48.86, longitude: 2.35 });
-    expect(buildPerTripRouteCoords([noHome, ok])).toHaveLength(1);
+    // Senza la tratta da casa servono almeno DUE luoghi visitati: una meta
+    // sola non fa una linea (resta la sua stella, disegnata altrove).
+    const metaSola = makeTrip({ home_latitude: 45.5, home_longitude: 9.2, latitude: 48.86, longitude: 2.35 });
+    const ok = makeTrip({ home_latitude: 45.5, home_longitude: 9.2, waypoints: [lione], latitude: 48.86, longitude: 2.35 });
+    expect(buildPerTripRouteCoords([metaSola, ok])).toHaveLength(1);
   });
 });
 
 
 /**
- * ⚠️ LA TRATTA DA CASA RESTA, e questo test è la sentinella di una scelta
- * PROVATA (2026-08-26). Stefano l'aveva chiesta via — «colleghiamo solo i
- * viaggi senza partire da Milano» — e la diagnosi era giusta: N viaggi = N
- * raggi dallo stesso punto. Ma rendendola sull'app vera si è visto il prezzo:
- * un viaggio con UNA meta sola, senza la tratta da casa, non è più una linea —
- * è un punto, e sparisce dai segmenti. Il caos era in gran parte il bagliore,
- * risolto assottigliando il tratto. Se un domani si riapre, si riapre
- * GUARDANDO, non a parole.
+ * ⚠️ LA TRATTA DA CASA NON SI DISEGNA — sentinella della scelta di Stefano,
+ * fatta col banco di prova e ribadita aprendo l'app (2026-08-27: «mica avevamo
+ * detto che si collegavano solo le tappe?»). La versione precedente di questo
+ * blocco diceva l'esatto CONTRARIO («la tratta da casa resta») ed era un mio
+ * fraintendimento del suo «tieni solo il tratto sottile»: aveva scelto la
+ * configurazione che stava guardando — sottile E senza raggi da Milano.
+ * Il prezzo è noto e accettato: un viaggio con una meta sola non ha linea,
+ * resta la sua stella. Vale SOLO per la Mappa della vita: il flyover per anno
+ * e il biglietto partono ancora da casa (lì il racconto è il percorso).
  */
-describe("buildPerTripRouteCoords — la tratta da casa", () => {
+describe("buildPerTripRouteCoords — la tratta da casa NON si disegna", () => {
   const conCasa = (over: Partial<Trip> = {}): Trip => ({
     id: "t", created_at: "2024-01-01T00:00:00.000Z", title: "Zurigo", city: "Zurigo",
     country: "Svizzera", country_code: "CH", trip_date: "2026-06-01", date_end: "2026-06-05",
@@ -445,14 +454,20 @@ describe("buildPerTripRouteCoords — la tratta da casa", () => {
     ...over,
   } as Trip);
 
-  it("la polilinea parte da CASA", () => {
-    const [seg] = buildPerTripRouteCoords([conCasa()]);
-    expect(seg[0]).toEqual([9.19, 45.46]);
+  it("la polilinea parte dalla PRIMA TAPPA, non da casa", () => {
+    const [seg] = buildPerTripRouteCoords([conCasa({
+      waypoints: [{ id: "wp-1", city: "Lucerna", country: "Svizzera", transport_mode: "car", lat: 47.05, lon: 8.31 }],
+    })]);
+    expect(seg[0]).toEqual([8.31, 47.05]);
+    expect(seg).not.toContainEqual([9.19, 45.46]);   // Milano non compare da nessuna parte
   });
 
-  it("un viaggio con una meta sola resta una LINEA, non un punto", () => {
-    // È il motivo per cui la tratta da casa non si tocca: senza, questo viaggio
-    // sparirebbe dai segmenti.
-    expect(buildPerTripRouteCoords([conCasa()])).toHaveLength(1);
+  it("un viaggio con una meta sola non ha nessuna linea (resta la sua stella)", () => {
+    expect(buildPerTripRouteCoords([conCasa()])).toHaveLength(0);
+  });
+
+  it("la casa nel path è contrassegnata, così la costellazione può spegnerne la stella", () => {
+    const stops = buildFlightPath([conCasa()]);
+    expect(stops.map(s => [s.label, s.casa ?? false])).toEqual([["Milano", true], ["Zurigo", false]]);
   });
 });

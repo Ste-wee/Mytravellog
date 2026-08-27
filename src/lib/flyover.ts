@@ -20,6 +20,10 @@ export interface FlightStop {
    *  instradamento (vedi `Trip.route_km`). Null quando non la conosciamo: si
    *  ricade sulla somma dei segmenti del disegno. */
   routeKm: number | null;
+  /** True se questa tappa è la CASA di partenza, non un posto visitato. La
+   *  Mappa della vita la esclude (né stella né tratta): senza il contrassegno
+   *  dovrebbe indovinarla dalle coordinate, e la casa può cambiare nel tempo. */
+  casa?: boolean;
 }
 
 export interface LegCamera {
@@ -72,15 +76,16 @@ export function buildFlightPath(trips: Trip[]): FlightStop[] {
     lat: number, lon: number, label: string, tripId: string,
     transportMode: TransportMode | null, routeGeometry: [number, number][] | null,
     routeKm: number | null = null,
+    casa = false,
   ) => {
     const last = stops[stops.length - 1];
     if (last && sameCoords(last, lat, lon)) return;
-    stops.push({ lat, lon, label, tripId, transportMode, routeGeometry, routeKm });
+    stops.push({ lat, lon, label, tripId, transportMode, routeGeometry, routeKm, casa });
   };
 
   for (const t of sorted) {
     if (t.home_latitude != null && t.home_longitude != null) {
-      push(t.home_latitude, t.home_longitude, t.home_label ?? "Casa", t.id, null, null);
+      push(t.home_latitude, t.home_longitude, t.home_label ?? "Casa", t.id, null, null, null, true);
     }
     for (const w of t.waypoints ?? []) {
       if (w.lat != null && w.lon != null) {
@@ -258,20 +263,24 @@ export function tracciaFittaSalvata(
  * I viaggi senza punti sufficienti (< 2 tappe) vengono esclusi.
  */
 /**
- * ⚠️ **La tratta da casa RESTA, ed è una scelta provata.** Stefano: «così è
- * molto caotica, colleghiamo solo i viaggi senza partire da Milano» — la
- * diagnosi era giusta (N viaggi = N raggi dallo stesso punto), ma togliendola
- * un viaggio con UNA meta sola non è più una linea: è **un punto**, e sparisce.
- * Restavano tratti solo dove ci sono tappe intermedie, e la mappa passava da
- * «come ci sono andato» a «dove sono stato». Reso sull'app vera e scartato: il
- * caos era in gran parte il BAGLIORE, risolto assottigliando il tratto
- * (TripFlyover, costellazione). Se si riapre, si riapre guardando — non a
- * parole.
+ * ⚠️ **La tratta da casa NON si disegna** (2026-08-27, il contrario di quanto
+ * scritto qui fino a ieri). Stefano l'aveva chiesto subito («colleghiamo solo
+ * i viaggi senza partire da Milano»), l'aveva provato col banco di prova e
+ * scelto — e io avevo letto male il suo «tieni solo il tratto sottile»,
+ * ricablando i raggi da Milano. Aprendo l'app se n'è accorto: «mica avevamo
+ * detto che si collegavano solo le tappe?». Questa mappa dice **dove sono
+ * stato**, non da dove parto.
+ *
+ * Il prezzo, detto e accettato: un viaggio con UNA meta sola non ha nessuna
+ * linea — resta la sua stella (la casa invece non ha nemmeno quella: vedi
+ * `casa` in FlightStop e il filtro in TripFlyover). Gli altri poster (flyover
+ * per anno, biglietto) continuano a partire da casa: lì il racconto è il
+ * percorso.
  */
 export function buildPerTripRouteCoords(trips: Trip[]): [number, number][][] {
   const out: [number, number][][] = [];
   for (const t of trips) {
-    const stops = buildFlightPath([t]);
+    const stops = buildFlightPath([t]).filter(s => !s.casa);
     const legs = buildFlightLegs(stops);
     if (legs.length === 0) continue;
     const coords: [number, number][] = [[stops[0].lon, stops[0].lat]];

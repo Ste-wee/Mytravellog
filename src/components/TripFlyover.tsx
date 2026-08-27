@@ -829,7 +829,12 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     const stops = buildFlightPath(viaggi);
     const legsLocal = buildFlightLegs(stops);
     legsRef.current = legsLocal;
-    stopsRef.current = stops.map(s => ({ lat: s.lat, lon: s.lon, label: s.label }));
+    // Mappa della vita: la CASA non è una stella. Ogni viaggio la spingeva nel
+    // path una volta, e la costellazione aveva un faro di N stelle sovrapposte
+    // su Milano — più luminoso di qualunque posto visitato. Senza le tratte da
+    // casa (buildPerTripRouteCoords) sarebbe rimasto lì, acceso e scollegato.
+    stopsRef.current = stops.filter(s => !(lifeMap && s.casa))
+      .map(s => ({ lat: s.lat, lon: s.lon, label: s.label }));
     // Km percorsi: stessa fonte UNICA di Home/Statistiche/card (tripTotalKm =
     // stradali reali dove c'è route_geometry, linea d'aria altrimenti).
     totalKmRef.current = viaggi.reduce((sum, t) => sum + tripTotalKm(t), 0);
@@ -841,9 +846,19 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     // vita due viaggi ai lati opposti dell'antimeridiano restano nella stessa
     // finestra di 360° (prima: fitBounds inquadrava il mondo intero). Le
     // longitudini possono uscire da ±180 — MapLibre le avvolge da sé.
-    const segs = unwrapSegments(lifeMap ? buildPerTripRouteCoords(viaggi) : [buildFlyoverRouteCoords(stops, legsLocal)]);
+    const perTrip = lifeMap ? buildPerTripRouteCoords(viaggi) : [buildFlyoverRouteCoords(stops, legsLocal)];
+    // ⚠️ L'inquadratura non può guardare solo le linee: senza le tratte da
+    // casa un viaggio a meta singola è SOLO una stella, e fitBounds l'avrebbe
+    // tagliata fuori. Le stelle entrano come punti-segmento nella STESSA
+    // catena di srotolamento delle linee: srotolarle a parte le metterebbe in
+    // un'altra finestra di 360° e riaprirebbe il bug dell'antimeridiano.
+    const stelle: [number, number][][] = lifeMap
+      ? stopsRef.current.map(s => [[s.lon, s.lat] as [number, number]])
+      : [];
+    const unwrapped = unwrapSegments([...perTrip, ...stelle]);
+    const segs = unwrapped.slice(0, perTrip.length);
     routeSegsRef.current = segs;
-    allCoordsRef.current = segs.flat();
+    allCoordsRef.current = unwrapped.flat();
 
     if (legsLocal.length === 0) {
       setPhase("empty");
