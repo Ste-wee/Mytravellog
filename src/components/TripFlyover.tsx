@@ -83,23 +83,33 @@ export function buildConstellationStyle(): StyleSpecification {
 /** Nodo "stella": nucleo bianco pieno + alone morbido (radial gradient). Usato
  *  come icon-image delle tappe nella vista Costellazione — i punti-LED naturali. */
 /**
- * La stella della costellazione.
+ * La stella della costellazione, in tre forme:
  *
- * L'alone LARGO di prima (raggio s/2, visibile fino a 24px) è stato tolto il
- * 2026-08-27: sulle tappe vicine gli aloni si fondevano in macchie — vedi lo
- * screenshot di Stefano con l'arco alpino impastato. ⚠️ BANCO DI PROVA in
- * corso: due varianti scelte da Stefano fra cinque rese («mi metti sia la b
- * che la d?») — `secca=false` alone stretto e tenue, `secca=true` solo il
- * nucleo. L'interruttore sta sulla mappa; quando sceglie, si cabla e si
- * smonta come per il tratto sottile.
+ * - «larga»: l'alone originale (raggio s/2) — è la stella del POSTER per
+ *   anno/viaggio singolo, dove le stelle sono poche e il bagliore è il look
+ *   scelto per il master resina+LED. ⚠️ Non farsi tentare dall'unificare: la
+ *   prima versione del banco qui sotto cambiava anche questa, e l'interruttore
+ *   della Mappa della vita modificava un poster dove non è nemmeno visibile.
+ * - «soffusa» / «secca»: il BANCO DI PROVA della Mappa della vita (2026-08-27,
+ *   da smontare quando Stefano sceglie): lì le tappe si ammassano e l'alone
+ *   largo le impastava (il suo screenshot dell'arco alpino). Soffusa = alone
+ *   stretto e tenue; secca = solo il nucleo.
  */
-function createStarImageData(secca: boolean): ImageData {
+function createStarImageData(forma: "larga" | "soffusa" | "secca"): ImageData {
   const s = 48;
   const c = document.createElement("canvas");
   c.width = s; c.height = s;
   const ctx = c.getContext("2d")!;
   const cx = s / 2, cy = s / 2;
-  if (!secca) {
+  if (forma === "larga") {
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, s / 2);
+    g.addColorStop(0, "rgba(255,255,255,1)");
+    g.addColorStop(0.16, "rgba(255,255,255,0.95)");
+    g.addColorStop(0.4, "rgba(255,255,255,0.28)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, s, s);
+  } else if (forma === "soffusa") {
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, s * 0.28);
     g.addColorStop(0, "rgba(255,255,255,1)");
     g.addColorStop(0.3, "rgba(255,255,255,0.5)");
@@ -451,7 +461,11 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       });
     }
     if (!map.hasImage("flyover-pin")) map.addImage("flyover-pin", createPinImageData(), { pixelRatio: 2 });
-    if (constellation && !map.hasImage("flyover-star")) map.addImage("flyover-star", createStarImageData(stellaSecca), { pixelRatio: 2 });
+    if (constellation && !map.hasImage("flyover-star")) {
+      map.addImage("flyover-star",
+        createStarImageData(lifeMap ? (stellaSecca ? "secca" : "soffusa") : "larga"),
+        { pixelRatio: 2 });
+    }
     // Pin della tappa finale col medaglione del mezzo (solo viste con puntine).
     const hasFinalPin = !constellation && !!finalPinDataRef.current;
     if (hasFinalPin && !map.hasImage("flyover-pin-final")) {
