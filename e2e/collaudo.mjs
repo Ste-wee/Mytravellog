@@ -122,7 +122,6 @@ await visita("importa-gpx", "#/importa-gpx", ["Importa da GPX"]);
 await visita("impostazioni", "#/impostazioni", ["Unità di misura", "Account"]);
 // Il recap disegna tutto su canvas: dal DOM si vedono solo i suoi pulsanti.
 await visita("recap", "#/recap", ["Condividi il recap", "Riproduci"]);
-await visita("editor-quadro", "#/editor-quadro", ["Disponi", "Inquadra"]);
 
 // ── Interazioni chiave ──────────────────────────────────────────────────────
 // `msMax`: quasi tutti i pannelli aprono in un attimo, ma la Mappa della vita

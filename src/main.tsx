@@ -33,7 +33,6 @@ const NuovoViaggio = lazy(() => import("./pages/NuovoViaggio"));
 const ModificaViaggio = lazy(() => import("./pages/ModificaViaggio"));
 const SettingsPage = lazy(() => import("./pages/Settings"));
 const MieiViaggi = lazy(() => import("./pages/MieiViaggi"));
-const QuadroEditor = lazy(() => import("./pages/QuadroEditor"));
 const ImportaGpx = lazy(() => import("./pages/ImportaGpx"));
 const Recap = lazy(() => import("./pages/Recap"));
 const InProgramma = lazy(() => import("./pages/InProgramma"));
@@ -101,7 +100,6 @@ ReactDOM.createRoot(rootEl).render(
               <Route path="/nuovo-viaggio" element={<NuovoViaggio />} />
               <Route path="/modifica-viaggio/:id" element={<ModificaViaggioRoute />} />
               <Route path="/miei-viaggi" element={<MieiViaggi />} />
-              <Route path="/editor-quadro" element={<QuadroEditor />} />
               <Route path="/importa-gpx" element={<ImportaGpx />} />
               <Route path="/recap" element={<Recap />} />
               <Route path="/in-programma" element={<InProgramma />} />

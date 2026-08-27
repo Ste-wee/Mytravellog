@@ -87,8 +87,8 @@ registerRoute(
 );
 
 // Confini world-atlas (topojson da jsdelivr, usati da ContinentsMap e
-// dall'editor quadro): due file statici versionati — cache-first, così mappa
-// dei continenti e quadro funzionano anche offline dopo il primo uso.
+// dall'export SVG della Mappa della vita): file statici versionati —
+// cache-first, così funzionano anche offline dopo il primo uso.
 registerRoute(
   ({ url }) => url.hostname === "cdn.jsdelivr.net" && url.pathname.includes("world-atlas"),
   new CacheFirst({

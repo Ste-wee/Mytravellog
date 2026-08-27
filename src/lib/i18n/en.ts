@@ -167,7 +167,7 @@ export const en = {
   "Backup nel cloud": "Cloud backup",
   "Accedi con Google per salvare i viaggi nel cloud, in automatico, e ritrovarli su ogni dispositivo (facoltativo: l'app funziona anche come ospite)":
     "Sign in with Google to save your trips to the cloud automatically and find them on every device (optional: the app works as a guest too)",
-  // ── Biglietto, diario, mappe, form, GPX, recap, quadro ────────────────────
+  // ── Biglietto, diario, mappe, form, GPX, recap ────────────────────
   "Azioni viaggio": "Trip actions",
   "Apri il diario del viaggio": "Open the trip diary",
   "Apri il diario ({quanti} giorno scritto)": "Open the diary ({quanti} day written)",
@@ -186,8 +186,6 @@ export const en = {
   "Scegli un file GPX": "Choose a GPX file",
   "Condividi il recap": "Share the recap",
   "Riproduci come stories": "Play as stories",
-  "Torna a I miei viaggi": "Back to My travels",
-  "Aggiungi una tela": "Add a canvas",
 
   "{quanti} paese": "{quanti} country",
   "{quanti} paesi": "{quanti} countries",
@@ -309,12 +307,7 @@ export const en = {
   "Valutazione": "Rating",
   "Motivo": "Reason",
   "Annulla": "Cancel",
-  "Annulla (Ctrl/⌘+Z)": "Undo (Ctrl/⌘+Z)",
-  "Zoom avanti": "Zoom in",
-  "Zoom indietro": "Zoom out",
 
-  "L'ultima tela non si può eliminare": "The last canvas cannot be deleted",
-  "Elimina la tela selezionata": "Delete the selected canvas",
 
   // ── La coda: schermate secondarie che il collaudo dal vivo non visita ─────
   // Trovate da `npm run lingua:statico`, che legge i sorgenti invece di
@@ -360,9 +353,6 @@ export const en = {
   "Pagina non trovata": "Page not found",
   "Data futura: è un viaggio in programma?": "Future date: is this a planned trip?",
   "Esiste già un viaggio simile": "A similar trip already exists",
-  "Ripristina il layout iniziale": "Reset the initial layout",
-  "Qui ritagli la mappa dei tuoi viaggi in un quadro a più tele — ma non c'è ancora nessun viaggio da disegnare.":
-    "Here you crop the map of your trips into a multi-canvas picture — but there is no trip to draw yet.",
 
   "Non l'hai mai indicata, così": "You have never set it, so",
   "non compare sul globo né sui poster: senza un punto di partenza non si può disegnare la linea.":
@@ -375,7 +365,6 @@ export const en = {
   "Riprova": "Retry",
   "Mezzo": "Transport",
   "Itinerario": "Itinerary",
-  "Tela": "Canvas",
 
   // Trovate dal controllo STRUTTURALE (che non indovina): entrambe le reti
   // euristiche le dichiaravano inesistenti. "Mappa del mondo" e' sfuggita perche'
@@ -409,10 +398,6 @@ export const en = {
   "Data inizio": "Start date",
   "Data fine": "End date",
   "Titolo (opzionale)": "Title (optional)",
-  "Editor quadro": "Picture editor",
-  "Ripeti (Ctrl/⌘+Shift+Z)": "Redo (Ctrl/⌘+Shift+Z)",
-  "Formato": "Format",
-  "Colore": "Colour",
 
 
 
@@ -449,7 +434,6 @@ export const en = {
   "Caricamento della mappa…": "Loading the map…",
   "Impossibile caricare la mappa.": "The map could not be loaded.",
   "Questo viaggio non ha punti sufficienti per la mappa 3D (manca la posizione di casa o della destinazione).": "This trip doesn't have enough points for the 3D map (the home or destination position is missing).",
-  "Ritaglia quadro": "Crop picture",
   "Periodo": "Dates",
   "Recupero regione, meteo e altitudine delle tappe…": "Fetching region, weather and altitude for the stops…",
   "Segna come fatto": "Mark as done",
@@ -468,8 +452,6 @@ export const en = {
   "Programmalo": "Plan it",
   "Salva lo stesso": "Save anyway",
   "Apri quello": "Open that one",
-  "Esporta": "Export",
-  "Carico la mappa del mondo…": "Loading the world map…",
 
 
   // ── Le scritte INTERROTTE da un'espressione ───────────────────────────────
@@ -487,7 +469,6 @@ export const en = {
   "Esiste già un viaggio a {citta}": "There's already a trip to {citta}",
   "Vuoi aprirlo invece di crearne un altro?": "Do you want to open it instead of creating another one?",
   "fatte": "done",
-  "PNG {w}×{h}px, pronto per la stampa. SVG vettoriale per Illustrator.": "PNG {w}×{h}px, ready to print. Vector SVG for Illustrator.",
   "posizione agganciata ({lat}, {lon})": "position locked ({lat}, {lon})",
   "destinazione": "destination",
 
@@ -594,21 +575,6 @@ export const en = {
   "Il GPX non contiene un percorso (servono almeno 2 punti).": "The GPX has no route in it (at least 2 points are needed).",
   "Creo…": "Creating…",
   "Crea viaggio": "Create trip",
-  "A3 verticale": "A3 portrait",
-  "A2 verticale": "A2 portrait",
-  "Quadrato": "Square",
-  "Orizzontale": "Landscape",
-  "Notte": "Night",
-  "Oro": "Gold",
-  "Blu": "Blue",
-  "Carta": "Paper",
-  "Modalità: Inquadra (trascina = pan del contenuto)": "Mode: Frame (drag = pan the content)",
-  "Modalità: Disponi (trascina = sposta la tela)": "Mode: Arrange (drag = move the canvas)",
-  "Inquadra": "Frame",
-  "Disponi": "Arrange",
-  "Creazione…": "Creating…",
-  "Trascina dentro una tela per inquadrare · rotellina, pizzico o ＋− per lo zoom · «Disponi» per spostare e ridimensionare": "Drag inside a canvas to frame it · wheel, pinch or ＋− to zoom · «Arrange» to move and resize",
-  "Trascina una tela per spostarla · angoli per ridimensionare · rotellina, pizzico o ＋− per lo zoom · «Inquadra» per il pan del contenuto": "Drag a canvas to move it · corners to resize · wheel, pinch or ＋− to zoom · «Frame» to pan the content",
   "percorsi in totale": "travelled in total",
   "COME TI SEI MOSSO": "HOW YOU GOT AROUND",
   "paese dell'anno": "country of the year",

@@ -13,9 +13,8 @@ import { compagniDeiViaggi, viaggiCon } from "@/lib/compagni";
 import { fetchMapStyle } from "@/components/WorldMap";
 import { saveReliefImage } from "@/lib/photoStorage";
 import { buildPosterSvg, loadCountryRings, routeBounds, unwrapSegments, CONFINI } from "@/lib/posterSvg";
-import { X, Share2, Loader2, Download, Frame } from "lucide-react";
+import { X, Share2, Loader2, Download } from "lucide-react";
 import { canShareFile, downloadBlob, shareOrDownload } from "@/lib/share";
-import { useNavigate } from "react-router-dom";
 import { TRANSPORT } from "@/lib/transport";
 
 // Icona + colore del mezzo dalla fonte unica (@/lib/transport): il medaglione
@@ -276,7 +275,6 @@ interface Props {
  */
 export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   const t = useT();
-  const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const mountedRef = useRef(true);
@@ -311,6 +309,34 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     setStellaSecca(v);
     try { localStorage.setItem("navta.prova.stelle.secche", v ? "1" : "0"); } catch { /* quota piena: pazienza */ }
   };
+  /**
+   * Mappa della vita: i comandi SI TOLGONO QUANDO GUARDI (idea di Stefano,
+   * 2026-08-27, per fare lo screenshot pulito della mappa). Dopo 3s senza
+   * tocchi né mouse sfumano tutti — X, interruttore, nomi, azioni — e
+   * qualunque tocco o movimento li riporta. Da nascosti non sono cliccabili:
+   * il primo tocco SVEGLIA, non preme un bottone invisibile.
+   */
+  const [comandiVisibili, setComandiVisibili] = useState(true);
+  useEffect(() => {
+    if (!lifeMap) return;
+    let timer: number | undefined;
+    const sveglia = () => {
+      setComandiVisibili(true);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setComandiVisibili(false), 3000);
+    };
+    sveglia();
+    const eventi = ["pointerdown", "pointermove", "wheel", "keydown", "touchstart"] as const;
+    eventi.forEach(e => window.addEventListener(e, sveglia, { passive: true }));
+    return () => { window.clearTimeout(timer); eventi.forEach(e => window.removeEventListener(e, sveglia)); };
+  }, [lifeMap]);
+  /** Lo stile del riposo, spalmato su ogni blocco di comandi (vuoto fuori dalla
+   *  Mappa della vita: gli altri poster tengono i comandi sempre accesi). */
+  const velo = lifeMap ? {
+    opacity: comandiVisibili ? 1 : 0,
+    pointerEvents: (comandiVisibili ? "auto" : "none") as "auto" | "none",
+    transition: "opacity 400ms ease",
+  } : {};
   const [soloCon, setSoloCon] = useState<string | null>(null);
   /**
    * Le persone con cui hai viaggiato, in ordine di quante volte.
@@ -842,7 +868,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       const stops = stopsRef.current;
       let rings: [number, number][][] = [];
       try {
-        rings = await loadCountryRings(routeBounds(route.length ? route : stops.map(s => [s.lon, s.lat] as [number, number])));
+        rings = await loadCountryRings(routeBounds(route.length ? route : stops.map(s => [s.lon, s.lat] as [number, number])), "50m");
       } catch { /* confini non disponibili: esporta comunque rotta+stelle */ }
       // Mappa della vita: SVG "nudo" (nessuna caption) → niente titolo/date/stat.
       const title = lifeMap ? "" : (tripsCount > 1 ? `${tripsCount} viaggi` : viaggi[0].title);
@@ -1040,6 +1066,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
             position: "absolute", top: 16, left: 16, width: 34, height: 34, borderRadius: 10, zIndex: 30,
             background: "rgba(10,22,40,0.8)", border: "0.5px solid #1a2d4a", cursor: "pointer",
             color: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", justifyContent: "center",
+            ...velo,
           }}>
           <X className="w-4 h-4" />
         </button>
@@ -1048,7 +1075,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
             l'interruttore fra «soffusa» (alone stretto) e «secca» (solo
             nucleo). Stesso posto e stessa forma del banco del tratto. */}
         {phase === "ready" && lifeMap && (
-          <div style={{ position: "absolute", left: 16, top: 60, zIndex: 26 }}>
+          <div style={{ position: "absolute", left: 16, top: 60, zIndex: 26, ...velo }}>
             <button type="button" aria-pressed={stellaSecca} onClick={() => cambiaStella(!stellaSecca)}
               style={{
                 display: "flex", alignItems: "center", gap: 7, fontSize: 11, cursor: "pointer",
@@ -1225,7 +1252,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
               // timeout proprio su questo). Visto solo guardando lo screenshot
               // mobile: a 900px sembrava a posto.
               <div style={{ position: "absolute", left: 16, right: 16, bottom: 66, zIndex: 26,
-                display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+                display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2, ...velo }}>
                 <button type="button" onClick={() => setSoloCon(null)} aria-pressed={soloCon === null}
                   style={{
                     flexShrink: 0, fontSize: 11, fontWeight: soloCon === null ? 700 : 500, cursor: "pointer",
@@ -1255,7 +1282,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
               </div>
             )}
 
-            <div style={{ position: "absolute", right: 16, bottom: 20, zIndex: 26, display: "flex", gap: 10 }}>
+            <div style={{ position: "absolute", right: 16, bottom: 20, zIndex: 26, display: "flex", gap: 10, ...velo }}>
               {styleMode === "constellation" && (
                 <button onClick={handleExportSvg} disabled={exportingSvg}
                   style={{
@@ -1265,19 +1292,6 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                     border: "0.5px solid rgba(255,255,255,0.35)", color: "rgba(255,255,255,0.85)",
                   }}>
                   <Download className="w-3.5 h-3.5" /> {exportingSvg ? t("Esporto…") : t("Esporta SVG")}
-                </button>
-              )}
-              {lifeMap && (
-                // Aggancio all'editor del quadro: guardi la costellazione, poi
-                // la ritagli. La navigazione smonta MieiViaggi e quindi anche
-                // questo portale (cleanup WebGL compreso).
-                <button onClick={() => navigate("/editor-quadro")}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
-                    padding: "8px 16px", borderRadius: 999, background: "rgba(255,255,255,0.08)",
-                    border: "0.5px solid rgba(255,255,255,0.35)", color: "rgba(255,255,255,0.85)",
-                  }}>
-                  <Frame className="w-3.5 h-3.5" /> {t("Ritaglia quadro")}
                 </button>
               )}
               {tripsCount === 1 && !lifeMap && (

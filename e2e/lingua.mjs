@@ -95,7 +95,7 @@ const PAGINE = [
   ["home", "#/"], ["miei-viaggi", "#/miei-viaggi"], ["statistiche", "#/statistiche"],
   ["in-programma", "#/in-programma"], ["nuovo-viaggio", "#/nuovo-viaggio"],
   ["importa-gpx", "#/importa-gpx"], ["impostazioni", "#/impostazioni"],
-  ["recap", "#/recap"], ["editor-quadro", "#/editor-quadro"],
+  ["recap", "#/recap"],
 ];
 
 /**
@@ -235,6 +235,13 @@ const INTERAZIONI = [
   ["chip_compagno", "#/miei-viaggi", async () => {
     await page.getByRole("button", { name: /The map of my life/i }).first().click();
     await page.waitForTimeout(6000);
+    // ⚠️ I comandi della mappa SI TOLGONO dopo 3s fermi (scelta di Stefano,
+    // 2026-08-27): dopo i 6s di caricamento il chip è svanito, e Playwright
+    // NON lo sveglia da sé — il controllo di visibilità fallisce PRIMA di
+    // muovere il mouse. Si fa quello che farebbe un dito: si tocca la mappa
+    // per risvegliarli, POI si tocca il chip.
+    await page.mouse.move(195, 420);
+    await page.waitForTimeout(700);
     await page.getByRole("button", { name: /^Sam/ }).click();
   }],
   ["stories", "#/recap", async () => {
@@ -280,7 +287,6 @@ for (const [nome, hash, azione] of INTERAZIONI) {
 const STATI_NASCOSTI = [
   ["vuoto_home", "#/", { vuoto: true }, "Add your first trip"],
   ["vuoto_miei-viaggi", "#/miei-viaggi", { vuoto: true }, "No trips yet"],
-  ["vuoto_editor-quadro", "#/editor-quadro", { vuoto: true }, "New trip"],
   // ⚠️ `vuoto` serve: il cancello compare solo su un dispositivo vergine, e
   // `shouldShowWelcome` guarda `loadTrips().length === 0`. Con i viaggi in casa
   // lo stato non si raggiunge — e senza la scritta pretesa qui sotto avrei

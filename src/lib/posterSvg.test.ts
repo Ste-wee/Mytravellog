@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildPosterSvg, buildEditorQuadroSvg, panelGeoBounds, panelBorderPath, pickPanelIndex, routeBounds, unwrapNear, unwrapPath, unwrapSegments, mercY, type EditorPanel, CONFINI } from "./posterSvg";
+import { buildPosterSvg, routeBounds, unwrapNear, unwrapPath, unwrapSegments, mercY, CONFINI } from "./posterSvg";
 
 const INPUT = {
   routeCoords: [[9.19, 45.46], [11.39, 47.27], [13.78, 45.65]] as [number, number][],
@@ -119,135 +119,8 @@ describe("buildPosterSvg — master di stampa SVG", () => {
   });
 });
 
-describe("buildEditorQuadroSvg — quadro dall'editor (pannelli a mano)", () => {
-  const panels: EditorPanel[] = [
-    { id: "a", x: 0, y: 0, w: 800, h: 500, refLon: -10, refLat: 60, scale: 8 },
-    { id: "b", x: 800, y: 0, w: 800, h: 500, refLon: 50, refLat: 60, scale: 8 },
-  ];
-  const svg = buildEditorQuadroSvg({
-    panels,
-    borders: [[[0, 40], [20, 40], [20, 55], [0, 55], [0, 40]]],
-    links: [[[9, 45], [70, 35]]],
-    // 3ª città (200,80) è FUORI da ogni pannello: col fallback "pannello più
-    // vicino" deve comparire lo stesso (nessuna città/linea sparisce).
-    stops: [{ lon: 9, lat: 45 }, { lon: 70, lat: 35 }, { lon: 200, lat: 80 }],
-    width: 1600, height: 500,
-  });
 
-  it("una tela + clip per pannello, fondo trasparente", () => {
-    expect((svg.match(/<clipPath/g) ?? []).length).toBe(panels.length);
-    expect((svg.match(/fill="#050505"/g) ?? []).length).toBe(panels.length);
-    expect(svg).not.toContain('fill="#000000"');
-  });
 
-  it('resa "corpo + gerarchia": terre riempite (evenodd) sotto confini al 50%', () => {
-    expect((svg.match(/fill-opacity="0\.055"/g) ?? []).length).toBe(panels.length);
-    expect(svg).toContain('fill-rule="evenodd"');
-    expect(svg).toContain('stroke-opacity="0.5"');
-  });
-
-  it("linee dei viaggi sopra + una stella-LED per città (anche fuori pannello: fallback)", () => {
-    expect(svg).toContain('id="tratte"');
-    expect((svg.match(/data-led="1"/g) ?? []).length).toBe(3);
-  });
-
-  it("porta la firma 'By' col logo anche sul quadro", () => {
-    expect(svg).toContain('id="firma"');
-    expect(svg).toContain('xlink:href="data:image/png;base64,');
-  });
-
-  it("con page (stampa): viewBox = pagina, fondo pieno non-nero, contenuto trasformato", () => {
-    const p = buildEditorQuadroSvg({
-      panels, borders: [[[0, 40], [20, 40], [20, 55], [0, 55], [0, 40]]],
-      links: [], stops: [{ lon: 9, lat: 45 }],
-      width: 1600, height: 980, page: { width: 2000, height: 3000 },
-    });
-    expect(p).toContain('viewBox="0 0 2000 3000"');
-    expect(p).toContain('width="2000" height="3000"');
-    expect(p).toContain('fill="#05080f"');          // fondo pagina pieno
-    expect(p).not.toContain('fill="#000000"');       // mai nero puro
-    expect(p).toMatch(/<g transform="translate\([-\d. ]+\) scale\([\d.]+\)">/); // contenuto inquadrato+scalato
-  });
-
-  it("con palette (Oro): usa ink/bg su fondo, terre/linee e stelle", () => {
-    const p = buildEditorQuadroSvg({
-      panels, borders: [[[0, 40], [20, 40], [20, 55], [0, 55], [0, 40]]],
-      links: [[[9, 45], [70, 35]]], stops: [{ lon: 9, lat: 45 }],
-      width: 1600, height: 980, page: { width: 2000, height: 2000 },
-      palette: { bg: "#0a0700", ink: "#fbbf24" },
-    });
-    expect(p).toContain('fill="#0a0700"');          // fondo pagina + tele
-    expect(p).toContain('stroke="#fbbf24"');         // confini + linee
-    expect(p).toContain('stop-color="#fbbf24"');     // glow delle stelle
-    expect(p).toContain('data-led="1" cx="'); // stella presente
-    expect(p).not.toContain('fill="#050505"');       // niente tele near-black legacy con palette
-    expect(p).not.toContain('id="brandInk"');        // palette scura: firma bianca, niente invert
-  });
-
-  it("palette a fondo CHIARO (Carta): fondo chiaro + firma scura con logo invertito", () => {
-    const p = buildEditorQuadroSvg({
-      panels, borders: [[[0, 40], [20, 40], [20, 55], [0, 55], [0, 40]]],
-      links: [], stops: [{ lon: 9, lat: 45 }],
-      width: 1600, height: 980, page: { width: 2000, height: 2000 },
-      palette: { bg: "#faf7f0", ink: "#1a1a1a" },
-    });
-    expect(p).toContain('fill="#faf7f0"');           // fondo pagina chiaro
-    expect(p).toContain('id="brandInk"');            // filtro invert del logo
-    expect(p).toContain('filter="url(#brandInk)"');  // applicato all'immagine
-    expect(p).toContain('fill="#1a1a1a">By<');       // testo firma scuro
-  });
-});
-
-describe("editor quadro — pannelli oltre l'antimeridiano", () => {
-  // Tela pannata sul Pacifico: inquadra lon 170..200 (refLon oltre +180 è
-  // legittimo: il pan dell'editor non ha clamp).
-  const pacificPanel: EditorPanel = { id: "p", x: 0, y: 0, w: 300, h: 200, refLon: 170, refLat: 20, scale: 10 };
-
-  it("pickPanelIndex: una città a lon -170 È dentro la tela che inquadra 170..200", () => {
-    expect(pickPanelIndex([pacificPanel], -170, 0)).toBe(0);
-  });
-
-  it("le stelle oltre il cambio data cadono DENTRO la tela, non un giro a ovest", () => {
-    const svg = buildEditorQuadroSvg({
-      panels: [pacificPanel],
-      borders: [],
-      links: [[[175, 5], [-170, 0]]], // tratta che scavalca il cambio data
-      stops: [{ lon: 175, lat: 5 }, { lon: -170, lat: 0 }],
-      width: 400, height: 300,
-    });
-    const xs = Array.from(svg.matchAll(/data-led="1" cx="([-\d.]+)"/g)).map(m => parseFloat(m[1]));
-    expect(xs).toHaveLength(2);
-    for (const x of xs) { expect(x).toBeGreaterThanOrEqual(0); expect(x).toBeLessThanOrEqual(300); }
-  });
-
-  it("i confini ammessi con offset ±360 vengono disegnati nella finestra della tela", () => {
-    // anello "Fiji occidentali" a lon -180..-175: per la tela 170..200 entra
-    // via bboxIntersects(+360) e deve essere PROIETTATO a 180..185, dentro.
-    const ring: [number, number][] = [[-180, 15], [-175, 15], [-175, 25], [-180, 25], [-180, 15]];
-    const d = panelBorderPath(pacificPanel, [ring]);
-    expect(d).not.toBe("");
-    const xs = Array.from(d.matchAll(/([-\d.]+),[-\d.]+/g)).map(m => parseFloat(m[1]));
-    for (const x of xs) { expect(x).toBeGreaterThanOrEqual(0); expect(x).toBeLessThanOrEqual(300); }
-  });
-});
-
-describe("panelGeoBounds / pickPanelIndex", () => {
-  it("bounds coerenti col riquadro (ref = angolo alto-sinistra)", () => {
-    const p: EditorPanel = { id: "x", x: 0, y: 0, w: 400, h: 300, refLon: 0, refLat: 50, scale: 10 };
-    const b = panelGeoBounds(p);
-    expect(b.lonMin).toBeCloseTo(0);
-    expect(b.lonMax).toBeCloseTo(40); // 0 + 400/10
-    expect(b.latMax).toBeCloseTo(50);
-    expect(b.latMin).toBeLessThan(50);
-  });
-
-  it("assegna la città alla tela più zoomata quando più tele la contengono", () => {
-    const wide: EditorPanel = { id: "w", x: 0, y: 0, w: 400, h: 300, refLon: -50, refLat: 60, scale: 2 };
-    const tight: EditorPanel = { id: "t", x: 0, y: 0, w: 400, h: 300, refLon: 5, refLat: 47, scale: 40 };
-    // (9,45) è dentro entrambe → vince la più zoomata (area minore) = tight (indice 1)
-    expect(pickPanelIndex([wide, tight], 9, 45)).toBe(1);
-  });
-});
 
 describe("antimeridiano — unwrapNear / unwrapPath", () => {
   it("porta la longitudine entro ±180° dall'ancora (Tokyo→Los Angeles)", () => {

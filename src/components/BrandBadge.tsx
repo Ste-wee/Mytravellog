@@ -4,7 +4,7 @@
  *
  * Montata globale in main.tsx DOPO <Routes>, quindi in flusso normale finisce
  * in coda al documento su ogni pagina scrollabile. Sulle viste a schermo intero
- * (editor quadro, poster/flyover) resta sotto e non si vede: lì la firma arriva
+ * (poster/flyover) resta sotto e non si vede: lì la firma arriva
  * comunque dall'export. Il logo è servito da public/ via BASE_URL (funziona
  * anche sotto /Mytravellog/ su Pages).
  */
