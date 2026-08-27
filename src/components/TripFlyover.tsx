@@ -82,19 +82,31 @@ export function buildConstellationStyle(): StyleSpecification {
 
 /** Nodo "stella": nucleo bianco pieno + alone morbido (radial gradient). Usato
  *  come icon-image delle tappe nella vista Costellazione — i punti-LED naturali. */
-function createStarImageData(): ImageData {
+/**
+ * La stella della costellazione.
+ *
+ * L'alone LARGO di prima (raggio s/2, visibile fino a 24px) è stato tolto il
+ * 2026-08-27: sulle tappe vicine gli aloni si fondevano in macchie — vedi lo
+ * screenshot di Stefano con l'arco alpino impastato. ⚠️ BANCO DI PROVA in
+ * corso: due varianti scelte da Stefano fra cinque rese («mi metti sia la b
+ * che la d?») — `secca=false` alone stretto e tenue, `secca=true` solo il
+ * nucleo. L'interruttore sta sulla mappa; quando sceglie, si cabla e si
+ * smonta come per il tratto sottile.
+ */
+function createStarImageData(secca: boolean): ImageData {
   const s = 48;
   const c = document.createElement("canvas");
   c.width = s; c.height = s;
   const ctx = c.getContext("2d")!;
   const cx = s / 2, cy = s / 2;
-  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, s / 2);
-  g.addColorStop(0, "rgba(255,255,255,1)");
-  g.addColorStop(0.16, "rgba(255,255,255,0.95)");
-  g.addColorStop(0.4, "rgba(255,255,255,0.28)");
-  g.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, s, s);
+  if (!secca) {
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, s * 0.28);
+    g.addColorStop(0, "rgba(255,255,255,1)");
+    g.addColorStop(0.3, "rgba(255,255,255,0.5)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, s, s);
+  }
   ctx.fillStyle = "#ffffff";
   ctx.beginPath(); ctx.arc(cx, cy, s * 0.11, 0, Math.PI * 2); ctx.fill();
   return ctx.getImageData(0, 0, s, s);
@@ -276,6 +288,19 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   // che lì è quasi identico al globo della Home.
   const [styleMode, setStyleMode] = useState<MapStyleMode>(lifeMap ? "constellation" : "satellite");
   /** Il compagno selezionato, o null per tutti. Filtra la costellazione. */
+  /**
+   * ⚠️ BANCO DI PROVA (2026-08-27, da smontare quando Stefano sceglie): le due
+   * varianti di stella sopravvissute al confronto a cinque — «soffusa» (alone
+   * stretto) e «secca» (solo il nucleo). Si ricorda fra un'apertura e l'altra
+   * per poterle confrontare con calma, come il vecchio banco del tratto.
+   */
+  const [stellaSecca, setStellaSecca] = useState(() => {
+    try { return localStorage.getItem("navta.prova.stelle.secche") === "1"; } catch { return false; }
+  });
+  const cambiaStella = (v: boolean) => {
+    setStellaSecca(v);
+    try { localStorage.setItem("navta.prova.stelle.secche", v ? "1" : "0"); } catch { /* quota piena: pazienza */ }
+  };
   const [soloCon, setSoloCon] = useState<string | null>(null);
   /**
    * Le persone con cui hai viaggiato, in ordine di quante volte.
@@ -426,7 +451,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       });
     }
     if (!map.hasImage("flyover-pin")) map.addImage("flyover-pin", createPinImageData(), { pixelRatio: 2 });
-    if (constellation && !map.hasImage("flyover-star")) map.addImage("flyover-star", createStarImageData(), { pixelRatio: 2 });
+    if (constellation && !map.hasImage("flyover-star")) map.addImage("flyover-star", createStarImageData(stellaSecca), { pixelRatio: 2 });
     // Pin della tappa finale col medaglione del mezzo (solo viste con puntine).
     const hasFinalPin = !constellation && !!finalPinDataRef.current;
     if (hasFinalPin && !map.hasImage("flyover-pin-final")) {
@@ -835,6 +860,18 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     // casa (buildPerTripRouteCoords) sarebbe rimasto lì, acceso e scollegato.
     stopsRef.current = stops.filter(s => !(lifeMap && s.casa))
       .map(s => ({ lat: s.lat, lon: s.lon, label: s.label }));
+    // Mappa della vita: stelle DEDUPLICATE per coordinata. Una base coi
+    // rientri finisce nel path 3-4 volte (base, gita, base, gita, base) e le
+    // stelle sovrapposte si sommavano in una macchia; stessa dedup che già
+    // fa l'editor del quadro per gli stessi motivi (aloni e punti-LED doppi).
+    if (lifeMap) {
+      const visti = new Set<string>();
+      stopsRef.current = stopsRef.current.filter(s => {
+        const k = `${s.lon.toFixed(5)},${s.lat.toFixed(5)}`;
+        if (visti.has(k)) return false;
+        visti.add(k); return true;
+      });
+    }
     // Km percorsi: stessa fonte UNICA di Home/Statistiche/card (tripTotalKm =
     // stradali reali dove c'è route_geometry, linea d'aria altrimenti).
     totalKmRef.current = viaggi.reduce((sum, t) => sum + tripTotalKm(t), 0);
@@ -959,7 +996,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   // sorgente e vernice a mano) reggerebbe le linee ma non i limiti della vista
   // né i conteggi.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viaggi]);
+  }, [viaggi, stellaSecca]);
 
   // Portal su document.body: senza, il modale (position:fixed) verrebbe confinato
   // al primo antenato con `transform` (es. il wrapper .animate-fade-up della card
@@ -992,6 +1029,33 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
           }}>
           <X className="w-4 h-4" />
         </button>
+
+        {/* ⚠️ BANCO DI PROVA stelle (da smontare quando Stefano sceglie):
+            l'interruttore fra «soffusa» (alone stretto) e «secca» (solo
+            nucleo). Stesso posto e stessa forma del banco del tratto. */}
+        {phase === "ready" && lifeMap && (
+          <div style={{ position: "absolute", left: 16, top: 60, zIndex: 26 }}>
+            <button type="button" aria-pressed={stellaSecca} onClick={() => cambiaStella(!stellaSecca)}
+              style={{
+                display: "flex", alignItems: "center", gap: 7, fontSize: 11, cursor: "pointer",
+                padding: "5px 10px", borderRadius: 999, fontFamily: "inherit",
+                background: "rgba(10,22,40,0.75)", border: "0.5px solid rgba(255,255,255,0.2)",
+                color: stellaSecca ? "#93c5fd" : "rgba(255,255,255,0.45)",
+              }}>
+              <span aria-hidden style={{
+                width: 20, height: 11, borderRadius: 999, flexShrink: 0, position: "relative",
+                background: stellaSecca ? "rgba(96,165,250,0.5)" : "rgba(255,255,255,0.15)",
+              }}>
+                <span style={{
+                  position: "absolute", top: 1.5, left: stellaSecca ? 10.5 : 1.5,
+                  width: 8, height: 8, borderRadius: "50%", background: stellaSecca ? "#93c5fd" : "rgba(255,255,255,0.5)",
+                  transition: "left 140ms ease",
+                }}/>
+              </span>
+              {t("Punti secchi")}
+            </button>
+          </div>
+        )}
 
         {/* Toggle vista: satellite inclinato · costellazione (master di stampa).
             Nascosto sulla Mappa della vita: lì c'è solo la Costellazione. */}

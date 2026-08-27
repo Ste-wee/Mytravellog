@@ -56,6 +56,8 @@ export const en = {
   "Aggiungi il tuo primo viaggio: comparirà qui, sul globo e nelle statistiche.":
     "Add your first trip: it will show up here, on the globe and in the stats.",
   "La mappa della mia vita": "The map of my life",
+  // Banco di prova delle stelle (B/D): via con l'interruttore quando si sceglie.
+  "Punti secchi": "Bare dots",
   "Diario": "Diary",
   "Apri il biglietto di {viaggio}": "Open the ticket for {viaggio}",
   "Rivivi il {anno} in 3D": "Relive {anno} in 3D",
