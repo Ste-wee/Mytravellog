@@ -1,4 +1,4 @@
-import { fetchTemperature, fetchElevation, fetchRegion, mergeRegions } from "./geo";
+import { fetchElevation, fetchRegion, mergeRegions } from "./geo";
 import { hasCoords } from "./coords";
 import { loadTrips, updateTrip, Trip } from "./storage";
 
@@ -59,17 +59,17 @@ function fermate(t: Trip): { city: string; lat: number; lon: number }[] {
 }
 
 /**
- * Completa i viaggi a cui manca la temperatura, l'altitudine o la regione.
+ * Completa i viaggi a cui manca l'altitudine o la regione.
  *
  * ⚠️ Storia da non ripetere (la stessa dei tracciati, scoperta il 2026-08-22).
- * Questi tre dati si chiedono UNA VOLTA SOLA, al salvataggio. Se in quel
- * momento la rete non c'era, il viaggio restava senza — e nessuno ci tornava
- * più: l'unico giro che li ricalcolava (`ricalcolaTemperature`) è una
- * migrazione una-tantum, che si chiude alle spalle un flag globale e non
- * riapre mai. Provato in laboratorio: col flag scritto, un viaggio senza
- * temperatura resta senza per sempre; togliendolo, si riempie in dodici
- * secondi. La cura non è riaprire la migrazione — quella ha finito il suo
- * lavoro — ma questa rete separata, con la memoria per viaggio.
+ * Questi dati si chiedono UNA VOLTA SOLA, al salvataggio. Se in quel momento
+ * la rete non c'era, il viaggio restava senza — e nessuno ci tornava più:
+ * l'unico giro che ricalcolava qualcosa era una migrazione una-tantum, che
+ * si chiudeva alle spalle un flag globale e non riapriva mai. La cura è
+ * questa rete separata, con la memoria per viaggio.
+ *
+ * (Fino al 2026-10-06 completava anche la TEMPERATURA: la feature è stata
+ * rimossa per intero, e con lei la migrazione `ricalcolaTemperature`.)
  *
  * Regola generale, per la terza volta: una rete di sicurezza che si disarma da
  * sola dopo il primo giro protegge solo i dati che esistevano quel giorno.
@@ -87,35 +87,15 @@ export async function recuperaDatiMancanti(
     if (!daRiprovare(tentativi, t.id)) continue;
 
     const stops = fermate(t);
-    const mancaTemperatura = t.temperature_c == null;
     const mancaAltitudine = t.altitude_m == null;
     const mancaRegione = !t.region;
-    if (!stops.length || (!mancaTemperatura && !mancaAltitudine && !mancaRegione)) {
+    if (!stops.length || (!mancaAltitudine && !mancaRegione)) {
       tentativi[t.id] = new Date().toISOString();
       toccato = true;
       continue;
     }
 
     const patch: Partial<Trip> = {};
-
-    if (mancaTemperatura) {
-      const gradi: (number | null)[] = [];
-      for (const s of stops) {
-        if (annullato()) return riempiti;
-        gradi.push(await fetchTemperature(s.lat, s.lon, t.trip_date, t.date_end));
-      }
-      const valide = stops
-        .map((s, i) => ({ city: s.city, temp: gradi[i] }))
-        .filter((x): x is { city: string; temp: number } => typeof x.temp === "number");
-      if (valide.length) {
-        const dest = gradi[gradi.length - 1];
-        if (dest != null) patch.temperature_c = dest;
-        const calda = valide.reduce((a, b) => (b.temp > a.temp ? b : a));
-        const fredda = valide.reduce((a, b) => (b.temp < a.temp ? b : a));
-        patch.hottest_temp_c = calda.temp; patch.hottest_city = calda.city;
-        patch.coldest_temp_c = fredda.temp; patch.coldest_city = fredda.city;
-      }
-    }
 
     if (mancaAltitudine) {
       const quote: (number | null)[] = [];
@@ -150,7 +130,7 @@ export async function recuperaDatiMancanti(
       }
     }
 
-    // Come per tracciati e temperature: si scrive SOLO se è arrivato qualcosa.
+    // Come per i tracciati: si scrive SOLO se è arrivato qualcosa.
     // `updateTrip` timbra `updated_at`, e un timbro gratuito farebbe vincere
     // questa copia sugli altri dispositivi nel merge del backup.
     if (Object.keys(patch).length > 0) { updateTrip(t.id, patch); riempiti++; }

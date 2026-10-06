@@ -22,7 +22,7 @@ const piano = (waypoints: Trip["waypoints"]) => addPlan({
   transport_mode: "car", waypoints,
   latitude: 42.1354, longitude: 24.7453,
   home_latitude: 45.4642, home_longitude: 9.19, home_label: "Milano, Italia",
-  temperature_c: null, altitude_m: null, distance_from_home_km: null,
+  altitude_m: null, distance_from_home_km: null,
   max_distance_from_home_km: null, max_distance_city: null,
 } as Omit<Trip, "id" | "created_at" | "status">);
 

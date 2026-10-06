@@ -1,6 +1,6 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
 import { AppHeader } from "@/components/AppHeader";
-import { useT, useSettings, DistanceUnit, TemperatureUnit, AutoRotate, HomeCity } from "@/lib/settings";
+import { useT, useSettings, DistanceUnit, AutoRotate, HomeCity } from "@/lib/settings";
 import { MapPin, Search, X, Ruler, RotateCw, CircleDot, UserCircle, Languages } from "lucide-react";
 import { LINGUE, type PreferenzaLingua } from "@/lib/i18n";
 import { GeoResult } from "@/lib/geo";
@@ -162,21 +162,13 @@ export default function Settings() {
         <Group
           icon={<Ruler width="18" height="18"/>}
           title={t("Unità di misura")}
-          desc={t("Come mostrare distanze, altitudini e temperature")}
+          desc={t("Come mostrare distanze e altitudini")}
         >
           <div className="space-y-3">
             <div>
-              <label className="text-xs text-muted-foreground mb-1.5 block">{t("Distanze e altitudini")}</label>
               <SegmentControl<DistanceUnit>
                 value={s.distanceUnit} onChange={s.setDistanceUnit}
                 options={[{ value: "metric", label: t("Metrico"), hint: "km, m" }, { value: "imperial", label: t("Imperiale"), hint: "mi, ft" }]}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1.5 block">{t("Temperatura")}</label>
-              <SegmentControl<TemperatureUnit>
-                value={s.temperatureUnit} onChange={s.setTemperatureUnit}
-                options={[{ value: "celsius", label: t("Celsius"), hint: "°C" }, { value: "fahrenheit", label: t("Fahrenheit"), hint: "°F" }]}
               />
             </div>
           </div>

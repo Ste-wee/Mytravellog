@@ -47,10 +47,10 @@ const trip = (id, city, cc, lat, lon, d1, d2, over = {}) => ({
   id, created_at: "2024-01-01T00:00:00.000Z", title: city, country: city, country_code: cc, city,
   trip_date: d1, date_end: d2, rating: 4, notes: "A short note.", transport_mode: "plane",
   latitude: lat, longitude: lon, home_latitude: 51.5, home_longitude: -0.13, home_label: "London, UK",
-  waypoints: [], route_geometry: null, temperature_c: 21, altitude_m: 40, max_altitude_m: 40,
+  waypoints: [], route_geometry: null, altitude_m: 40, max_altitude_m: 40,
   max_altitude_city: city, distance_from_home_km: 500, max_distance_from_home_km: 500,
-  max_distance_city: city, hottest_temp_c: 21, hottest_city: city, coldest_temp_c: 5,
-  coldest_city: city, region: null, region_details: null, ...over,
+  max_distance_city: city,
+  region: null, region_details: null, ...over,
 });
 const TRIPS = [
   trip("t1", "Paris", "FR", 48.85, 2.35, "2026-05-01", "2026-05-06", {
@@ -78,7 +78,6 @@ await page.evaluate(([t, p]) => {
   localStorage.setItem("atlas.plans.v1", JSON.stringify(p));
   localStorage.setItem("navta.welcome.dismissed", "1");
   localStorage.setItem("navta.globe_hint_seen", "1");
-  localStorage.setItem("navta.temperature.estremo.v1", "x");
   [["home", 2], ["trips", 1], ["plans", 1], ["stats", 2], ["form", 1]]
     .forEach(([k, v]) => localStorage.setItem(`navta.tour.${k}.v${v}`, "1"));
   const d = new Date().toISOString(); const segna = {};

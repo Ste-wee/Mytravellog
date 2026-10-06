@@ -107,9 +107,8 @@ const ImportaGpx = () => {
       latitude: end[1], longitude: end[0],
       home_latitude: start[1], home_longitude: start[0], home_label: startCity || "Partenza",
       route_geometry: coords, // traccia GPS reale
-      temperature_c: null, altitude_m: endEle, max_altitude_m: maxEle, max_altitude_city: maxEle != null ? endCity : null,
+      altitude_m: endEle, max_altitude_m: maxEle, max_altitude_city: maxEle != null ? endCity : null,
       distance_from_home_km: distanceKm(start[1], start[0], end[1], end[0]), max_distance_from_home_km: null, max_distance_city: null,
-      hottest_temp_c: null, hottest_city: null, coldest_temp_c: null, coldest_city: null,
       region: null, region_details: null,
     });
     navigate("/modifica-viaggio/" + t.id);

@@ -2,10 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   fmtDistance,
   fmtAltitude,
-  fmtTemp,
   formatDistanceKm,
   formatAltitudeM,
-  formatTemperatureC,
 } from "./settings";
 
 describe("fmtDistance", () => {
@@ -55,34 +53,7 @@ describe("fmtAltitude", () => {
   });
 });
 
-describe("fmtTemp", () => {
-  it("0°C celsius → '0°C' (niente decimale di rumore)", () => {
-    expect(fmtTemp(0, "celsius")).toBe("0°C");
-  });
-
-  it("0°C fahrenheit → '32°F'", () => {
-    expect(fmtTemp(0, "fahrenheit")).toBe("32°F");
-  });
-
-  it("100°C fahrenheit → '212°F'", () => {
-    expect(fmtTemp(100, "fahrenheit")).toBe("212°F");
-  });
-
-  it("-40°C fahrenheit → '-40°F' (punto fisso scala C/F)", () => {
-    expect(fmtTemp(-40, "fahrenheit")).toBe("-40°F");
-  });
-
-  it("null → '—'", () => {
-    expect(fmtTemp(null, "celsius")).toBe("—");
-    expect(fmtTemp(undefined, "fahrenheit")).toBe("—");
-  });
-
-  it("arrotonda a 1 decimale in celsius (con la virgola)", () => {
-    expect(fmtTemp(22.567, "celsius")).toBe("22,6°C");
-  });
-});
-
-describe("alias backward-compat: formatDistanceKm / formatAltitudeM / formatTemperatureC", () => {
+describe("alias backward-compat: formatDistanceKm / formatAltitudeM", () => {
   it("formatDistanceKm è identico a fmtDistance", () => {
     expect(formatDistanceKm(500, "metric")).toBe(fmtDistance(500, "metric"));
     expect(formatDistanceKm(null, "imperial")).toBe(fmtDistance(null, "imperial"));
@@ -93,8 +64,4 @@ describe("alias backward-compat: formatDistanceKm / formatAltitudeM / formatTemp
     expect(formatAltitudeM(null, "metric")).toBe(fmtAltitude(null, "metric"));
   });
 
-  it("formatTemperatureC è identico a fmtTemp", () => {
-    expect(formatTemperatureC(37, "celsius")).toBe(fmtTemp(37, "celsius"));
-    expect(formatTemperatureC(null, "fahrenheit")).toBe(fmtTemp(null, "fahrenheit"));
-  });
 });

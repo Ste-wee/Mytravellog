@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { searchPlaces, fetchElevation, fetchTemperature, fetchRegion } from "./geo";
+import { searchPlaces, fetchElevation, fetchRegion } from "./geo";
 import { reverseGeocode } from "./gpx";
 import { loadTombstones, loadPlans } from "./storage";
 import { unwrapSegments, unwrapNear } from "./lonWrap";
@@ -19,41 +19,22 @@ const rete = (impl: (url: string) => Partial<Response> | Promise<never>) => {
 };
 
 describe("geo — blocchi d'errore delle API", () => {
-  it("server offline (fetch che rigetta): searchPlaces → [], fetchElevation/Temperature → null", async () => {
+  it("server offline (fetch che rigetta): searchPlaces → [], fetchElevation → null", async () => {
     global.fetch = vi.fn(() => Promise.reject(new Error("offline"))) as unknown as typeof fetch;
     expect(await searchPlaces("rom")).toEqual([]);
     expect(await fetchElevation(45, 9)).toBeNull();
-    expect(await fetchTemperature(45, 9, "2020-06-01")).toBeNull();
   });
 
   it("risposta non-ok (500): stessi ripieghi silenziosi", async () => {
     rete(() => ({ ok: false, status: 500 }));
     expect(await searchPlaces("rom")).toEqual([]);
     expect(await fetchElevation(45, 9)).toBeNull();
-    expect(await fetchTemperature(45, 9, "2020-06-01")).toBeNull();
   });
 
   it("query vuota o di soli spazi: nessuna richiesta, []", async () => {
     const spia = vi.fn();
     global.fetch = spia as unknown as typeof fetch;
     expect(await searchPlaces("   ")).toEqual([]);
-    expect(spia).not.toHaveBeenCalled();
-  });
-
-  it("temperatura di OGGI: usa il ramo previsioni (current), non l'archivio", async () => {
-    const oggi = new Date();
-    const iso = `${oggi.getFullYear()}-${String(oggi.getMonth() + 1).padStart(2, "0")}-${String(oggi.getDate()).padStart(2, "0")}`;
-    const urls: string[] = [];
-    rete(u => { urls.push(u); return { ok: true, status: 200, json: async () => ({ current: { temperature_2m: 21.5 } }) }; });
-    expect(await fetchTemperature(45, 9, iso)).toBe(21.5);
-    expect(urls[0]).toContain("current=temperature_2m");
-    expect(urls[0]).not.toContain("archive");
-  });
-
-  it("temperatura nel FUTURO: null senza nemmeno chiamare la rete", async () => {
-    const spia = vi.fn();
-    global.fetch = spia as unknown as typeof fetch;
-    expect(await fetchTemperature(45, 9, "2099-01-01")).toBeNull();
     expect(spia).not.toHaveBeenCalled();
   });
 

@@ -104,8 +104,6 @@ export const en = {
   "Highlights di viaggio": "Travel highlights",
   "Altitudine più alta": "Highest altitude",
   "Più distante da casa": "Farthest from home",
-  "Il posto più caldo": "The hottest place",
-  "Il posto più freddo": "The coldest place",
   "Scorri a sinistra": "Scroll left",
   "Scorri a destra": "Scroll right",
 
@@ -131,13 +129,9 @@ export const en = {
   // ── Impostazioni ──────────────────────────────────────────────────────────
   "Misure": "Units",
   "Unità di misura": "Units of measure",
-  "Come mostrare distanze, altitudini e temperature": "How to show distances, altitudes and temperatures",
-  "Distanze e altitudini": "Distances and altitudes",
+  "Come mostrare distanze e altitudini": "How to show distances and altitudes",
   "Metrico": "Metric",
   "Imperiale": "Imperial",
-  "Temperatura": "Temperature",
-  "Celsius": "Celsius",
-  "Fahrenheit": "Fahrenheit",
   "Città di residenza": "Home city",
   "Usata per calcolare le distanze e precompilare il punto di partenza":
     "Used to work out distances and to pre-fill your starting point",
@@ -389,7 +383,6 @@ export const en = {
   "chilometri percorsi in totale": "distance travelled in total",
   "intorno al mondo": "around the world",
   "alla luna": "to the moon",
-  "Temperatura in gradi": "Temperature in degrees",
   "Chiudi anteprima rilievo": "Close relief preview",
   "diario di bordo": "logbook",
   "Durata": "Duration",
@@ -515,7 +508,6 @@ export const en = {
 
   // ── Le scritte fuori dal JSX: componenti ──────────────────────────────────
   "Viaggio": "Trip",
-  "Temperatura {gradi}: tocca per correggerla": "Temperature {gradi}: tap to correct it",
   "Comprimi le note": "Collapse the notes",
   "Espandi le note": "Expand the notes",
   "Mostra tutto": "Show all",

@@ -60,17 +60,12 @@ function makeTrip(overrides: Partial<Trip> = {}): Trip {
     home_longitude: null,
     home_label: "Milano",
     route_geometry: null,
-    temperature_c: null,
     altitude_m: null,
     distance_from_home_km: null,
     max_distance_from_home_km: null,
     max_distance_city: null,
     max_altitude_m: null,
     max_altitude_city: null,
-    hottest_temp_c: null,
-    hottest_city: null,
-    coldest_temp_c: null,
-    coldest_city: null,
     region: null,
     region_details: null,
     ...overrides,
@@ -303,16 +298,6 @@ describe("TripCardTicket — distanza e temperatura", () => {
     expect(screen.queryByText(/km$/)).not.toBeInTheDocument();
   });
 
-  it("mostra la temperatura se temperature_c è presente", () => {
-    renderCard(makeTrip({ temperature_c: 24 }));
-    expect(screen.getByText("24°C")).toBeInTheDocument();
-  });
-
-  it("mostra sia il mezzo che la temperatura quando la distanza manca", () => {
-    renderCard(makeTrip({ transport_mode: "plane", distance_from_home_km: null, temperature_c: 24 }));
-    expect(screen.getByText("Aereo")).toBeInTheDocument();
-    expect(screen.getByText("24°C")).toBeInTheDocument();
-  });
 });
 
 describe("TripCardTicket — compagni di viaggio", () => {
@@ -351,73 +336,27 @@ describe("TripCardTicket — flyover 3D", () => {
   });
 });
 
-// Mezzo, km e temperatura viaggiano insieme: quando il flex va a capo la
-// temperatura restava orfana con un divisore spaiato davanti ("| 24.0°C").
+// Mezzo e km viaggiano insieme: quando il flex va a capo scendono in gruppo,
+// mai un divisore spaiato davanti a una metrica rimasta orfana.
 describe("TripCardTicket — blocco solidale delle metriche", () => {
-  it("temperatura e km stanno nello stesso blocco nowrap del mezzo", () => {
-    renderCard(makeTrip({ transport_mode: "car", temperature_c: 24, latitude: 48.21, longitude: 16.37, home_latitude: 45.46, home_longitude: 9.19 }));
-    const temp = screen.getByText("24°C");
-    const blocco = temp.closest("span[style*='nowrap']");
+  it("km e mezzo stanno nello stesso blocco nowrap", () => {
+    renderCard(makeTrip({ transport_mode: "car", latitude: 48.21, longitude: 16.37, home_latitude: 45.46, home_longitude: 9.19 }));
+    const km = screen.getByText(/\d km$/);
+    const blocco = km.closest("span[style*='nowrap']");
     expect(blocco).not.toBeNull();
-    expect(blocco!.textContent).toContain("km");
-    expect(blocco!.textContent).toContain("24°C");
-  });
-
-  it("la temperatura decimale si legge con la virgola", () => {
-    renderCard(makeTrip({ temperature_c: 18.5 }));
-    expect(screen.getByText("18,5°C")).toBeInTheDocument();
+    expect(blocco!.textContent).toContain("Auto");
   });
 });
 
-describe("TripCardTicket — temperatura correggibile a mano", () => {
-  // Il dato dei modelli è a griglia ~10-25 km: in una valle lappone il
-  // termometro vero segnava -31 dove l'archivio dà -21. L'utente sa cosa
-  // segnava, il satellite no: si corregge dove si legge.
-  beforeEach(() => localStorage.clear());
-
-  const salvato = () => JSON.parse(localStorage.getItem("atlas.trips.v1") || "[]")[0];
-
-  it("il numero è un bottone; il tocco apre il campo e Invio salva", () => {
-    const trip = makeTrip({ id: "t1", temperature_c: -21.1 });
-    localStorage.setItem("atlas.trips.v1", JSON.stringify([trip]));
-    renderCard(trip);
-    fireEvent.click(screen.getByRole("button", { name: /tocca per correggerla/i }));
-    const campo = screen.getByLabelText("Temperatura in gradi");
-    fireEvent.change(campo, { target: { value: "-31" } });
-    fireEvent.keyDown(campo, { key: "Enter" });
-    expect(salvato().temperature_c).toBe(-31);
-    expect(screen.getByRole("button", { name: /tocca per correggerla/i }).textContent).toContain("-31");
-  });
-
-  it("Escape annulla senza salvare", () => {
-    const trip = makeTrip({ id: "t1", temperature_c: 7.3 });
-    localStorage.setItem("atlas.trips.v1", JSON.stringify([trip]));
-    renderCard(trip);
-    fireEvent.click(screen.getByRole("button", { name: /tocca per correggerla/i }));
-    const campo = screen.getByLabelText("Temperatura in gradi");
-    fireEvent.change(campo, { target: { value: "99" } });
-    fireEvent.keyDown(campo, { key: "Escape" });
-    expect(salvato().temperature_c).toBe(7.3);
-  });
-
-  it("un valore fuori dai record terrestri è un refuso: non si salva", () => {
-    const trip = makeTrip({ id: "t1", temperature_c: 7.3 });
-    localStorage.setItem("atlas.trips.v1", JSON.stringify([trip]));
-    renderCard(trip);
-    fireEvent.click(screen.getByRole("button", { name: /tocca per correggerla/i }));
-    const campo = screen.getByLabelText("Temperatura in gradi");
-    fireEvent.change(campo, { target: { value: "300" } });
-    fireEvent.keyDown(campo, { key: "Enter" });
-    expect(salvato().temperature_c).toBe(7.3);
-  });
-
-  it("stesso valore: nessuna riscrittura (updated_at non si timbra a vuoto)", () => {
-    const trip = makeTrip({ id: "t1", temperature_c: 7.3, updated_at: "2025-01-01T00:00:00.000Z" });
-    localStorage.setItem("atlas.trips.v1", JSON.stringify([trip]));
-    renderCard(trip);
-    fireEvent.click(screen.getByRole("button", { name: /tocca per correggerla/i }));
-    const campo = screen.getByLabelText("Temperatura in gradi");
-    fireEvent.keyDown(campo, { key: "Enter" });    // conferma senza cambiare
-    expect(salvato().updated_at).toBe("2025-01-01T00:00:00.000Z");
+// ⚠️ Il paletto della rimozione (2026-10-06): la temperatura è uscita dall'app,
+// ma i viaggi salvati prima ce l'hanno ancora NEL DATO (e il cloud la riporta
+// identica). Il biglietto non deve più mostrarla, nemmeno se c'è.
+describe("TripCardTicket — la temperatura non si vede più", () => {
+  it("un viaggio vecchio col dato salvato non mostra nessun °C", () => {
+    const vecchio = { ...makeTrip({ transport_mode: "plane" }), temperature_c: 24, hottest_temp_c: 31 } as unknown as Trip;
+    renderCard(vecchio);
+    expect(screen.queryByText(/°[CF]/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /tocca per correggerla/i })).toBeNull();
   });
 });
+

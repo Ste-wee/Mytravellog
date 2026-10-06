@@ -9,9 +9,8 @@ function makeTrip(o: Partial<Trip> = {}): Trip {
     trip_date: "2026-06-01", date_end: null, rating: null, notes: null,
     transport_mode: "car", waypoints: [],
     latitude: 41.9, longitude: 12.5, home_latitude: 45.5, home_longitude: 9.2, home_label: "Milano",
-    route_geometry: null, temperature_c: null, altitude_m: null, max_altitude_m: null, max_altitude_city: null,
+    route_geometry: null, altitude_m: null, max_altitude_m: null, max_altitude_city: null,
     distance_from_home_km: null, max_distance_from_home_km: null, max_distance_city: null,
-    hottest_temp_c: null, hottest_city: null, coldest_temp_c: null, coldest_city: null,
     region: null, region_details: null, ...o,
   };
 }
@@ -67,21 +66,20 @@ describe("computeYearRecap", () => {
     expect(r.days).toBe(7); // 5 + 3 - 1, non 8
   });
 
-  it("individua i record (più lontano/alto/caldo/freddo) e il paese top", () => {
+  it("individua i record (più lontano/alto) e il paese top", () => {
     const trips = [
       makeTrip({ trip_date: "2026-01-01", country: "Italia", country_code: "IT",
-        max_distance_from_home_km: 600, max_distance_city: "Vienna", max_altitude_m: 1500, max_altitude_city: "Passo",
-        hottest_temp_c: 30, hottest_city: "Roma", coldest_temp_c: -5, coldest_city: "Cortina" }),
+        max_distance_from_home_km: 600, max_distance_city: "Vienna", max_altitude_m: 1500, max_altitude_city: "Passo" }),
       makeTrip({ trip_date: "2026-02-01", country: "Italia", country_code: "IT",
-        max_distance_from_home_km: 200, max_altitude_m: 300, hottest_temp_c: 35, hottest_city: "Palermo", coldest_temp_c: 2 }),
+        max_distance_from_home_km: 200, max_altitude_m: 300 }),
       makeTrip({ trip_date: "2026-03-01", country: "Spagna", country_code: "ES" }),
     ];
     const r = computeYearRecap(trips, 2026);
     expect(r.farthest).toEqual({ value: 600, city: "Vienna" });
     expect(r.highest).toEqual({ value: 1500, city: "Passo" });
-    expect(r.hottest).toEqual({ value: 35, city: "Palermo" });
-    expect(r.coldest).toEqual({ value: -5, city: "Cortina" });
     expect(r.topCountry?.name).toBe("Italia"); // 2 viaggi vs 1 Spagna
+    // la temperatura è uscita dall'app (2026-10-06): nessun record del meteo
+    expect("hottest" in r || "coldest" in r).toBe(false);
   });
 
   it("anno senza viaggi → tutto a zero, record null", () => {

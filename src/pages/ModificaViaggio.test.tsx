@@ -24,7 +24,6 @@ vi.mock("@/lib/geo", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/geo")>();
   return {
     ...actual,
-    fetchTemperature: vi.fn(async () => { await geoGate.pending; return null; }),
     fetchElevation: vi.fn(async () => { await geoGate.pending; return null; }),
     fetchDrivingRoute: vi.fn(async () => { await geoGate.pending; return null; }),
   };
@@ -55,10 +54,9 @@ function baseTrip(overrides: Partial<Omit<Trip, "id" | "created_at">> = {}): Omi
     transport_mode: "car", waypoints: [],
     latitude: 41.9, longitude: 12.5,
     home_latitude: 45.46, home_longitude: 9.19, home_label: "Milano",
-    route_geometry: null, temperature_c: null, altitude_m: null,
+    route_geometry: null, altitude_m: null,
     max_altitude_m: null, max_altitude_city: null,
     distance_from_home_km: null, max_distance_from_home_km: null, max_distance_city: null,
-    hottest_temp_c: null, hottest_city: null, coldest_temp_c: null, coldest_city: null,
     region: null, region_details: null,
     ...overrides,
   };

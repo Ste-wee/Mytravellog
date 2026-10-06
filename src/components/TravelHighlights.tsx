@@ -1,10 +1,10 @@
 // [FROZEN] — Non modificare senza esplicita richiesta
 import { useMemo, useRef } from "react";
 import React from "react";
-import { Mountain, Globe2, Sun, Snowflake, Moon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Mountain, Globe2, Moon, ChevronLeft, ChevronRight } from "lucide-react";
 import { TRANSPORT, TRANSPORT_MODES, TransportMode, transportBg } from "@/lib/transport";
 import { Trip as LocalTrip } from "@/lib/storage";
-import { useSettings, useT, formatDistanceKm, formatAltitudeM, formatTemperatureC } from "@/lib/settings";
+import { useSettings, useT, formatDistanceKm, formatAltitudeM } from "@/lib/settings";
 import { tripTotalKm, buildFlightPath, buildFlightLegs } from "@/lib/flyover";
 
 interface Props {
@@ -50,7 +50,7 @@ export function computeKmByTransportMode(trips: LocalTrip[]): KmByMode {
 }
 
 export function TravelHighlights({ trips }: Props) {
-  const { distanceUnit, temperatureUnit } = useSettings();
+  const { distanceUnit } = useSettings();
   const t = useT();
   const transportScrollRef = useRef<HTMLDivElement>(null);
   const scrollTransportBy = (dir: 1 | -1) => {
@@ -70,18 +70,6 @@ export function TravelHighlights({ trips }: Props) {
         (b.max_distance_from_home_km ?? b.distance_from_home_km!) -
         (a.max_distance_from_home_km ?? a.distance_from_home_km!)
       )[0],
-    [trips]
-  );
-  const hottest = useMemo(
-    () => trips
-      .filter(t => (t.hottest_temp_c ?? t.temperature_c) != null)
-      .sort((a, b) => (b.hottest_temp_c ?? b.temperature_c!) - (a.hottest_temp_c ?? a.temperature_c!))[0],
-    [trips]
-  );
-  const coldest = useMemo(
-    () => trips
-      .filter(t => (t.coldest_temp_c ?? t.temperature_c) != null)
-      .sort((a, b) => (a.coldest_temp_c ?? a.temperature_c!) - (b.coldest_temp_c ?? b.temperature_c!))[0],
     [trips]
   );
   // Km percorsi: stradali reali dove disponibile (tripTotalKm), coerente con
@@ -110,8 +98,6 @@ export function TravelHighlights({ trips }: Props) {
         const items: HlItem[] = [
           { label:t("Altitudine più alta"),  value: highest ? formatAltitudeM(highest.max_altitude_m ?? highest.altitude_m, distanceUnit) : "—",      sub: highest?.max_altitude_city ?? highest?.city,                                                color:"#34d399", Icon:Mountain    },
           { label:t("Più distante da casa"), value: farthest ? formatDistanceKm(farthest.max_distance_from_home_km ?? farthest.distance_from_home_km, distanceUnit) : "—", sub: farthest?.max_distance_city ?? farthest?.city, color:"#f472b6", Icon:Globe2 },
-          { label:t("Il posto più caldo"),   value: hottest  ? formatTemperatureC(hottest.hottest_temp_c ?? hottest.temperature_c, temperatureUnit) : "—", sub: hottest?.hottest_city ?? hottest?.city,  color:"#fb7185", Icon:Sun      },
-          { label:t("Il posto più freddo"),  value: coldest  ? formatTemperatureC(coldest.coldest_temp_c ?? coldest.temperature_c, temperatureUnit) : "—",  sub: coldest?.coldest_city ?? coldest?.city,  color:"#93c5fd", Icon:Snowflake },
         ];
         // Icona grande "illustrata" invece del badge circolare piccolo (spunto
         // preso da un'app concorrente, poi estesa anche al desktop su richiesta
@@ -126,7 +112,7 @@ export function TravelHighlights({ trips }: Props) {
           </div>
         );
         return (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-2 gap-2.5">
             {items.map(item => <Card key={item.label} item={item}/>)}
           </div>
         );

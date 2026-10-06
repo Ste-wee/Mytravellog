@@ -28,7 +28,6 @@ vi.mock("@/lib/geo", async (importOriginal) => {
       { id: 1, name: "Parigi", country: "Francia", country_code: "FR", latitude: 48.85, longitude: 2.35 },
     ])),
     fetchRegion: vi.fn(async () => { await pending; return { name: null, code: null }; }),
-    fetchTemperature: vi.fn(async () => { await pending; return null; }),
     fetchElevation: vi.fn(async () => { await pending; return null; }),
     fetchDrivingRoute: vi.fn(async () => { await pending; return null; }),
   };

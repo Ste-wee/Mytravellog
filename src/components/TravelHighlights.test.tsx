@@ -35,17 +35,12 @@ function makeTrip(overrides: Partial<Trip> = {}): Trip {
     home_longitude: 9.2,
     home_label: "Milano",
     route_geometry: null,
-    temperature_c: null,
     altitude_m: null,
     distance_from_home_km: null,
     max_distance_from_home_km: null,
     max_distance_city: null,
     max_altitude_m: null,
     max_altitude_city: null,
-    hottest_temp_c: null,
-    hottest_city: null,
-    coldest_temp_c: null,
-    coldest_city: null,
     region: null,
     region_details: null,
     ...overrides,
@@ -122,32 +117,15 @@ describe("TravelHighlights — farthest (distanza)", () => {
   });
 });
 
-describe("TravelHighlights — hottest / coldest", () => {
-  it("mostra la temperatura più alta (hottest_temp_c prioritario)", () => {
-    const trips = [
-      makeTrip({ hottest_temp_c: 38, temperature_c: 25, hottest_city: "Palermo" }),
-      makeTrip({ hottest_temp_c: 30, temperature_c: 28 }),
-    ];
-    renderHighlights(trips);
-    expect(screen.getAllByText("38°C").length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("usa temperature_c se hottest_temp_c è null", () => {
-    const trips = [
-      makeTrip({ hottest_temp_c: null, temperature_c: 33 }),
-      makeTrip({ hottest_temp_c: null, temperature_c: 20 }),
-    ];
-    renderHighlights(trips);
-    expect(screen.getAllByText("33°C").length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("mostra la temperatura più bassa (coldest_temp_c prioritario)", () => {
-    const trips = [
-      makeTrip({ coldest_temp_c: -10, temperature_c: 5, coldest_city: "Oslo" }),
-      makeTrip({ coldest_temp_c: 2,   temperature_c: 8 }),
-    ];
-    renderHighlights(trips);
-    expect(screen.getAllByText("-10°C").length).toBeGreaterThanOrEqual(1);
+// Il paletto della rimozione (2026-10-06): la temperatura è uscita dall'app
+// per intero. Restano DUE record, e nessuna card del meteo deve tornare.
+describe("TravelHighlights — niente più record della temperatura", () => {
+  it("le card sono due: altitudine e distanza da casa", () => {
+    renderHighlights([makeTrip({ altitude_m: 1200, max_distance_from_home_km: 800 })]);
+    expect(screen.getByText("Altitudine più alta")).toBeTruthy();
+    expect(screen.getByText("Più distante da casa")).toBeTruthy();
+    expect(screen.queryByText(/più caldo|più freddo/i)).toBeNull();
+    expect(screen.queryByText(/°[CF]/)).toBeNull();
   });
 });
 

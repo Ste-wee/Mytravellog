@@ -23,9 +23,9 @@ function makeTrip(id: string): Trip {
     country_code: "IT", trip_date: "2024-06-01", date_end: null, rating: null, notes: null,
     transport_mode: null, waypoints: [], latitude: 41.9, longitude: 12.5,
     home_latitude: null, home_longitude: null, home_label: "Milano", route_geometry: null,
-    temperature_c: null, altitude_m: null, distance_from_home_km: null, max_distance_from_home_km: null,
-    max_distance_city: null, max_altitude_m: null, max_altitude_city: null, hottest_temp_c: null,
-    hottest_city: null, coldest_temp_c: null, coldest_city: null, region: null, region_details: null,
+    altitude_m: null, distance_from_home_km: null, max_distance_from_home_km: null,
+    max_distance_city: null, max_altitude_m: null, max_altitude_city: null,
+    region: null, region_details: null,
   };
 }
 

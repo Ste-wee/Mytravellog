@@ -9,7 +9,7 @@ function plan(over: Partial<Omit<Trip, "id" | "created_at" | "status">> = {}) {
     trip_date: "2099-09-01", date_end: "2099-09-08", rating: null, notes: null,
     transport_mode: "plane", waypoints: [],
     latitude: 41.39, longitude: 2.15, home_latitude: 45.46, home_longitude: 9.19, home_label: "Milano, Italia",
-    temperature_c: null, altitude_m: null, distance_from_home_km: null,
+    altitude_m: null, distance_from_home_km: null,
     max_distance_from_home_km: null, max_distance_city: null,
     ...over,
   } as Omit<Trip, "id" | "created_at" | "status">);

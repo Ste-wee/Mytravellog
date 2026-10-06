@@ -128,7 +128,7 @@ export async function ricalcolaTracciati(annullato: () => boolean = () => false)
       const r = await fetchDrivingRoute(prima.lat, prima.lon, t.latitude, t.longitude);
       if (r) { patch.route_geometry = r.coords; patch.route_km = r.km; aggiunti++; }
     }
-    // Come per le temperature: si scrive SOLO se c'è davvero qualcosa di
+    // Si scrive SOLO se c'è davvero qualcosa di
     // nuovo — updateTrip timbra `updated_at`, e un timbro gratuito farebbe
     // vincere questa copia sugli altri dispositivi nel merge del backup.
     if (Object.keys(patch).length > 0) updateTrip(t.id, patch);

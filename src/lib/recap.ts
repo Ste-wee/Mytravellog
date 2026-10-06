@@ -27,8 +27,6 @@ export interface YearRecap {
   topCountry: { name: string; code: string | null; visits: number } | null;
   farthest: YearRecord | null; // distanza max da casa
   highest: YearRecord | null;  // altitudine max
-  hottest: YearRecord | null;
-  coldest: YearRecord | null;
   moment: YearMoment | null;   // il giorno-clou marcato nel diario (se c'è)
 }
 
@@ -122,12 +120,10 @@ export function computeYearRecap(allTrips: Trip[], year: number): YearRecap {
 
   const farthest = best(t => t.max_distance_from_home_km ?? t.distance_from_home_km, t => t.max_distance_city ?? t.city, (a, b) => a > b);
   const highest = best(t => t.max_altitude_m ?? t.altitude_m, t => t.max_altitude_city ?? t.city, (a, b) => a > b);
-  const hottest = best(t => t.hottest_temp_c ?? t.temperature_c, t => t.hottest_city ?? t.city, (a, b) => a > b);
-  const coldest = best(t => t.coldest_temp_c ?? t.temperature_c, t => t.coldest_city ?? t.city, (a, b) => a < b);
 
   return {
     year, trips: trips.length, countries: countryNames.size, cities: cities.size,
     km, days, monthsActive: months.size, byMode, topMode, topCountry,
-    farthest, highest, hottest, coldest, moment,
+    farthest, highest, moment,
   };
 }

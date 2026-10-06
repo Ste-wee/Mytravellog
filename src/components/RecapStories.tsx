@@ -6,7 +6,7 @@ import { YearRecap } from "@/lib/recap";
 import { parseLocalDate } from "@/lib/storage";
 import { transportColor, transportLabel } from "@/lib/transport";
 
-interface Fmt { dist: (km: number) => string; alt: (m: number) => string; temp: (c: number) => string }
+interface Fmt { dist: (km: number) => string; alt: (m: number) => string }
 
 // Colori ed etichette dalla fonte unica (@/lib/transport). Qui le etichette
 // vanno in minuscolo: è il tono delle storie di fine anno.
@@ -79,8 +79,6 @@ export function RecapStories({ recap: r, fmt, flagUrl, onClose }: { recap: YearR
   const records = [
     r.farthest && ["Più lontano", fmt.dist(r.farthest.value), r.farthest.city],
     r.highest && ["Più in alto", fmt.alt(r.highest.value), r.highest.city],
-    r.hottest && ["Più caldo", fmt.temp(r.hottest.value), r.hottest.city],
-    r.coldest && ["Più freddo", fmt.temp(r.coldest.value), r.coldest.city],
   ].filter(Boolean) as [string, string, string][];
   if (records.length > 0) {
     slides.push(

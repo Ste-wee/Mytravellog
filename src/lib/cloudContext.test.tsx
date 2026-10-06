@@ -24,10 +24,9 @@ const viaggio = (id: string, over: Partial<Trip> = {}): Trip => ({
   home_latitude: 45.46, home_longitude: 9.19, home_label: "Milano",
   created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z",
   rating: null, notes: null, transport_mode: "car", waypoints: [],
-  route_geometry: null, temperature_c: null, altitude_m: null,
+  route_geometry: null, altitude_m: null,
   max_altitude_m: null, max_altitude_city: null, distance_from_home_km: null,
   max_distance_from_home_km: null, max_distance_city: null,
-  hottest_temp_c: null, hottest_city: null, coldest_temp_c: null, coldest_city: null,
   region: null, region_details: null,
   ...over,
 } as Trip);

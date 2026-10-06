@@ -12,6 +12,10 @@ const mk = (o) => ({
   created_at: "2026-01-01T00:00:00.000Z", country: "Italia", country_code: "IT",
   notes: null, transport_mode: "plane", waypoints: [], rating: 4,
   home_latitude: 45.46, home_longitude: 9.19, home_label: "Milano, Italia",
+  // ⚠️ temperature_c resta nel seme DI PROPOSITO: la temperatura è uscita
+  // dall'app il 2026-10-06, ma i viaggi salvati prima ce l'hanno ancora nel
+  // dato (e il cloud la riporta). È il caso vero da provare: il passo
+  // `niente_temperatura` qui sotto pretende che a schermo non si veda.
   temperature_c: 24, altitude_m: 120, distance_from_home_km: 600,
   max_distance_from_home_km: 600, max_distance_city: o.city, ...o,
 });
@@ -162,6 +166,12 @@ await prova("apre_piano",
 await page.goto("http://localhost:8080/#/miei-viaggi", { waitUntil: "load" });
 await page.waitForTimeout(2600);
 errori = [];
+
+// Nessun grado a schermo, anche se il dato vecchio ce l'ha (vedi il seme).
+// Il passo non apre niente: guarda la pagina così com'è.
+await prova("niente_temperatura",
+  async () => {},
+  async () => ({ nessunGrado: await page.evaluate(() => !/°[CF]/.test(document.body.innerText)) }));
 
 await prova("apre_diario",
   () => page.getByRole("button", { name: /Apri il diario/i }).first().click(),

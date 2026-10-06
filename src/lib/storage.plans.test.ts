@@ -10,9 +10,8 @@ function basePlan(over: Partial<Omit<Trip, "id" | "created_at" | "status">> = {}
     trip_date: "2099-09-12", date_end: "2099-09-19", rating: null, notes: null,
     transport_mode: "plane", waypoints: [],
     latitude: 64.1, longitude: -21.9, home_latitude: null, home_longitude: null, home_label: null,
-    route_geometry: null, temperature_c: null, altitude_m: null, max_altitude_m: null, max_altitude_city: null,
+    route_geometry: null, altitude_m: null, max_altitude_m: null, max_altitude_city: null,
     distance_from_home_km: null, max_distance_from_home_km: null, max_distance_city: null,
-    hottest_temp_c: null, hottest_city: null, coldest_temp_c: null, coldest_city: null,
     region: null, region_details: null,
     ...over,
   };

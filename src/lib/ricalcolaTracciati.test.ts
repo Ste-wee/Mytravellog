@@ -15,7 +15,7 @@ const viaggio = (over: Partial<Trip> = {}): Trip => ({
   trip_date: "2025-06-10", date_end: "2025-06-12", latitude: 47.3667, longitude: 8.55,
   created_at: "2025-06-01T00:00:00.000Z", transport_mode: "car", rating: 4, notes: null,
   home_latitude: 45.46, home_longitude: 9.19, home_label: "Milano, Italia",
-  region: null, region_details: null, route_geometry: null, waypoints: [], temperature_c: 20,
+  region: null, region_details: null, route_geometry: null, waypoints: [],
   distance_from_home_km: 220, max_distance_from_home_km: 220, max_distance_city: "Zurigo",
   ...over,
 } as Trip);

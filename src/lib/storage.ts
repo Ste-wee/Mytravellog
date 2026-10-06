@@ -40,17 +40,12 @@ export type Trip = {
    *  del 2026-08-22 e su quelli importati da GPX, dove la traccia è già fitta
    *  e la somma dei segmenti è precisa da sola. */
   route_km?: number | null;
-  temperature_c: number | null;
   altitude_m: number | null;
   max_altitude_m: number | null; // altitudine massima tra tutte le tappe (non solo la destinazione)
   max_altitude_city: string | null; // nome della città più alta
   distance_from_home_km: number | null; // somma di tutti i segmenti (km totali percorsi)
   max_distance_from_home_km: number | null; // distanza massima raggiunta dalla città di residenza (per "più lontano")
   max_distance_city: string | null; // nome della città più lontana
-  hottest_temp_c: number | null;    // temperatura più alta tra tutte le tappe
-  hottest_city: string | null;      // città più calda
-  coldest_temp_c: number | null;    // temperatura più bassa tra tutte le tappe
-  coldest_city: string | null;      // città più fredda
   region: string | null;             // regione/stato della destinazione (nomi, per display)
   region_details: { name: string; code: string | null }[] | null; // stesse regioni con codice ISO 3166-2, per l'abbinamento indipendente dalla lingua in CountryMapModal
   country_code: string;

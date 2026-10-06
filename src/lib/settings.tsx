@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { type Chiave, type Lingua, type PreferenzaLingua, localeDi, risolviLingua, traduci } from "@/lib/i18n";
 
 export type DistanceUnit = "metric" | "imperial";
-export type TemperatureUnit = "celsius" | "fahrenheit";
 export type AutoRotate = "on" | "off";
 
 export type HomeCity = {
@@ -13,7 +12,6 @@ export type HomeCity = {
 
 export type Settings = {
   distanceUnit: DistanceUnit;
-  temperatureUnit: TemperatureUnit;
   autoRotate: AutoRotate;
   homeCity: HomeCity;
   minMarkerScale: number;
@@ -24,7 +22,6 @@ export type Settings = {
 
 type Ctx = Settings & {
   setDistanceUnit: (v: DistanceUnit) => void;
-  setTemperatureUnit: (v: TemperatureUnit) => void;
   setAutoRotate: (v: AutoRotate) => void;
   setHomeCity: (v: HomeCity) => void;
   setMinMarkerScale: (v: number) => void;
@@ -41,7 +38,6 @@ export const MARKER_SCALE_MAX = 2.0;
 
 const DEFAULTS: Settings = {
   distanceUnit: "metric",
-  temperatureUnit: "celsius",
   autoRotate: "on",
   homeCity: null,
   // "Piccoli" (0,3-0,7) invece di "Standard": con l'archivio che cresce i
@@ -97,7 +93,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const value: Ctx = {
     ...s,
     setDistanceUnit: (v) => setS((p) => ({ ...p, distanceUnit: v })),
-    setTemperatureUnit: (v) => setS((p) => ({ ...p, temperatureUnit: v })),
     setAutoRotate: (v) => setS((p) => ({ ...p, autoRotate: v })),
     setHomeCity: (v) => setS((p) => ({ ...p, homeCity: v })),
     setMinMarkerScale: (v) => setS((p) => ({ ...p, minMarkerScale: clampScale(v) })),
@@ -213,26 +208,12 @@ export function fmtAltitude(m: number | null | undefined, unit: DistanceUnit): s
   return `${fmtNumber(Math.round(m))} m`;
 }
 
-export function fmtTemp(c: number | null | undefined, unit: TemperatureUnit): string {
-  if (c == null) return "—";
-  const v = unit === "fahrenheit" ? c * 9 / 5 + 32 : c;
-  // Il decimale solo quando esiste: "24.0°C" era rumore su ogni biglietto.
-  // E quando c'è si scrive all'italiana, con la VIRGOLA: il vecchio
-  // toFixed(1) usava il punto ("18.5°C") in un'app tutta in italiano.
-  const r = Math.round(v * 10) / 10;
-  const testo = Number.isInteger(r) ? String(r) : r.toFixed(1).replace(".", ",");
-  return `${testo}°${unit === "fahrenheit" ? "F" : "C"}`;
-}
-
 // ── Backwards-compatible aliases (used by older components) ──────────────────
 export function formatDistanceKm(km: number | null | undefined, unit: DistanceUnit): string {
   return fmtDistance(km, unit);
 }
 export function formatAltitudeM(m: number | null | undefined, unit: DistanceUnit): string {
   return fmtAltitude(m, unit);
-}
-export function formatTemperatureC(c: number | null | undefined, unit: TemperatureUnit): string {
-  return fmtTemp(c, unit);
 }
 
 // parseStoredSettings — used by settings.test.tsx

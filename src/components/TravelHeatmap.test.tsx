@@ -10,10 +10,9 @@ const trip = (over: Partial<Trip> = {}): Trip => ({
   transport_mode: "train", waypoints: [],
   latitude: 48.21, longitude: 16.37,
   home_latitude: 45.46, home_longitude: 9.19, home_label: "Milano, Italia",
-  route_geometry: null, temperature_c: null, altitude_m: null,
+  route_geometry: null, altitude_m: null,
   max_altitude_m: null, max_altitude_city: null,
   distance_from_home_km: null, max_distance_from_home_km: null, max_distance_city: null,
-  hottest_temp_c: null, hottest_city: null, coldest_temp_c: null, coldest_city: null,
   region: null, region_details: null,
   ...over,
 } as Trip);

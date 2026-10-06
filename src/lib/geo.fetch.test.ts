@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { searchPlaces, fetchElevation, fetchTemperature, fetchRegion, fetchDrivingRoute, mergeRegions } from "./geo";
-import { todayLocalISO } from "./storage";
+import { searchPlaces, fetchElevation, fetchRegion, fetchDrivingRoute, mergeRegions } from "./geo";
 
 const okJson = (data: unknown) =>
   Promise.resolve({ ok: true, json: () => Promise.resolve(data) } as Response);
@@ -61,40 +60,6 @@ describe("fetchElevation", () => {
   it("ritorna null su errore", async () => {
     (fetch as any).mockRejectedValue(new Error("net"));
     expect(await fetchElevation(0, 0)).toBeNull();
-  });
-});
-
-describe("fetchTemperature", () => {
-  beforeEach(() => { vi.stubGlobal("fetch", vi.fn()); });
-  afterEach(() => { vi.unstubAllGlobals(); });
-
-  it("ritorna null per date future senza fetch", async () => {
-    const future = "2999-01-01";
-    expect(await fetchTemperature(0, 0, future)).toBeNull();
-    expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it("usa archive-api per date passate, con min e max (non più la media)", async () => {
-    // Il criterio è cambiato il 2026-08-20: la media giornaliera annacquava
-    // il dato memorabile (Lapponia a -31 mostrata come -12). Ora si prende
-    // l'estremo del periodo — v. geo.temperatura.test.ts.
-    (fetch as any).mockReturnValue(okJson({ daily: { temperature_2m_min: [12.1], temperature_2m_max: [24.9] } }));
-    const r = await fetchTemperature(0, 0, "2000-01-01");
-    expect(r).toBe(24.9);
-    expect((fetch as any).mock.calls[0][0]).toContain("archive-api");
-  });
-
-  it("usa forecast per data odierna", async () => {
-    (fetch as any).mockReturnValue(okJson({ current: { temperature_2m: 21 } }));
-    const today = todayLocalISO();
-    const r = await fetchTemperature(0, 0, today);
-    expect(r).toBe(21);
-    expect((fetch as any).mock.calls[0][0]).toContain("forecast");
-  });
-
-  it("ritorna null su errore", async () => {
-    (fetch as any).mockRejectedValue(new Error("net"));
-    expect(await fetchTemperature(0, 0, "2000-01-01")).toBeNull();
   });
 });
 

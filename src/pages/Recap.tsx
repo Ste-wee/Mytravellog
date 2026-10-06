@@ -4,7 +4,7 @@ import { ArrowLeft, Share2, Download, Play } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { loadTrips, parseLocalDate } from "@/lib/storage";
 import { transportColor, transportLabel } from "@/lib/transport";
-import { useSettings, useT, tr, formatDistanceKm, formatAltitudeM, formatTemperatureC, localeAttivo } from "@/lib/settings";
+import { useSettings, useT, tr, formatDistanceKm, formatAltitudeM, localeAttivo } from "@/lib/settings";
 import { computeYearRecap, availableYears, YearRecap } from "@/lib/recap";
 import { canShareFile, shareOrDownload } from "@/lib/share";
 import { RecapStories } from "@/components/RecapStories";
@@ -46,7 +46,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
-interface Fmt { dist: (km: number) => string; alt: (m: number) => string; temp: (c: number) => string }
+interface Fmt { dist: (km: number) => string; alt: (m: number) => string }
 
 function drawRecap(ctx: CanvasRenderingContext2D, r: YearRecap, fmt: Fmt, flag: HTMLImageElement | null) {
   const P = 70;
@@ -128,16 +128,22 @@ function drawRecap(ctx: CanvasRenderingContext2D, r: YearRecap, fmt: Fmt, flag: 
     lx += 32 + ctx.measureText(label).width + 26;
   }
 
-  // Record 2x2 (minimali, valore in ambra). Con IL MOMENTO in fondo alla card
+  // Record in riga (minimali, valore in ambra). Con IL MOMENTO in fondo alla card
   // le righe si stringono un po' (150→120) per fargli spazio senza sacrifici.
   const hasMoment = !!r.moment;
   const recs: [string, string, string][] = [
     ["Più lontano", r.farthest ? fmt.dist(r.farthest.value) : "—", r.farthest?.city ?? ""],
     ["Più in alto", r.highest ? fmt.alt(r.highest.value) : "—", r.highest?.city ?? ""],
-    ["Più caldo", r.hottest ? fmt.temp(r.hottest.value) : "—", r.hottest?.city ?? ""],
-    ["Più freddo", r.coldest ? fmt.temp(r.coldest.value) : "—", r.coldest?.city ?? ""],
   ];
-  const rTop = ly + 44, colRW = (W - 2 * P) / 2, rowH = hasMoment ? 120 : 150;
+  // La card era disegnata per DUE righe di record (c'erano anche più caldo e
+  // più freddo, rimossi il 2026-10-06 con tutta la temperatura). Con una
+  // riga sola tutto il resto saliva e sopra il footer restava una fascia
+  // vuota: lo spazio liberato si ridistribuisce metà sopra e metà sotto i
+  // record, e la card torna al suo equilibrio.
+  const colRW = (W - 2 * P) / 2, rowH = hasMoment ? 120 : 150;
+  const righeRec = Math.ceil(recs.length / 2);
+  const respiro = Math.max(0, 2 - righeRec) * rowH / 2;
+  const rTop = ly + 44 + respiro;
   ctx.textAlign = "left";
   recs.forEach(([lab, val, sub], i) => {
     const x = P + (i % 2) * colRW, y = rTop + Math.floor(i / 2) * rowH;
@@ -150,7 +156,7 @@ function drawRecap(ctx: CanvasRenderingContext2D, r: YearRecap, fmt: Fmt, flag: 
   });
 
   // Paese dell'anno
-  const cTop = rTop + 2 * rowH + (hasMoment ? 24 : 30);
+  const cTop = rTop + righeRec * rowH + respiro + (hasMoment ? 24 : 30);
   if (r.topCountry) {
     let tx = P; const fw = 70, fh = 48;
     if (flag && flag.complete && flag.naturalWidth > 0) {
@@ -214,7 +220,7 @@ const Recap = () => {
   const t = useT();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const { distanceUnit, temperatureUnit } = useSettings();
+  const { distanceUnit } = useSettings();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [flag, setFlag] = useState<HTMLImageElement | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -229,8 +235,7 @@ const Recap = () => {
   const fmt: Fmt = useMemo(() => ({
     dist: (km) => formatDistanceKm(km, distanceUnit),
     alt: (m) => formatAltitudeM(m, distanceUnit),
-    temp: (c) => formatTemperatureC(c, temperatureUnit),
-  }), [distanceUnit, temperatureUnit]);
+  }), [distanceUnit]);
 
   // Bandiera del paese dell'anno (crossOrigin per il canvas pulito).
   useEffect(() => {

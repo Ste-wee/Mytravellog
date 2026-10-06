@@ -8,7 +8,6 @@ import { hasCoords } from "@/lib/coords";
 import { tripTotalKm } from "@/lib/flyover";
 import { stopChain } from "@/lib/stops";
 import { paeseVisibileDiViaggio, paeseVisibileDiTappa } from "@/lib/paesi";
-import { ricalcolaTemperature } from "@/lib/ricalcolaTemperature";
 import { ricalcolaTracciati } from "@/lib/ricalcolaTracciati";
 import { recuperaDatiMancanti } from "@/lib/recuperaDatiMancanti";
 import { fmtDistance, fmtNumber, useSettings, useT } from "@/lib/settings";
@@ -159,10 +158,9 @@ function HomeInner() {
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedCity, selectedId]);
 
-  // Una volta sola: riporta i viaggi già salvati al criterio nuovo della
-  // temperatura (l'estremo del periodo invece della media del primo giorno).
-  // In sottofondo e senza bloccare nulla; se la Home se ne va prima della
-  // fine, il flag non viene scritto e si riprende al prossimo avvio.
+  // All'avvio, in sottofondo e senza bloccare nulla: le reti che tengono in
+  // ordine l'archivio. Se la Home se ne va prima della fine, si riprende al
+  // prossimo avvio.
   useEffect(() => {
     let annullato = false;
     // Prima di tutto, a costo zero e senza rete: butta via i record già
@@ -171,17 +169,13 @@ function HomeInner() {
     // da prima che la scrittura imparasse a scartarli.
     const buttati = pulisciSepolti();
     if (buttati > 0) refresh();
-    // Poi le temperature, poi i tracciati mancanti: entrambi girano in fila,
-    // per non aprire due raffiche di rete insieme.
-    ricalcolaTemperature(() => annullato)
-      .then(n => { if (n > 0 && !annullato) refresh(); })
-      .then(() => ricalcolaTracciati(() => annullato))
+    // Poi i tracciati, poi i dati mancanti: girano in fila, per non aprire
+    // due raffiche di rete insieme.
+    ricalcolaTracciati(() => annullato)
       .then(n => { if (n && n > 0 && !annullato) refresh(); })
-      // Ultimo della fila: completa i viaggi a cui manca temperatura,
-      // altitudine o regione perché al salvataggio la rete non c'era. Le
-      // altre due reti si occupano di dati che esistono e vanno aggiornati;
-      // questa dei buchi, e a differenza della migrazione qui sopra non si
-      // chiude mai alle spalle (memoria per viaggio, non un flag globale).
+      // Ultimo della fila: completa i viaggi a cui manca altitudine o regione
+      // perché al salvataggio la rete non c'era. Non si chiude mai alle
+      // spalle (memoria per viaggio, non un flag globale).
       .then(() => recuperaDatiMancanti(() => annullato))
       .then(n => { if (n && n > 0 && !annullato) refresh(); })
       .catch(() => { /* rete giù a metà catena: si riprende al prossimo avvio */ });

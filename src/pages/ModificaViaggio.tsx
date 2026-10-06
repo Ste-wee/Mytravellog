@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { tracciaFittaSalvata } from "@/lib/flyover";
 import { AppHeader } from "@/components/AppHeader";
 import { useNavigate, useParams } from "react-router-dom";
-import { fetchElevation, fetchTemperature, fetchDrivingRoute, mergeRegions, distanceKm, GeoResult, RegionInfo } from "@/lib/geo";
+import { fetchElevation, fetchDrivingRoute, mergeRegions, distanceKm, GeoResult, RegionInfo } from "@/lib/geo";
 import { usePlaceSearch } from "@/lib/usePlaceSearch";
 import { hasCoords } from "@/lib/coords";
 import { followsRoad } from "@/lib/transport";
@@ -229,7 +229,7 @@ const ModificaViaggio = () => {
       maxDist = max.d;
       maxDistCity = max.city;
     }
-    // Fetch temperatures for all stops to find hottest/coldest
+    // Le fermate con coordinate: servono a trovare la più alta (altitudine).
     const allStopsWithCoords = [
       ...waypoints.slice(0, -1).filter(w => hasCoords(w.lat, w.lon)).map(w => ({ city: w.city, lat: w.lat, lon: w.lon })),
       { city: dest.city, lat: dest.lat, lon: dest.lon },
@@ -255,21 +255,15 @@ const ModificaViaggio = () => {
     });
     const routeGeometriesPromise = Promise.all(routePromises);
     const [...rest] = await Promise.all([
-      // hasCoords, non il truthy su s.lat: a lat 0 la tappa perdeva meteo e
-      // altitudine (e il gemello NuovoViaggio chiama senza alcuna guardia).
-      ...allStopsWithCoords.map(s => hasCoords(s.lat, s.lon) ? fetchTemperature(s.lat, s.lon, dateStart, dateEnd || null) : Promise.resolve(null)),
+      // hasCoords, non il truthy su s.lat: a lat 0 la tappa perdeva
+      // l'altitudine (e il gemello NuovoViaggio chiama senza alcuna guardia).
       ...allStopsWithCoords.map(s => hasCoords(s.lat, s.lon) ? fetchElevation(s.lat, s.lon) : Promise.resolve(null)),
     ]);
     // Disegno + lunghezza vera insieme (vedi RottaStradale in geo.ts).
     const rotte = await routeGeometriesPromise;
     const n = allStopsWithCoords.length;
-    const stopTemps = rest.slice(0, n);
-    const stopAlts = rest.slice(n, 2 * n);
+    const stopAlts = rest.slice(0, n);
     const alt = stopAlts[stopAlts.length - 1] ?? trip?.altitude_m ?? null; // altitudine della destinazione (per-trip badge)
-    const temp = stopTemps[stopTemps.length - 1] ?? null;
-    const tempsWithCity = allStopsWithCoords.map((s, i) => ({ city: s.city, temp: stopTemps[i] as number | null })).filter(x => x.temp != null);
-    const hottestStop = tempsWithCity.length ? tempsWithCity.reduce((a, b) => (b.temp! > a.temp! ? b : a)) : null;
-    const coldestStop = tempsWithCity.length ? tempsWithCity.reduce((a, b) => (b.temp! < a.temp! ? b : a)) : null;
     const altsWithCity = allStopsWithCoords.map((s, i) => ({ city: s.city, alt: stopAlts[i] as number | null })).filter(x => x.alt != null);
     const highestStop = altsWithCity.length ? altsWithCity.reduce((a, b) => (b.alt! > a.alt! ? b : a)) : null;
     // La regione non è mai mostrata all'utente in questa pagina: viene
@@ -292,7 +286,7 @@ const ModificaViaggio = () => {
       route_geometry: rotte[rotte.length - 1]?.coords ?? null,
       route_km: rotte[rotte.length - 1]?.km ?? null,
       home_latitude: home?.lat ?? null, home_longitude: home?.lon ?? null, home_label: home?.label ?? null,
-      distance_from_home_km: dist, max_distance_from_home_km: maxDist, max_distance_city: maxDistCity, altitude_m: alt, max_altitude_m: highestStop?.alt ?? null, max_altitude_city: highestStop?.city ?? null, temperature_c: temp, hottest_temp_c: hottestStop?.temp ?? null, hottest_city: hottestStop?.city ?? null, coldest_temp_c: coldestStop?.temp ?? null, coldest_city: coldestStop?.city ?? null, region: region ?? null, region_details: regionDetails,
+      distance_from_home_km: dist, max_distance_from_home_km: maxDist, max_distance_city: maxDistCity, altitude_m: alt, max_altitude_m: highestStop?.alt ?? null, max_altitude_city: highestStop?.city ?? null, region: region ?? null, region_details: regionDetails,
       country_code: dest.country_code || trip?.country_code || "",
       rating: rating || null,
       purpose: purpose || null, companions: companions.length ? companions : undefined,

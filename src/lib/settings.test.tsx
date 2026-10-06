@@ -7,7 +7,6 @@ import {
   fmtNumber,
   fmtDistance,
   fmtAltitude,
-  fmtTemp,
   impostaLocale,
   MARKER_SCALE_MIN,
   MARKER_SCALE_MAX,
@@ -74,14 +73,13 @@ describe("settings — minMarkerScale / maxMarkerScale", () => {
   it("reidrata i valori salvati al reload", () => {
     const stored: Settings = {
       distanceUnit: "imperial",
-      temperatureUnit: "fahrenheit",
       autoRotate: "off",
       homeCity: null,
       // ⚠️ "it" e non "en" di proposito: montare il provider in inglese
       // imposta il locale GLOBALE dei numeri (`impostaLocale`) e lo lascia
       // così per i test successivi — ha fatto cadere quattro asserzioni in
       // TravelHighlights, un file che non c'entra niente con le lingue.
-      // La reidratazione resta provata dagli altri campi (imperial, fahrenheit,
+      // La reidratazione resta provata dagli altri campi (imperial,
       // off, 0.8/1.6). Chi vuole provare l'inglese: ripristina dopo.
       lingua: "it",
       minMarkerScale: 0.8,
@@ -117,7 +115,7 @@ describe("parseStoredSettings — compatibilità retroattiva", () => {
     expect(s.maxMarkerScale).toBe(0.7);
   });
 
-  it("fonde payload legacy senza campi marker con i default", () => {
+  it("fonde payload legacy (senza marker, CON la vecchia unità di temperatura) coi default", () => {
     const legacy = JSON.stringify({ distanceUnit: "imperial", temperatureUnit: "celsius" });
     const s = parseStoredSettings(legacy);
     expect(s.distanceUnit).toBe("imperial");
@@ -164,22 +162,3 @@ describe("fmtNumber / fmtDistance / fmtAltitude — separatore delle migliaia", 
   });
 });
 
-// Temperature: niente ".0" di rumore, e il decimale vero si scrive con la
-// VIRGOLA (il vecchio toFixed(1) dava "24.0°C" col punto, sempre).
-describe("fmtTemp — decimale solo quando esiste, virgola all'italiana", () => {
-  it("intero → senza decimale", () => {
-    expect(fmtTemp(24, "celsius")).toBe("24°C");
-    expect(fmtTemp(0, "celsius")).toBe("0°C");
-    expect(fmtTemp(-5, "celsius")).toBe("-5°C");
-  });
-  it("decimale vero → con la virgola", () => {
-    expect(fmtTemp(18.5, "celsius")).toBe("18,5°C");
-    expect(fmtTemp(24, "fahrenheit")).toBe("75,2°F"); // 75.2 esatti
-  });
-  it("il fahrenheit intero resta senza decimale", () => {
-    expect(fmtTemp(25, "fahrenheit")).toBe("77°F");
-  });
-  it("null → em dash come le altre fmt", () => {
-    expect(fmtTemp(null, "celsius")).toBe("—");
-  });
-});

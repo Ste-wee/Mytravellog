@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useT, useSettings, tr } from "@/lib/settings";
 import { AppHeader } from "@/components/AppHeader";
 import { useNavigate } from "react-router-dom";
-import { fetchElevation, fetchTemperature, fetchRegion, fetchDrivingRoute, mergeRegions, distanceKm, GeoResult } from "@/lib/geo";
+import { fetchElevation, fetchRegion, fetchDrivingRoute, mergeRegions, distanceKm, GeoResult } from "@/lib/geo";
 import { usePlaceSearch } from "@/lib/usePlaceSearch";
 import { hasCoords } from "@/lib/coords";
 import { followsRoad } from "@/lib/transport";
@@ -226,11 +226,10 @@ const NuovoViaggio = () => {
     // più di 1 richiesta/secondo: le tappe vanno sequenziate (sequentialMap),
     // non sparate in Promise.all, altrimenti un viaggio con molte tappe
     // rischia un rate-limit silenzioso con alcune tappe senza regione.
-    // fetchTemperature/fetchElevation (Open-Meteo, nessun limite simile)
-    // restano invece in parallelo tra loro e rispetto alle chiamate a Nominatim.
-    const [stopRegions, stopTemps, stopAlts] = await Promise.all([
+    // fetchElevation (Open-Meteo, nessun limite simile) resta invece in
+    // parallelo tra le tappe e rispetto alle chiamate a Nominatim.
+    const [stopRegions, stopAlts] = await Promise.all([
       sequentialMap(allStopsWithCoords, s => fetchRegion(s.lat, s.lon)),
-      Promise.all(allStopsWithCoords.map(s => fetchTemperature(s.lat, s.lon, dateStart, dateEnd || null))),
       Promise.all(allStopsWithCoords.map(s => fetchElevation(s.lat, s.lon))),
     ]);
     // Ogni rotta porta con se' il disegno E la sua lunghezza vera: sommare i
@@ -241,10 +240,6 @@ const NuovoViaggio = () => {
     const regionDetails = mergeRegions(stopRegions);
     const region = regionDetails.length > 0 ? regionDetails.map(r => r.name).join(", ") : null;
     const alt = stopAlts[stopAlts.length - 1] ?? null; // altitudine della destinazione (per-trip badge)
-    const temp = stopTemps[stopTemps.length - 1] ?? null;
-    const tempsWithCity = allStopsWithCoords.map((s, i) => ({ city: s.city, temp: stopTemps[i] as number | null })).filter(x => x.temp != null);
-    const hottestStop = tempsWithCity.length ? tempsWithCity.reduce((a, b) => (b.temp! > a.temp! ? b : a)) : null;
-    const coldestStop = tempsWithCity.length ? tempsWithCity.reduce((a, b) => (b.temp! < a.temp! ? b : a)) : null;
     const altsWithCity = allStopsWithCoords.map((s, i) => ({ city: s.city, alt: stopAlts[i] as number | null })).filter(x => x.alt != null);
     const highestStop = altsWithCity.length ? altsWithCity.reduce((a, b) => (b.alt! > a.alt! ? b : a)) : null;
     addTrip({
@@ -259,7 +254,7 @@ const NuovoViaggio = () => {
       route_geometry: rotte[rotte.length - 1]?.coords ?? null,
       route_km: rotte[rotte.length - 1]?.km ?? null,
       home_latitude: home?.lat ?? null, home_longitude: home?.lon ?? null, home_label: home?.label ?? null,
-      distance_from_home_km: dist, max_distance_from_home_km: maxDist, max_distance_city: maxDistCity, altitude_m: alt, max_altitude_m: highestStop?.alt ?? null, max_altitude_city: highestStop?.city ?? null, temperature_c: temp, hottest_temp_c: hottestStop?.temp ?? null, hottest_city: hottestStop?.city ?? null, coldest_temp_c: coldestStop?.temp ?? null, coldest_city: coldestStop?.city ?? null, region: region ?? null, region_details: regionDetails.length > 0 ? regionDetails : null,
+      distance_from_home_km: dist, max_distance_from_home_km: maxDist, max_distance_city: maxDistCity, altitude_m: alt, max_altitude_m: highestStop?.alt ?? null, max_altitude_city: highestStop?.city ?? null, region: region ?? null, region_details: regionDetails.length > 0 ? regionDetails : null,
       country_code: dest.country_code, rating: rating || null,
       purpose: purpose || undefined, companions: companions.length ? companions : undefined,
     }, draftId);
