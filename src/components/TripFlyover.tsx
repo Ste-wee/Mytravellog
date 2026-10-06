@@ -253,8 +253,15 @@ function formatKm(km: number): string {
 
 // Margini (px) attorno al tracciato nel poster. Con fitBounds questi margini
 // fissi fanno sì che il percorso riempia SEMPRE il frame allo stesso modo,
-// qualunque sia la lunghezza (lo zoom si adatta).
-const FINALE_PADDING = { top: 50, right: 60, bottom: 110, left: 60 };
+// qualunque sia la lunghezza (lo zoom si adatta). Sono margini attorno ai
+// PUNTI (vedi `inquadraturaVera`, che li rispetta davvero): in alto c'è spazio
+// per la puntina e il suo nome, che stanno SOPRA il punto, sotto la fila di
+// comandi (X, Satellite/Costellazione); in basso per i bottoni.
+const FINALE_PADDING = { top: 100, right: 60, bottom: 110, left: 60 };
+// In vista piatta (Costellazione, Mappa della vita) i punti sono stelle,
+// centrate sul punto: lo spazio in alto per le puntine non serve, e la Mappa
+// della vita resta inquadrata com'era.
+const FINALE_PADDING_STELLE = { ...FINALE_PADDING, top: 50 };
 
 // ── Il volo (tornato il 2026-10-06, vedi lib/voloVideo) ─────────────────────
 /** Il marker del mezzo corre un filo più della camera: arriva sulla puntina
@@ -500,9 +507,75 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  /** Inquadra l'intero tracciato con fitBounds: il percorso riempie sempre il
-   *  frame allo stesso modo (margini fissi), qualunque sia la lunghezza.
-   *  Inclinata (pitch 45) in entrambe le viste. */
+  /**
+   * Dove mettere la camera perché il tracciato stia DAVVERO dentro i margini.
+   * fitBounds calcola sulla mappa piatta e poi inclina: con pitch 45 sul globo
+   * le tappe non restano dove le aveva messe (misurato su desktop: Milano a
+   * 22 px dal bordo sinistro e 102 a destra, coi margini a 60). Qui si prova la
+   * camera, si guarda dove cadono le tappe e si correggono centro e zoom, poi
+   * si torna indietro: tutto nello stesso fotogramma, quindi non si vede.
+   */
+  const inquadraturaVera = (
+    map: MapLibreMap, coords: [number, number][], bounds: [[number, number], [number, number]], pitch: number,
+  ): { center: [number, number]; zoom: number } | null => {
+    const base = map.cameraForBounds(bounds, { padding: FINALE_PADDING, pitch, bearing: 0, maxZoom: 12 });
+    if (!base) return null;
+    const el = map.getContainer();
+    const W = el.clientWidth, H = el.clientHeight;
+    const P = FINALE_PADDING;
+    const largo = W - P.left - P.right, alto = H - P.top - P.bottom;
+    if (largo <= 0 || alto <= 0) return null;
+    const prima = { center: map.getCenter(), zoom: map.getZoom(), pitch: map.getPitch(), bearing: map.getBearing() };
+    const c0 = base.center;
+    let center: [number, number] = Array.isArray(c0) ? [c0[0], c0[1]]
+      : "lng" in c0 ? [c0.lng, c0.lat] : [c0.lon, c0.lat];
+    let zoom = base.zoom;
+    /** Dove cadono le tappe con la camera in (center, zoom). */
+    const ingombro = () => {
+      map.jumpTo({ center, zoom, pitch, bearing: 0 });
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const c of coords) {
+        const p = map.project(c);
+        x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
+      }
+      return { x0, x1, y0, y1 };
+    };
+    let ok = false;
+    try {
+      for (let giro = 0; giro < 8; giro++) {
+        const { x0, x1, y0, y1 } = ingombro();
+        // il centro dei punti va sul centro della zona fra i margini
+        const dx = (x0 + x1) / 2 - (P.left + largo / 2);
+        const dy = (y0 + y1) / 2 - (P.top + alto / 2);
+        const nuovo = map.unproject([W / 2 + dx, H / 2 + dy]);
+        center = [nuovo.lng, nuovo.lat];
+        // e la loro estensione la riempie (un punto solo: lo zoom resta)
+        const s = Math.max((x1 - x0) / largo, (y1 - y0) / alto);
+        const dz = s > 1e-3 ? -Math.log2(s) : 0;
+        zoom = Math.min(12, zoom + dz);
+        if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(dz) < 0.01) break;
+      }
+      // ⚠️ La prova del nove: sul globo, con un tracciato grande mezzo mondo
+      // (Milano → Tokyo → Honolulu), spostare il centro fa ruotare il globo e
+      // la correzione può non convergere — misurato: Honolulu FUORI dal
+      // riquadro. Si usa la camera calcolata solo se tiene davvero tutte le
+      // tappe dentro i margini; sennò resta l'inquadratura di fitBounds.
+      if (Number.isFinite(zoom) && center.every(Number.isFinite)) {
+        const { x0, x1, y0, y1 } = ingombro();
+        const tolleranza = 4;
+        ok = x0 >= P.left - tolleranza && x1 <= W - P.right + tolleranza
+          && y0 >= P.top - tolleranza && y1 <= H - P.bottom + tolleranza;
+      }
+    } catch {
+      ok = false;
+    } finally {
+      map.jumpTo(prima);
+    }
+    return ok ? { center, zoom } : null;
+  };
+
+  /** Inquadra l'intero tracciato: il percorso riempie sempre il frame allo
+   *  stesso modo (margini fissi), qualunque sia la lunghezza. */
   const flyToOverview = (map: MapLibreMap, pitch = 45): Promise<void> => new Promise(resolve => {
     const coords = allCoordsRef.current;
     if (!coords.length) { resolve(); return; }
@@ -514,9 +587,14 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     let done = false;
     const finish = () => { if (done) return; done = true; resolve(); };
     try {
+      // Inclinata (il poster satellite, con le puntine): si misura dove cadono
+      // davvero le tappe. Piatta (Costellazione, Mappa della vita): fitBounds
+      // è già esatto e resta com'era.
+      const cam = pitch > 0 ? inquadraturaVera(map, coords, [[minLon, minLat], [maxLon, maxLat]], pitch) : null;
       map.once("moveend", finish);
-      map.fitBounds([[minLon, minLat], [maxLon, maxLat]], {
-        pitch, bearing: 0, padding: FINALE_PADDING, duration: 1400, maxZoom: 12,
+      if (cam) map.flyTo({ ...cam, pitch, bearing: 0, duration: 1400 });
+      else map.fitBounds([[minLon, minLat], [maxLon, maxLat]], {
+        pitch, bearing: 0, padding: pitch > 0 ? FINALE_PADDING : FINALE_PADDING_STELLE, duration: 1400, maxZoom: 12,
       });
     } catch { finish(); return; }
     setTimeout(finish, 2200); // salvagente se moveend non scatta
