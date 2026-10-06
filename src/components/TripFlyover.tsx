@@ -11,6 +11,7 @@ import { Trip, formatTripDate } from "@/lib/storage";
 import { buildFlightPath, buildFlightLegs, tripTotalKm, buildPerTripRouteCoords, easeInOutCubic, pointAlongPath, percorsoFatto, FlightLeg } from "@/lib/flyover";
 import { unwrapNear, unwrapPath } from "@/lib/lonWrap";
 import { formatoRegistrabile, kmContatiPerTratta, misureVideo, nomeFileVideo } from "@/lib/voloVideo";
+import { riquadriDelVolo } from "@/lib/riquadriVolo";
 import fixWebmDuration from "fix-webm-duration";
 import { compagniDeiViaggi, viaggiCon } from "@/lib/compagni";
 import { fetchMapStyle } from "@/components/WorldMap";
@@ -270,6 +271,13 @@ const TITOLO_MS = 2800;
  *  Stefano fra «ombra al 30%» e «niente» rese nel video vero (2026-10-06): le
  *  puntine delle tappe restano, quindi si vede dove si va, non come. */
 const OPACITA_DA_FARE = 0;
+/** Quanto si aspetta, al massimo, che arrivino i riquadri della tratta che
+ *  comincia (lib/riquadriVolo): prima del decollo, e a ogni tappa. */
+const ATTESA_DECOLLO_MS = 3000;
+const ATTESA_TAPPA_MS = 1500;
+/** Durante l'attesa d'apertura la camera si avvicina piano (livelli di zoom
+ *  in tutta l'attesa): un globo fermo per tre secondi sembrava un video bloccato. */
+const AVVICINAMENTO_ZOOM = 0.3;
 const attesa = (ms: number) => new Promise<void>(res => setTimeout(res, ms));
 /** I bottoni del volo (Pausa, Salta, Scarica video, Rivivi): stessa forma di «Condividi». */
 const stileBottoneVolo = {
@@ -428,6 +436,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
    * pulito dall'arrivo al poster intero.
    */
   const congelaVideoRef = useRef(false);
+  /** Lo scaricamento in anticipo dei riquadri del volo (si interrompe a fine volo). */
+  const precaricoRef = useRef<AbortController | null>(null);
   /** L'icona nel fotogramma congelato: pixel fissi, non riproiettati sulla mappa che si muove. */
   const markerFissoRef = useRef<{ x: number; y: number; t0: number; color: string; img: HTMLImageElement | null } | null>(null);
   const videoUrlRef = useRef<string | null>(null);
@@ -980,6 +990,58 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     if (rafVoloRef.current != null) { cancelAnimationFrame(rafVoloRef.current); rafVoloRef.current = null; }
     markerRef.current?.remove();
     markerRef.current = null;
+    precaricoRef.current?.abort();
+    precaricoRef.current = null;
+  };
+
+  /**
+   * Scarica in anticipo i riquadri satellite che la camera vedrà, sezione per
+   * sezione (0 = decollo, poi una per tratta), così quando ci arriva la mappa
+   * è già nitida. Li consegna la cache del browser (o del service worker) alla
+   * richiesta di MapLibre. `pronta(i)` si risolve quando le sezioni 0..i sono
+   * scaricate; chi la usa mette sempre un tetto all'attesa.
+   */
+  const avviaPrecarico = (map: MapLibreMap, tratte: FlightLeg[]) => {
+    const src = map.getSource("satellite") as { tiles?: string[] } | undefined;
+    const modello = src?.tiles?.[0];
+    if (!modello) return null;
+    const c = map.getCenter();
+    const sezioni = [
+      { da: { lon: c.lng, lat: c.lat, zoom: map.getZoom() },
+        a: { lon: tratte[0].from.lon, lat: tratte[0].from.lat, zoom: tratte[0].camera.zoom } },
+      ...tratte.map((tr, i) => ({
+        da: { lon: tr.from.lon, lat: tr.from.lat, zoom: (i === 0 ? tr : tratte[i - 1]).camera.zoom },
+        a: { lon: tr.to.lon, lat: tr.to.lat, zoom: tr.camera.zoom },
+      })),
+    ];
+    const el = map.getContainer();
+    const liste = riquadriDelVolo(sezioni, { w: el.clientWidth, h: el.clientHeight });
+    const ctrl = new AbortController();
+    precaricoRef.current = ctrl;
+    const coda = liste.flatMap((l, s) => l.map(k => ({ k, s })));
+    const mancanti = liste.map(l => l.length);
+    const attese: (() => void)[][] = liste.map(() => []);
+    const pronte = (i: number) => mancanti.slice(0, i + 1).every(n => n === 0);
+    const avvisa = () => attese.forEach((a, i) => { if (pronte(i)) { a.forEach(f => f()); a.length = 0; } });
+    let prossimo = 0;
+    const lavora = async () => {
+      while (prossimo < coda.length && !ctrl.signal.aborted) {
+        const { k, s } = coda[prossimo++];
+        const [z, x, y] = k.split("/");
+        try {
+          const r = await fetch(modello.replace("{z}", z).replace("{x}", x).replace("{y}", y), { signal: ctrl.signal });
+          await r.blob();
+        } catch { /* un riquadro perso: lo chiederà MapLibre */ }
+        mancanti[s]--;
+        avvisa();
+      }
+    };
+    for (let i = 0; i < 6; i++) void lavora();
+    return {
+      pronta: (i: number) => new Promise<void>(res => {
+        if (pronte(Math.min(i, liste.length - 1))) res(); else attese[Math.min(i, liste.length - 1)].push(res);
+      }),
+    };
   };
 
   /**
@@ -1327,11 +1389,36 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     markerRef.current = marker;
     aggiornaContatore();
     preparaTracciatoFatto(map);
-    // Il titolo d'apertura: a schermo e nel video per il decollo, poi sfuma.
-    titoloFinoRef.current = performance.now() + TITOLO_MS;
+    const precarico = avviaPrecarico(map, tratte);
+    // Il titolo d'apertura: a schermo e nel video sulla vista d'apertura e
+    // dentro il decollo, poi sfuma.
+    titoloFinoRef.current = Infinity;
     setTitoloVisibile(true);
-    setTimeout(() => { if (vivo()) setTitoloVisibile(false); }, TITOLO_MS - 500);
     avviaRegistrazione(map);
+
+    // 0. Sulla vista d'apertura, col titolo, finché arrivano i riquadri del
+    //    decollo e della prima tratta (con un tetto).
+    if (precarico) {
+      const z0 = map.getZoom();
+      let t0 = performance.now();
+      let prima = t0;
+      const avvicina = () => {
+        if (!vivo()) return;
+        const ora = performance.now();
+        if (inPausaRef.current) t0 += ora - prima;    // in pausa si ferma anche questo
+        prima = ora;
+        // ease-out: parte e rallenta; il decollo riparte da fermo (easeInOutCubic)
+        const k = Math.min(1, (ora - t0) / ATTESA_DECOLLO_MS);
+        map.jumpTo({ zoom: z0 + AVVICINAMENTO_ZOOM * Math.sin(k * Math.PI / 2) });
+        rafVoloRef.current = requestAnimationFrame(avvicina);
+      };
+      rafVoloRef.current = requestAnimationFrame(avvicina);
+      await Promise.race([precarico.pronta(1), attesa(ATTESA_DECOLLO_MS)]);
+      if (rafVoloRef.current != null) { cancelAnimationFrame(rafVoloRef.current); rafVoloRef.current = null; }
+      if (!vivo()) return;
+    }
+    titoloFinoRef.current = performance.now() + TITOLO_MS;
+    setTimeout(() => { if (vivo()) setTitoloVisibile(false); }, TITOLO_MS - 500);
 
     // 1. Decollo: dalla vista larga d'apertura alla partenza, con la camera
     //    già alla quota della prima tratta (sennò zoom e traslazione insieme).
@@ -1345,6 +1432,11 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     let primaKm = 0;
     for (let i = 0; i < tratte.length; i++) {
       const tr = tratte[i];
+      // Sulla tappa, un attimo, se i riquadri della prossima tratta non sono arrivati.
+      if (i > 0 && precarico) {
+        await Promise.race([precarico.pronta(i + 1), attesa(ATTESA_TAPPA_MS)]);
+        if (!vivo()) return;
+      }
       vestiMarker(el, modoDi(tr));
       const ok = await animaCamera(map, id,
         { lon: tr.to.lon, lat: tr.to.lat, zoom: tr.camera.zoom, pitch: tr.camera.pitch, bearing: tr.camera.bearing },
@@ -1432,6 +1524,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     fermaRegistrazione(false);
     try { chiudiTracciatoFatto(map); } catch { /* stile cambiato: niente da ripristinare */ }
     setTitoloVisibile(false);
+    titoloFinoRef.current = 0;        // in attesa sulla vista d'apertura era «per sempre»
     gesti(map, true);
     setVolo("finito");
     await flyToOverview(map, 45);
@@ -1609,6 +1702,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     return () => {
       cancelled = true;
       mountedRef.current = false;
+      precaricoRef.current?.abort();
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
     };
   // ⚠️ Dipendenza NON vuota: la mappa si ricostruisce quando cambia il filtro
