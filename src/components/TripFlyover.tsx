@@ -262,6 +262,11 @@ const FINALE_PADDING = { top: 100, right: 60, bottom: 110, left: 60 };
 // centrate sul punto: lo spazio in alto per le puntine non serve, e la Mappa
 // della vita resta inquadrata com'era.
 const FINALE_PADDING_STELLE = { ...FINALE_PADDING, top: 50 };
+/** La scheda col titolo del poster satellite (in alto a destra, vedi il JSX
+ *  «vetro navy»), in px CSS della mappa: compare solo all'arrivo, quindi
+ *  l'inquadratura ne usa la forma nota. `spazioPuntina`: la puntina e il nome
+ *  stanno SOPRA il punto. */
+const SCHEDA_POSTER = { destra: 16, largaMax: 240, fondo: 145, spazioPuntina: 35 };
 
 // ── Il volo (tornato il 2026-10-06, vedi lib/voloVideo) ─────────────────────
 /** Il marker del mezzo corre un filo più della camera: arriva sulla puntina
@@ -517,12 +522,13 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
    */
   const inquadraturaVera = (
     map: MapLibreMap, coords: [number, number][], bounds: [[number, number], [number, number]], pitch: number,
-  ): { center: [number, number]; zoom: number } | null => {
-    const base = map.cameraForBounds(bounds, { padding: FINALE_PADDING, pitch, bearing: 0, maxZoom: 12 });
+    margineAlto: number,
+  ): { center: [number, number]; zoom: number; sottoLaScheda: boolean } | null => {
+    const P = { ...FINALE_PADDING, top: margineAlto };
+    const base = map.cameraForBounds(bounds, { padding: P, pitch, bearing: 0, maxZoom: 12 });
     if (!base) return null;
     const el = map.getContainer();
     const W = el.clientWidth, H = el.clientHeight;
-    const P = FINALE_PADDING;
     const largo = W - P.left - P.right, alto = H - P.top - P.bottom;
     if (largo <= 0 || alto <= 0) return null;
     const prima = { center: map.getCenter(), zoom: map.getZoom(), pitch: map.getPitch(), bearing: map.getBearing() };
@@ -541,6 +547,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       return { x0, x1, y0, y1 };
     };
     let ok = false;
+    let sottoLaScheda = false;
     try {
       for (let giro = 0; giro < 8; giro++) {
         const { x0, x1, y0, y1 } = ingombro();
@@ -564,14 +571,29 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         const { x0, x1, y0, y1 } = ingombro();
         const tolleranza = 4;
         ok = x0 >= P.left - tolleranza && x1 <= W - P.right + tolleranza
-          && y0 >= P.top - tolleranza && y1 <= H - P.bottom + tolleranza;
+          && y0 >= P.top - tolleranza && y1 <= H - P.bottom + tolleranza
+          // ⚠️ e VISIBILI: `project` dà un pixel anche a una tappa DIETRO il
+          // globo, che così passerebbe i margini. Andata e ritorno: dal pixel
+          // si torna alla faccia davanti, cioè a un altro punto.
+          && coords.every(c => {
+            const q = map.unproject(map.project(c));
+            return Math.abs(q.lat - c[1]) < 0.5 && Math.abs(((q.lng - c[0]) % 360 + 540) % 360 - 180) < 0.5;
+          });
+        // La scheda col titolo (in alto a destra) compare DOPO l'arrivo, quindi
+        // non si può misurare: si usa la sua forma nota (SCHEDA_POSTER). Una
+        // tappa — o un pezzo di linea — sotto di lei non si vedrebbe.
+        const sx = W - SCHEDA_POSTER.destra - Math.min(SCHEDA_POSTER.largaMax, W * 0.7);
+        sottoLaScheda = coords.some(c => {
+          const p = map.project(c);
+          return p.x >= sx - 12 && p.y <= SCHEDA_POSTER.fondo + SCHEDA_POSTER.spazioPuntina;
+        });
       }
     } catch {
       ok = false;
     } finally {
       map.jumpTo(prima);
     }
-    return ok ? { center, zoom } : null;
+    return ok ? { center, zoom, sottoLaScheda } : null;
   };
 
   /** Inquadra l'intero tracciato: il percorso riempie sempre il frame allo
@@ -590,7 +612,12 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       // Inclinata (il poster satellite, con le puntine): si misura dove cadono
       // davvero le tappe. Piatta (Costellazione, Mappa della vita): fitBounds
       // è già esatto e resta com'era.
-      const cam = pitch > 0 ? inquadraturaVera(map, coords, [[minLon, minLat], [maxLon, maxLat]], pitch) : null;
+      const prova = (alto: number) => inquadraturaVera(map, coords, [[minLon, minLat], [maxLon, maxLat]], pitch, alto);
+      let cam = pitch > 0 ? prova(FINALE_PADDING.top) : null;
+      // Se una tappa finisce sotto la scheda col titolo, si rifà con tutto il
+      // tracciato SOTTO la scheda (misurato: nel poster dell'anno Budapest ci
+      // spariva sotto). Gli altri viaggi restano inquadrati come sono.
+      if (cam?.sottoLaScheda) cam = prova(SCHEDA_POSTER.fondo + SCHEDA_POSTER.spazioPuntina) ?? cam;
       map.once("moveend", finish);
       if (cam) map.flyTo({ ...cam, pitch, bearing: 0, duration: 1400 });
       else map.fitBounds([[minLon, minLat], [maxLon, maxLat]], {
