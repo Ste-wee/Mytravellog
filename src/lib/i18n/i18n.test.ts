@@ -74,7 +74,7 @@ describe("il dizionario", () => {
 
   it("non ha chiavi rimaste in italiano per sbaglio", () => {
     // Una traduzione identica alla chiave è sospetta: va bene per i nomi propri
-    // ("Celsius", "Menu", "Italiano"), non per una frase italiana.
+    // ("Menu", "Italiano", "Standard"), non per una frase italiana.
     const uguali = Object.entries(en)
       .filter(([k, v]) => k === v && /\s/.test(k) && /(à|è|é|ì|ò|ù|\bil\b|\bla\b|\bdei\b|\bche\b)/i.test(k))
       .map(([k]) => k);

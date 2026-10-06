@@ -53,7 +53,7 @@ export function TripPlanner({ plan, onClose, onChanged }: Props) {
   // ——— Itinerario: stesso ItineraryPanel di Nuovo viaggio (riusato, non copiato).
   // Le tappe del piano = plan.waypoints (intermedie) + la meta finale ricostruita
   // dai campi destinazione del Trip; alla chiusura si ri-scompone allo stesso modo.
-  // A differenza di Nuovo viaggio, QUI non si calcola nulla (percorsi/meteo/km):
+  // A differenza di Nuovo viaggio, QUI non si calcola nulla (percorsi/km):
   // il piano è intenzione, le misure arrivano alla promozione in Modifica.
   // ⚠️ `?? NaN` e non `?? 0`: una tappa senza coordinate resta senza. Con lo
   // zero diventava (0,0) — l'isola nulla nel Golfo di Guinea — e siccome qui

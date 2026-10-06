@@ -142,7 +142,7 @@ export function loadTrips(): Trip[] {
 /**
  * Si usa sia in LETTURA sia in SCRITTURA. In scrittura è la differenza fra
  * "nascosto" e "cancellato": senza, un record già sepolto restava nel dato
- * grezzo — intero, con coordinate, tracciato e temperature — finché la lapide
+ * grezzo — intero, con coordinate, tracciato e misure — finché la lapide
  * non scadeva, sei mesi dopo. Invisibile nell'app, ma pesante nell'archivio e
  * soprattutto CARICATO NEL BACKUP, quindi propagato a tutti i dispositivi.
  * (Segnalato da Stefano il 2026-08-21: "non dovrebbe rimanere in memoria per

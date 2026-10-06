@@ -144,7 +144,7 @@ describe("ModificaViaggio — feedback durante il salvataggio lento", () => {
     fireEvent.click(screen.getByRole("button", { name: /Salva viaggio/ }));
 
     expect(await screen.findByRole("button", { name: /Salvataggio…/ })).toBeInTheDocument();
-    expect(screen.getByText(/Recupero regione, meteo e altitudine/)).toBeInTheDocument();
+    expect(screen.getByText(/Recupero regione e altitudine/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Annulla" })).toHaveAttribute("aria-disabled", "true");
 
     geoGate.resolve();

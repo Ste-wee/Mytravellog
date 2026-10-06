@@ -11,7 +11,7 @@ Modifiche future devono essere esplicite e motivate.
 ### Pages
 - `src/pages/Index.tsx` — Home: globo, stelle, summary cards, sidebar viaggi
 - `src/pages/Stats.tsx` — Statistiche: mappa, highlights, distanze
-- `src/pages/Settings.tsx` — Impostazioni: distanza, temperatura, rotazione, città residenza
+- `src/pages/Settings.tsx` — Impostazioni: distanza, rotazione, città residenza
 - `src/pages/NuovoViaggio.tsx` — Form nuovo viaggio: layout D, itinerario animato
 - `src/pages/ModificaViaggio.tsx` — Form modifica viaggio: identico a NuovoViaggio con prefill
 
@@ -27,7 +27,7 @@ Modifiche future devono essere esplicite e motivate.
 ### Lib
 - `src/lib/storage.ts` — Trip type, addTrip, updateTrip, loadTrips (FROZEN)
 - `src/lib/settings.tsx` — SettingsProvider, useSettings, HomeCity (FROZEN)
-- `src/lib/geo.ts` — searchPlaces, fetchElevation, fetchTemperature, distanceKm, countryFlag (FROZEN)
+- `src/lib/geo.ts` — searchPlaces, fetchElevation, distanceKm, countryFlag (FROZEN)
 
 ### Config
 - `src/main.tsx` — HashRouter, routes (FROZEN)

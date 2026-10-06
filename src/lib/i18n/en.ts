@@ -428,7 +428,7 @@ export const en = {
   "Impossibile caricare la mappa.": "The map could not be loaded.",
   "Questo viaggio non ha punti sufficienti per la mappa 3D (manca la posizione di casa o della destinazione).": "This trip doesn't have enough points for the 3D map (the home or destination position is missing).",
   "Periodo": "Dates",
-  "Recupero regione, meteo e altitudine delle tappe…": "Fetching region, weather and altitude for the stops…",
+  "Recupero regione e altitudine delle tappe…": "Fetching region and altitude for the stops…",
   "Segna come fatto": "Mark as done",
   "Tocca + o premi Invio per aggiungere": "Tap + or press Enter to add",
   "Il tuo atlante personale di viaggio.": "Your personal travel atlas.",

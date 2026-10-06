@@ -1278,7 +1278,7 @@ export function TripFormActions({ saving, confirmDiscard, onSave }: {
           questa riga il form sembra bloccato invece che al lavoro. */}
       {saving && (
         <p style={{ fontSize:11, color:"rgba(255,255,255,0.6)", textAlign:"center", margin:0 }}>
-          {t("Recupero regione, meteo e altitudine delle tappe…")}
+          {t("Recupero regione e altitudine delle tappe…")}
         </p>
       )}
     </>

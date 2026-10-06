@@ -1,7 +1,7 @@
 {
   "name": "NAV·TA",
   "short_name": "NAV·TA",
-  "description": "Atlas: registra città e stati visitati con temperatura, altitudine e km da casa. Il tuo atlante personale di viaggio.",
+  "description": "Atlas: registra città e stati visitati con altitudine e km da casa. Il tuo atlante personale di viaggio.",
   "lang": "it",
   "id": "./",
   "start_url": "./",

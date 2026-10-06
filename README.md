@@ -1,15 +1,15 @@
 # NAV·TA
 
-Diario di viaggio interattivo: tieni traccia dei posti visitati su un globo 3D, con statistiche su distanze, temperature e continenti esplorati.
+Diario di viaggio interattivo: tieni traccia dei posti visitati su un globo 3D, con statistiche su distanze, altitudini e continenti esplorati.
 
 ## Feature principali
 
 - **Globo 3D** (MapLibre GL) con i viaggi geolocalizzati e stelle di sfondo
 - **Diario viaggi** con tappe multiple, mezzo di trasporto per tratta (aereo, treno, auto, nave, a piedi) e note
-- **Statistiche**: distanza totale percorsa, città/temperatura più calda e più fredda, punto più lontano da casa
+- **Statistiche**: distanza totale percorsa, altitudine più alta, punto più lontano da casa
 - **Mappa continenti** per vedere a colpo d'occhio dove sei già stato
 - **Card viaggio** in stile biglietto aereo, con ricerca e raggruppamento per anno
-- **Impostazioni personalizzabili**: unità di distanza, unità di temperatura, città di residenza
+- **Impostazioni personalizzabili**: unità di distanza, città di residenza, lingua
 
 ## Stack tecnico
 
