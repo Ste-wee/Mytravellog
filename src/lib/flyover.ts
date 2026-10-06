@@ -313,6 +313,32 @@ export function pathLengthKm(path: [number, number][]): number {
  * tra il primo e l'ultimo punto) — usata per animare l'icona del mezzo
  * lungo un tracciato stradale con molti punti ravvicinati in modo ineguale.
  */
+/**
+ * Il pezzo di percorso GIÀ FATTO alla frazione `t`: dall'inizio fino al punto
+ * raggiunto (lo stesso di `pointAlongPath`, quindi la linea finisce esattamente
+ * sotto l'icona del mezzo). Serve al tracciato che si disegna mentre si vola.
+ */
+export function percorsoFatto(path: [number, number][], t: number): [number, number][] {
+  if (path.length === 0) return [];
+  if (t <= 0) return [path[0]];
+  if (t >= 1) return path.slice();
+  const total = pathLengthKm(path);
+  if (total === 0) return [path[0]];
+  const targetKm = total * t;
+  const out: [number, number][] = [path[0]];
+  let covered = 0;
+  for (let i = 1; i < path.length; i++) {
+    const segKm = haversineKm(path[i - 1][1], path[i - 1][0], path[i][1], path[i][0]);
+    if (covered + segKm >= targetKm) {
+      out.push(pointAlongPath(path, t));
+      return out;
+    }
+    out.push(path[i]);
+    covered += segKm;
+  }
+  return out;
+}
+
 export function pointAlongPath(path: [number, number][], t: number): [number, number] {
   if (path.length === 0) return [0, 0];
   if (path.length === 1 || t <= 0) return path[0];

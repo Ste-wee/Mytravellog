@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildFlightPath, computeLegCamera, buildFlightLegs, pointAlongPath, easeInOutCubic, tripTotalKm, buildPerTripRouteCoords, tracciatoFitto, tracciaFittaSalvata, FlightStop } from "./flyover";
+import { buildFlightPath, computeLegCamera, buildFlightLegs, pointAlongPath, percorsoFatto, pathLengthKm, easeInOutCubic, tripTotalKm, buildPerTripRouteCoords, tracciatoFitto, tracciaFittaSalvata, FlightStop } from "./flyover";
 import { distanceKm } from "./geo";
 import type { Trip } from "./storage";
 
@@ -478,5 +478,37 @@ describe("buildPerTripRouteCoords — la tratta da casa NON si disegna", () => {
   it("la casa nel path è contrassegnata, così la costellazione può spegnerne la stella", () => {
     const stops = buildFlightPath([conCasa()]);
     expect(stops.map(s => [s.label, s.casa ?? false])).toEqual([["Milano", true], ["Zurigo", false]]);
+  });
+});
+
+describe("percorsoFatto — il tracciato che si disegna mentre si vola", () => {
+  const strada: [number, number][] = [[9.19, 45.46], [10, 45.6], [11, 46], [11.39, 47.27]];
+
+  it("all'inizio è solo il punto di partenza, alla fine il percorso intero", () => {
+    expect(percorsoFatto(strada, 0)).toEqual([[9.19, 45.46]]);
+    expect(percorsoFatto(strada, 1)).toEqual(strada);
+  });
+
+  it("a metà finisce ESATTAMENTE sotto l'icona (lo stesso punto di pointAlongPath)", () => {
+    for (const t of [0.1, 0.37, 0.5, 0.82]) {
+      const fatto = percorsoFatto(strada, t);
+      expect(fatto[fatto.length - 1]).toEqual(pointAlongPath(strada, t));
+      expect(fatto[0]).toEqual(strada[0]);
+    }
+  });
+
+  it("cresce senza mai tornare indietro", () => {
+    let prima = 0;
+    for (let t = 0; t <= 1.0001; t += 0.05) {
+      const km = pathLengthKm(percorsoFatto(strada, Math.min(1, t)));
+      expect(km).toBeGreaterThanOrEqual(prima - 1e-9);
+      prima = km;
+    }
+    expect(prima).toBeCloseTo(pathLengthKm(strada), 6);
+  });
+
+  it("un percorso vuoto o fermo non fa danni", () => {
+    expect(percorsoFatto([], 0.5)).toEqual([]);
+    expect(percorsoFatto([[1, 1], [1, 1]], 0.5)).toEqual([[1, 1]]);
   });
 });
