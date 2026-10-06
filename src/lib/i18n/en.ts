@@ -425,6 +425,14 @@ export const en = {
   "Inizia a scrivere": "Start writing",
   "Altri giorni (fuori dalle date attuali del viaggio)": "Other days (outside the trip's current dates)",
   "Caricamento della mappa…": "Loading the map…",
+  // La scheda del poster: «N tappe» (le minuscole, il maiuscolo lo fa il CSS/canvas).
+  "tappa": "stop",
+  "tappe": "stops",
+  // Il volo del viaggio in 3D (tornato il 2026-10-06). «Salta» c'è già.
+  "Pausa": "Pause",
+  "Riprendi": "Resume",
+  "Scarica video": "Download video",
+  "Rivivi": "Replay",
   "Impossibile caricare la mappa.": "The map could not be loaded.",
   "Questo viaggio non ha punti sufficienti per la mappa 3D (manca la posizione di casa o della destinazione).": "This trip doesn't have enough points for the 3D map (the home or destination position is missing).",
   "Periodo": "Dates",

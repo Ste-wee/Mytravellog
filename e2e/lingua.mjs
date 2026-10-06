@@ -212,6 +212,27 @@ const INTERAZIONI = [
   ["menu_del_biglietto", "#/miei-viaggi", async () => {
     await page.getByRole("button", { name: /Trip actions/i }).first().click();
   }],
+  // IL VOLO del viaggio in 3D (tornato il 2026-10-06): le sue scritte stanno a
+  // schermo solo MENTRE vola (Pause/Skip) o dopo, sul poster (Replay). Senza
+  // questi passi la rete direbbe «0 italiano» su superfici mai guardate.
+  // ⚠️ I bottoni si cercano per NOME INGLESE: se una traduzione manca il click
+  // fallisce e il passo lo dice, invece di passare in silenzio.
+  ["volo_3d", "#/miei-viaggi", async () => {
+    await page.getByRole("button", { name: /Trip actions/i }).first().click();
+    await page.getByText("Relive in 3D").click();
+    await page.waitForTimeout(6000);
+    await page.getByRole("button", { name: /^Pause/ }).waitFor({ timeout: 5000 });
+  }],
+  ["volo_3d_saltato", "#/miei-viaggi", async () => {
+    await page.getByRole("button", { name: /Trip actions/i }).first().click();
+    await page.getByText("Relive in 3D").click();
+    await page.getByRole("button", { name: /^Skip/ }).click({ timeout: 15000 });
+    await page.getByRole("button", { name: /^Replay/ }).waitFor({ timeout: 8000 });
+    // Saltando, il video a metà si BUTTA: il bottone non deve comparire.
+    if (await page.getByRole("button", { name: /Download video/ }).count()) {
+      throw new Error("dopo «Skip» c'è un video: doveva essere buttato");
+    }
+  }],
   ["aggiungi_tappa", "#/nuovo-viaggio", async () => {
     await page.getByRole("button", { name: /\+ Add stop/i }).first().click();
   }],

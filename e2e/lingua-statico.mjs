@@ -378,6 +378,9 @@ function candidatiDelFile(contenuto) {
   // La seconda l'ho trovata a occhio in uno screenshot, non con una rete: il
   // sesto «ho finito» sbagliato di questo lavoro.
   for (const m of testo.matchAll(/>([^<>]*)</g)) {
+    // la `>` di una FRECCIA (`=>`) non chiude nessun tag: quello che segue è
+    // codice fino al prossimo `<` di un generico (`=> void, … Promise<…>`)
+    if (testo[m.index - 1] === "=") continue;
     const pezzo = svuotaGraffe(m[1]);
     // punto e virgola, uguale o backtick nel pezzo = quel `>` non apriva un
     // tag, era codice (`const x = { a: 1 };` fra due tag)
@@ -462,6 +465,10 @@ if (process.argv.includes("--autoprova")) {
     // il `>` del confronto e quello della freccia non aprono nessuna scritta
     [`if (a > b) return c`, `const d = e < f`],
     [`  .sort((a, b) =>`, `    (b.km ?? 0) - (a.km ?? 0)`, `  )[0],`, `[trips]`],
+    // il tipo di una funzione che restituisce void, seguito da un generico:
+    // `=> void,` fra la `>` della freccia e la `<` di Promise<…> NON è una
+    // scritta (falso positivo vero, nato col volo del viaggio in 3D)
+    [`  fatto: number, suFrame?: (t: number) => void,`, `): Promise<boolean> => new Promise(r => {`],
     // il ternario fra due tag: `: stop.countryCode` è codice
     [`? <span style={{ fontSize: 12 }}>🏠</span>`, `: stop.countryCode`, `  ? <img alt="" />`],
     // un commento JSX su più righe: prosa italiana che NON è una scritta
