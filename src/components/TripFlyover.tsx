@@ -1050,7 +1050,22 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       const ultimo = document.createElement("canvas");
       ultimo.width = w; ultimo.height = h;
       const ctxUltimo = ultimo.getContext("2d")!;
-      const copia = () => { try { ctxUltimo.drawImage(mapCanvas, 0, 0, w, h); } catch { /* frame perso */ } };
+      // ⚠️ SFONDO PIENO prima di ogni copia. Il canvas della mappa ha zone
+      // TRASPARENTI — riquadri satellite ancora in caricamento quando la camera
+      // si allarga, scritte in dissolvenza, lo spazio attorno al globo — e
+      // copiato sopra il fotogramma prima lasciava SCIE: puntine impilate in
+      // fila, «Slovenia Slovenia», linee doppie (viste nel file video, mai a
+      // schermo, dove sotto c'è lo sfondo del riquadro). È la stessa famiglia
+      // del difetto che rendeva il video di LUGLIO una mappa congelata piena di
+      // icone ripetute (rifatto girare dal tag per confrontarlo).
+      const SFONDO = "#060e1e";
+      const copia = () => {
+        try {
+          ctxUltimo.fillStyle = SFONDO;
+          ctxUltimo.fillRect(0, 0, w, h);
+          ctxUltimo.drawImage(mapCanvas, 0, 0, w, h);
+        } catch { /* frame perso */ }
+      };
       map.on("render", copia);
       staccaRenderRef.current = () => map.off("render", copia);
       finaleVideoRef.current = null;
@@ -1058,6 +1073,9 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       const k = w / (mapCanvas.clientWidth || w);     // px del video per px CSS
       const disegna = () => {
         rafVideoRef.current = requestAnimationFrame(disegna);
+        // anche qui: il poster del finale ha lo spazio attorno al globo trasparente
+        ctx.fillStyle = SFONDO;
+        ctx.fillRect(0, 0, w, h);
         const finale = finaleVideoRef.current;
         if (finale) {
           // ⚠️ Il finale NON dev'essere un fermo-immagine. Con una scena immobile
@@ -1147,7 +1165,14 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   };
 
   /** Il volo intero: decollo → tratte → atterraggio sul poster → finale del video. */
-  const avviaVolo = async (map: MapLibreMap) => {
+  /** Il volo, con la rete sotto: se qualcosa va in errore a metà (un'icona,
+   *  il marker, la mappa) si atterra comunque sul poster come con «Salta» —
+   *  senza, il volo restava appeso: niente poster e comandi che non servono. */
+  const avviaVolo = (map: MapLibreMap) => {
+    voloVero(map).catch(() => { if (mountedRef.current) salta(); });
+  };
+
+  const voloVero = async (map: MapLibreMap) => {
     const lib = libRef.current;
     const tratte = legsRef.current;
     if (!lib || !tratte.length) return;
