@@ -17,6 +17,11 @@ export interface SezioneVolo {
 
 const LATO = 512;            // i riquadri raster MapLibre sono da 512 px
 const CAMPIONI = 12;         // posizioni della camera controllate per sezione
+/** Oltre questa vista (px CSS) si scarica in anticipo solo la parte centrale:
+ *  su un desktop a tutto schermo il conto saliva a 200-400 riquadri (12-23 MB)
+ *  e un volo solo svuotava la cache del service worker (500 voci). I bordi li
+ *  chiede MapLibre come prima; il centro, dove si guarda, resta nitido. */
+const VISTA_MAX = { w: 600, h: 1000 };
 
 /** Longitudine portata accanto a `vicino` (la strada corta oltre il 180°). */
 function accanto(lon: number, vicino: number): number {
@@ -43,7 +48,8 @@ function pixelMondo(lon: number, lat: number, z: number): [number, number] {
  * Per questo: allo zoom pieno una finestra asimmetrica attorno al centro, e
  * allo zoom inferiore una finestra più ampia verso l'orizzonte.
  */
-export function riquadriDelVolo(sezioni: SezioneVolo[], vista: { w: number; h: number }): string[][] {
+export function riquadriDelVolo(sezioni: SezioneVolo[], vistaVera: { w: number; h: number }): string[][] {
+  const vista = { w: Math.min(vistaVera.w, VISTA_MAX.w), h: Math.min(vistaVera.h, VISTA_MAX.h) };
   const visti = new Set<string>();
   return sezioni.map(({ da, a }) => {
     const lista: string[] = [];

@@ -1414,8 +1414,10 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       };
       rafVoloRef.current = requestAnimationFrame(avvicina);
       await Promise.race([precarico.pronta(1), attesa(ATTESA_DECOLLO_MS)]);
-      if (rafVoloRef.current != null) { cancelAnimationFrame(rafVoloRef.current); rafVoloRef.current = null; }
+      // ⚠️ PRIMA vivo(), poi il raf: con Salta + Rivivi durante l'attesa il raf
+      // è già del volo NUOVO, e cancellarlo lo lasciava appeso a metà.
       if (!vivo()) return;
+      if (rafVoloRef.current != null) { cancelAnimationFrame(rafVoloRef.current); rafVoloRef.current = null; }
     }
     titoloFinoRef.current = performance.now() + TITOLO_MS;
     setTimeout(() => { if (vivo()) setTitoloVisibile(false); }, TITOLO_MS - 500);

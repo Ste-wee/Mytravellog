@@ -84,6 +84,14 @@ describe("riquadriDelVolo", () => {
     }
   });
 
+  it("su uno schermo grande scarica solo la parte centrale (non svuota la cache)", () => {
+    const grande = riquadriDelVolo([tratta], { w: 1920, h: 1080 })[0];
+    const tetto = riquadriDelVolo([tratta], { w: 600, h: 1000 })[0];
+    expect(grande).toEqual(tetto);
+    // e il telefono, sotto il tetto, non viene toccato
+    expect(riquadriDelVolo([tratta], VISTA)[0].length).toBeLessThan(tetto.length);
+  });
+
   it("per un viaggio vero resta un numero ragionevole di riquadri", () => {
     // il viaggio di prova (Milano → Innsbruck → Vienna → Budapest), decollo incluso:
     // misurato 91 riquadri ≈ 5 MB. Un tetto largo: se esplode, qualcosa si è rotto.
