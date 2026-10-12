@@ -233,6 +233,16 @@ const INTERAZIONI = [
       throw new Error("dopo «Skip» c'è un video: doveva essere buttato");
     }
   }],
+  // «Crea video» (2026-10-12): il video non nasce più durante il volo, si
+  // costruisce dopo, dal poster. Il pannello di creazione ha scritte sue
+  // (avanzamento, avviso, Annulla) che a schermo stanno solo mentre lavora.
+  ["crea_video", "#/miei-viaggi", async () => {
+    await page.getByRole("button", { name: /Trip actions/i }).first().click();
+    await page.getByText("Relive in 3D").click();
+    await page.getByRole("button", { name: /^Skip/ }).click({ timeout: 15000 });
+    await page.getByRole("button", { name: /^Create video/ }).click({ timeout: 8000 });
+    await page.getByText(/Creating the video/).waitFor({ timeout: 8000 });
+  }],
   ["aggiungi_tappa", "#/nuovo-viaggio", async () => {
     await page.getByRole("button", { name: /\+ Add stop/i }).first().click();
   }],

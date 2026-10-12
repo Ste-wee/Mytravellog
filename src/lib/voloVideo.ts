@@ -70,3 +70,34 @@ export function nomeFileVideo(titolo: string, formato: FormatoVideo): string {
   const base = titolo.replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40) || "viaggio";
   return `${base}-3d.${formato.estensione}`;
 }
+
+/**
+ * Il codice H.264 per COSTRUIRE il video fotogramma per fotogramma (WebCodecs),
+ * nell'ordine in cui si prova: «high» comprime meglio, «base» è quello che
+ * c'è ovunque. Tutti e tre reggono un video verticale fino a 720×1280.
+ */
+export const CODEC_H264 = ["avc1.640028", "avc1.4d0028", "avc1.42001f"] as const;
+
+/** Il primo codice H.264 che il codificatore accetta a queste misure, o null. */
+export async function scegliCodecH264(
+  accetta: (codec: string) => Promise<boolean>,
+): Promise<string | null> {
+  for (const c of CODEC_H264) {
+    try { if (await accetta(c)) return c; } catch { /* un browser che lancia vale "no" */ }
+  }
+  return null;
+}
+
+/**
+ * Questo browser sa COSTRUIRE il video (WebCodecs + H.264)? Restituisce il
+ * codice da usare, o null: allora si ripiega sulla registrazione dal vivo.
+ */
+export async function codecCostruzione(w: number, h: number): Promise<string | null> {
+  try {
+    if (typeof VideoEncoder === "undefined" || typeof VideoFrame === "undefined") return null;
+    return await scegliCodecH264(async codec =>
+      !!(await VideoEncoder.isConfigSupported({ codec, width: w, height: h, bitrate: 4_000_000, framerate: 30 })).supported);
+  } catch {
+    return null;
+  }
+}

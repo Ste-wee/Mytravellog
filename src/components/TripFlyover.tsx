@@ -8,10 +8,11 @@ import { loadMapLibre, type StyleExpr } from "@/lib/maplibre";
 import { createPortal } from "react-dom";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Trip, formatTripDate } from "@/lib/storage";
-import { buildFlightPath, buildFlightLegs, tripTotalKm, buildPerTripRouteCoords, easeInOutCubic, pointAlongPath, percorsoFatto, FlightLeg } from "@/lib/flyover";
-import { unwrapNear, unwrapPath } from "@/lib/lonWrap";
-import { formatoRegistrabile, kmContatiPerTratta, misureVideo, nomeFileVideo } from "@/lib/voloVideo";
+import { buildFlightPath, buildFlightLegs, tripTotalKm, buildPerTripRouteCoords, easeInOutCubic, pointAlongPath, tracciatoProgressivo, FlightLeg } from "@/lib/flyover";
+import { unwrapNear } from "@/lib/lonWrap";
+import { codecCostruzione, formatoRegistrabile, kmContatiPerTratta, misureVideo, nomeFileVideo } from "@/lib/voloVideo";
 import { riquadriDelVolo } from "@/lib/riquadriVolo";
+import { copioneVolo, type Camera, type TempiCopione } from "@/lib/copioneVolo";
 import fixWebmDuration from "fix-webm-duration";
 import { compagniDeiViaggi, viaggiCon } from "@/lib/compagni";
 import { fetchMapStyle } from "@/components/WorldMap";
@@ -279,10 +280,15 @@ const FINALE_VIDEO_MS = 2500;
 /** Il titolo d'apertura: resta a schermo (e nel video) per il decollo, poi sfuma. */
 const TITOLO_MS = 2800;
 /** Durante il volo il tracciato ancora da fare NON si vede: compare solo man
- *  mano che l'icona lo percorre (layer `flyover-fatto`), come Relive. Scelta di
+ *  mano che l'icona lo percorre (layer `flyover-traccia`), come Relive. Scelta di
  *  Stefano fra «ombra al 30%» e «niente» rese nel video vero (2026-10-06): le
  *  puntine delle tappe restano, quindi si vede dove si va, non come. */
 const OPACITA_DA_FARE = 0;
+/** Il taglio della linea del volo: piena prima di `p`, trasparente dopo. */
+const TAGLIO = {
+  "flyover-traccia": (p: number): StyleExpr => ["step", ["line-progress"], "#fbbf24", Math.max(0, p), "rgba(251,191,36,0)"],
+  "flyover-traccia-casing": (p: number): StyleExpr => ["step", ["line-progress"], "rgba(6,14,30,0.65)", Math.max(0, p), "rgba(6,14,30,0)"],
+};
 /** Quanto si aspetta, al massimo, che arrivino i riquadri della tratta che
  *  comincia (lib/riquadriVolo): prima del decollo, e a ogni tappa. */
 const ATTESA_DECOLLO_MS = 3000;
@@ -290,7 +296,72 @@ const ATTESA_TAPPA_MS = 1500;
 /** Durante l'attesa d'apertura la camera si avvicina piano (livelli di zoom
  *  in tutta l'attesa): un globo fermo per tre secondi sembrava un video bloccato. */
 const AVVICINAMENTO_ZOOM = 0.3;
+/** Il video costruito («Crea video»): 30 fotogrammi al secondo, e per ognuno
+ *  si aspettano i riquadri al massimo questo tempo. */
+const FPS_VIDEO = 30;
+const ATTESA_FOTOGRAMMA_MS = 3000;
+/** Il ritmo del video costruito: le STESSE fasi e curve del volo dal vivo
+ *  (vedi lib/copioneVolo), con l'apertura fissa — lì non c'è rete da aspettare. */
+const TEMPI_VIDEO: TempiCopione = {
+  aperturaMs: 2500, avvicinamentoZoom: AVVICINAMENTO_ZOOM, decolloMs: DECOLLO_MS,
+  arrivoMs: 1500, arrivoZoom: 0.15, finaleMs: FINALE_VIDEO_MS,
+  titoloMs: TITOLO_MS, sfumaturaMs: 500, velocitaIcona: VELOCITA_MARKER,
+};
 const attesa = (ms: number) => new Promise<void>(res => setTimeout(res, ms));
+
+// ── Quello che il video disegna sopra la mappa ───────────────────────────────
+// Le stesse forme per il video registrato dal vivo e per quello costruito
+// fotogramma per fotogramma. `k` = px del video per px CSS della mappa.
+
+/** L'icona del mezzo: cerchio col colore del mezzo, bordo bianco, simbolo. */
+function disegnaIcona(ctx: CanvasRenderingContext2D, x: number, y: number, k: number,
+  veste: { color: string; img: HTMLImageElement | null }) {
+  ctx.beginPath(); ctx.arc(x, y, 15 * k, 0, Math.PI * 2);
+  ctx.fillStyle = veste.color; ctx.fill();
+  ctx.lineWidth = 2 * k; ctx.strokeStyle = "#ffffff"; ctx.stroke();
+  if (veste.img) ctx.drawImage(veste.img, x - 8 * k, y - 8 * k, 16 * k, 16 * k);
+}
+
+/** Il contatore dei km, in alto al centro (la stessa pillola che c'è a schermo). */
+function disegnaContatore(ctx: CanvasRenderingContext2D, testo: string, w: number, k: number) {
+  ctx.font = `600 ${13 * k}px ui-monospace, Menlo, monospace`;
+  const tw = ctx.measureText(testo).width + 28 * k;
+  ctx.fillStyle = "rgba(10,22,40,0.85)";
+  roundRectPath(ctx, w / 2 - tw / 2, 16 * k, tw, 28 * k, 14 * k); ctx.fill();
+  ctx.fillStyle = "#ffffff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(testo, w / 2, 30 * k + k);
+}
+
+/** Il titolo d'apertura (nome + date), in basso, con l'opacità data. */
+function disegnaTitolo(ctx: CanvasRenderingContext2D, alpha: number, titolo: string,
+  date: string | null | undefined, w: number, h: number, k: number) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  const maxW = w - 32 * k;
+  let fs = 20;
+  ctx.font = `700 ${fs * k}px "Space Grotesk", sans-serif`;
+  while (fs > 12 && ctx.measureText(titolo).width > maxW - 32 * k) {
+    fs -= 1; ctx.font = `700 ${fs * k}px "Space Grotesk", sans-serif`;
+  }
+  const tw2 = ctx.measureText(titolo).width;
+  ctx.font = `400 ${12 * k}px sans-serif`;
+  const dw = date ? ctx.measureText(date).width : 0;
+  const bw = Math.min(maxW, Math.max(tw2, dw) + 32 * k);
+  const bh = (date ? 56 : 40) * k;
+  const by = h - 76 * k - bh;
+  ctx.fillStyle = "rgba(10,22,40,0.88)";
+  roundRectPath(ctx, w / 2 - bw / 2, by, bw, bh, 14 * k); ctx.fill();
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#f0f4ff";
+  ctx.font = `700 ${fs * k}px "Space Grotesk", sans-serif`;
+  ctx.fillText(titolo, w / 2, by + (date ? 21 : 20) * k);
+  if (date) {
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.font = `400 ${12 * k}px sans-serif`;
+    ctx.fillText(date, w / 2, by + 41 * k);
+  }
+  ctx.restore();
+}
 /** I bottoni del volo (Pausa, Salta, Scarica video, Rivivi): stessa forma di «Condividi». */
 const stileBottoneVolo = {
   display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
@@ -450,6 +521,13 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   const congelaVideoRef = useRef(false);
   /** Lo scaricamento in anticipo dei riquadri del volo (si interrompe a fine volo). */
   const precaricoRef = useRef<AbortController | null>(null);
+  /** «Crea video»: avanzamento (0-100, null = fermo), annulla, anteprima. */
+  const [creazione, setCreazione] = useState<number | null>(null);
+  const creazioneRef = useRef(false);
+  const annullaVideoRef = useRef(false);
+  const anteprimaRef = useRef<HTMLCanvasElement | null>(null);
+  /** Questo browser sa fare un video? (costruito, o almeno registrato dal vivo) */
+  const [sa, setSa] = useState<"costruito" | "dal-vivo" | null>(null);
   /** L'icona nel fotogramma congelato: pixel fissi, non riproiettati sulla mappa che si muove. */
   const markerFissoRef = useRef<{ x: number; y: number; t0: number; color: string; img: HTMLImageElement | null } | null>(null);
   const videoUrlRef = useRef<string | null>(null);
@@ -598,31 +676,52 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
 
   /** Inquadra l'intero tracciato: il percorso riempie sempre il frame allo
    *  stesso modo (margini fissi), qualunque sia la lunghezza. */
-  const flyToOverview = (map: MapLibreMap, pitch = 45): Promise<void> => new Promise(resolve => {
+  /** L'inquadratura del poster, senza muovere niente: la camera misurata
+   *  (`inquadraturaVera`) quando riesce, e in ogni caso i confini del tracciato
+   *  per il ripiego su fitBounds. */
+  const inquadraturaPoster = (map: MapLibreMap, pitch: number) => {
     const coords = allCoordsRef.current;
-    if (!coords.length) { resolve(); return; }
+    if (!coords.length) return null;
     let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
     for (const [lon, lat] of coords) {
       minLon = Math.min(minLon, lon); maxLon = Math.max(maxLon, lon);
       minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
     }
+    const bounds: [[number, number], [number, number]] = [[minLon, minLat], [maxLon, maxLat]];
+    // Inclinata (il poster satellite, con le puntine): si misura dove cadono
+    // davvero le tappe. Piatta (Costellazione, Mappa della vita): fitBounds
+    // è già esatto e resta com'era.
+    const prova = (alto: number) => inquadraturaVera(map, coords, bounds, pitch, alto);
+    let cam = pitch > 0 ? prova(FINALE_PADDING.top) : null;
+    // Se una tappa finisce sotto la scheda col titolo, si rifà con tutto il
+    // tracciato SOTTO la scheda (misurato: nel poster dell'anno Budapest ci
+    // spariva sotto). Gli altri viaggi restano inquadrati come sono.
+    if (cam?.sottoLaScheda) cam = prova(SCHEDA_POSTER.fondo + SCHEDA_POSTER.spazioPuntina) ?? cam;
+    return { cam, bounds, padding: pitch > 0 ? FINALE_PADDING : FINALE_PADDING_STELLE };
+  };
+
+  /** La camera del poster come numeri (per il video, che la deve raggiungere a
+   *  scatti e non in volo). Null se non c'è niente da inquadrare. */
+  const cameraPoster = (map: MapLibreMap, pitch = 45): Camera | null => {
+    const q = inquadraturaPoster(map, pitch);
+    if (!q) return null;
+    if (q.cam) return { lon: q.cam.center[0], lat: q.cam.center[1], zoom: q.cam.zoom, pitch, bearing: 0 };
+    const c = map.cameraForBounds(q.bounds, { padding: q.padding, pitch, bearing: 0, maxZoom: 12 });
+    if (!c) return null;
+    const cc = c.center;
+    const [lon, lat] = Array.isArray(cc) ? [cc[0], cc[1]] : "lng" in cc ? [cc.lng, cc.lat] : [cc.lon, cc.lat];
+    return { lon, lat, zoom: c.zoom ?? map.getZoom(), pitch, bearing: 0 };
+  };
+
+  const flyToOverview = (map: MapLibreMap, pitch = 45): Promise<void> => new Promise(resolve => {
     let done = false;
     const finish = () => { if (done) return; done = true; resolve(); };
     try {
-      // Inclinata (il poster satellite, con le puntine): si misura dove cadono
-      // davvero le tappe. Piatta (Costellazione, Mappa della vita): fitBounds
-      // è già esatto e resta com'era.
-      const prova = (alto: number) => inquadraturaVera(map, coords, [[minLon, minLat], [maxLon, maxLat]], pitch, alto);
-      let cam = pitch > 0 ? prova(FINALE_PADDING.top) : null;
-      // Se una tappa finisce sotto la scheda col titolo, si rifà con tutto il
-      // tracciato SOTTO la scheda (misurato: nel poster dell'anno Budapest ci
-      // spariva sotto). Gli altri viaggi restano inquadrati come sono.
-      if (cam?.sottoLaScheda) cam = prova(SCHEDA_POSTER.fondo + SCHEDA_POSTER.spazioPuntina) ?? cam;
+      const q = inquadraturaPoster(map, pitch);
+      if (!q) { finish(); return; }
       map.once("moveend", finish);
-      if (cam) map.flyTo({ ...cam, pitch, bearing: 0, duration: 1400 });
-      else map.fitBounds([[minLon, minLat], [maxLon, maxLat]], {
-        pitch, bearing: 0, padding: pitch > 0 ? FINALE_PADDING : FINALE_PADDING_STELLE, duration: 1400, maxZoom: 12,
-      });
+      if (q.cam) map.flyTo({ center: q.cam.center, zoom: q.cam.zoom, pitch, bearing: 0, duration: 1400 });
+      else map.fitBounds(q.bounds, { pitch, bearing: 0, padding: q.padding, duration: 1400, maxZoom: 12 });
     } catch { finish(); return; }
     setTimeout(finish, 2200); // salvagente se moveend non scatta
   });
@@ -1151,31 +1250,37 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
 
   /**
    * Il TRACCIATO CHE SI DISEGNA (2026-10-06): durante il volo il percorso
-   * intero si spegne (OPACITA_DA_FARE) e cresce una seconda linea, piena, che finisce
-   * esattamente sotto l'icona (`percorsoFatto`, stesso punto di
-   * `pointAlongPath`). È ciò che fa di un volo un racconto: prima la linea era
-   * già tutta tracciata e l'icona sembrava un cursore su un percorso noto.
+   * intero si spegne (OPACITA_DA_FARE) e cresce una seconda linea, piena, che
+   * finisce esattamente sotto l'icona. È ciò che fa di un volo un racconto:
+   * prima la linea era già tutta tracciata e l'icona sembrava un cursore su un
+   * percorso noto. Dal 2026-10-12 la linea intera si passa alla mappa UNA volta
+   * e si scopre con un taglio (vedi tracciatoProgressivo in lib/flyover): prima
+   * si ricalcolava a ogni fotogramma e sul telefono restava indietro all'icona.
    */
   const lineaFatta = (coords: [number, number][]) => ({
     type: "Feature" as const, properties: {},
     geometry: { type: "LineString" as const, coordinates: coords.length > 1 ? coords : [] },
   });
   const preparaTracciatoFatto = (map: MapLibreMap) => {
-    if (!map.getSource("flyover-fatto")) map.addSource("flyover-fatto", { type: "geojson", data: lineaFatta([]) });
     const sopra = map.getLayer("flyover-stops") ? "flyover-stops" : undefined;   // le puntine restano sopra
-    if (!map.getLayer("flyover-fatto-casing")) {
-      map.addLayer({ id: "flyover-fatto-casing", type: "line", source: "flyover-fatto",
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": "rgba(6,14,30,0.65)", "line-width": 8.5 } }, sopra);
+    // `lineMetrics` serve a `line-progress`, su cui si fa il taglio.
+    if (!map.getSource("flyover-traccia")) map.addSource("flyover-traccia", { type: "geojson", data: lineaFatta([]), lineMetrics: true });
+    for (const [id, largo] of [["flyover-traccia-casing", 8.5], ["flyover-traccia", 4.5]] as const) {
+      if (!map.getLayer(id)) {
+        map.addLayer({ id, type: "line", source: "flyover-traccia",
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: { "line-width": largo, "line-gradient": TAGLIO[id](0) } }, sopra);
+      }
     }
-    if (!map.getLayer("flyover-fatto")) {
-      map.addLayer({ id: "flyover-fatto", type: "line", source: "flyover-fatto",
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": "#fbbf24", "line-width": 4.5 } }, sopra);
-    }
-    (map.getSource("flyover-fatto") as GeoJSONSource).setData(lineaFatta([]));
+    tagliaTraccia(map, 0);
     for (const id of ["flyover-route", "flyover-route-casing"]) {
       if (map.getLayer(id)) map.setPaintProperty(id, "line-opacity", OPACITA_DA_FARE);
+    }
+  };
+  /** La linea del volo piena fino a `p` (frazione della linea intera), poi niente. */
+  const tagliaTraccia = (map: MapLibreMap, p: number) => {
+    for (const id of ["flyover-traccia-casing", "flyover-traccia"] as const) {
+      if (map.getLayer(id)) map.setPaintProperty(id, "line-gradient", TAGLIO[id](p));
     }
   };
   /** Aspetta che la mappa abbia caricato i riquadri della vista (evento "idle"),
@@ -1195,8 +1300,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     for (const id of ["flyover-route", "flyover-route-casing"]) {
       if (map.getLayer(id)) map.setPaintProperty(id, "line-opacity", 1);
     }
-    const src = map.getSource("flyover-fatto") as GeoJSONSource | undefined;
-    src?.setData(lineaFatta([]));
+    tagliaTraccia(map, 0);
+    (map.getSource("flyover-traccia") as GeoJSONSource | undefined)?.setData(lineaFatta([]));
   };
 
   /** Durante il volo la camera la guida l'animazione: un trascinamento la
@@ -1356,49 +1461,12 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         const m = markerRef.current;
         if (fisso || m) {
           const p = fisso ?? map.project(m!.getLngLat());
-          const { color, img } = fisso ?? markerVesteRef.current;
-          ctx.beginPath(); ctx.arc(p.x * k, p.y * k, 15 * k, 0, Math.PI * 2);
-          ctx.fillStyle = color; ctx.fill();
-          ctx.lineWidth = 2 * k; ctx.strokeStyle = "#ffffff"; ctx.stroke();
-          if (img) ctx.drawImage(img, p.x * k - 8 * k, p.y * k - 8 * k, 16 * k, 16 * k);
+          disegnaIcona(ctx, p.x * k, p.y * k, k, fisso ?? markerVesteRef.current);
         }
-        const testo = testoContatore();
-        ctx.font = `600 ${13 * k}px ui-monospace, Menlo, monospace`;
-        const tw = ctx.measureText(testo).width + 28 * k;
-        ctx.fillStyle = "rgba(10,22,40,0.85)";
-        roundRectPath(ctx, w / 2 - tw / 2, 16 * k, tw, 28 * k, 14 * k); ctx.fill();
-        ctx.fillStyle = "#ffffff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText(testo, w / 2, 30 * k + k);
+        disegnaContatore(ctx, testoContatore(), w, k);
         // Il titolo d'apertura (lo stesso riquadro che c'è a schermo), che sfuma.
         const restoTitolo = titoloFinoRef.current - performance.now();
-        if (restoTitolo > 0) {
-          ctx.save();
-          ctx.globalAlpha = Math.min(1, restoTitolo / 500);
-          const maxW = w - 32 * k;
-          let fs = 20;
-          ctx.font = `700 ${fs * k}px "Space Grotesk", sans-serif`;
-          while (fs > 12 && ctx.measureText(titoloVideo).width > maxW - 32 * k) {
-            fs -= 1; ctx.font = `700 ${fs * k}px "Space Grotesk", sans-serif`;
-          }
-          const tw2 = ctx.measureText(titoloVideo).width;
-          ctx.font = `400 ${12 * k}px sans-serif`;
-          const dw = dateVideo ? ctx.measureText(dateVideo).width : 0;
-          const bw = Math.min(maxW, Math.max(tw2, dw) + 32 * k);
-          const bh = (dateVideo ? 56 : 40) * k;
-          const by = h - 76 * k - bh;
-          ctx.fillStyle = "rgba(10,22,40,0.88)";
-          roundRectPath(ctx, w / 2 - bw / 2, by, bw, bh, 14 * k); ctx.fill();
-          ctx.textAlign = "center"; ctx.textBaseline = "middle";
-          ctx.fillStyle = "#f0f4ff";
-          ctx.font = `700 ${fs * k}px "Space Grotesk", sans-serif`;
-          ctx.fillText(titoloVideo, w / 2, by + (dateVideo ? 21 : 20) * k);
-          if (dateVideo) {
-            ctx.fillStyle = "rgba(255,255,255,0.6)";
-            ctx.font = `400 ${12 * k}px sans-serif`;
-            ctx.fillText(dateVideo, w / 2, by + 41 * k);
-          }
-          ctx.restore();
-        }
+        if (restoTitolo > 0) disegnaTitolo(ctx, Math.min(1, restoTitolo / 500), titoloVideo, dateVideo, w, h, k);
       };
       disegna();
       const rec = new MediaRecorder(video.captureStream(30), { mimeType: formato.mime, videoBitsPerSecond: 4_000_000 });
@@ -1455,11 +1523,14 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   /** Il volo, con la rete sotto: se qualcosa va in errore a metà (un'icona,
    *  il marker, la mappa) si atterra comunque sul poster come con «Salta» —
    *  senza, il volo restava appeso: niente poster e comandi che non servono. */
-  const avviaVolo = (map: MapLibreMap) => {
-    voloVero(map).catch(() => { if (mountedRef.current) salta(); });
+  /** `registra`: il volo si registra MENTRE si vola. Solo come ripiego di «Crea
+   *  video» dove il browser non sa costruire il video (vedi costruisciVideo):
+   *  la registrazione dal vivo dimezzava la fluidità del volo sui telefoni. */
+  const avviaVolo = (map: MapLibreMap, registra = false) => {
+    voloVero(map, registra).catch(() => { if (mountedRef.current) salta(); });
   };
 
-  const voloVero = async (map: MapLibreMap) => {
+  const voloVero = async (map: MapLibreMap, registra: boolean) => {
     const lib = libRef.current;
     const tratte = legsRef.current;
     if (!lib || !tratte.length) return;
@@ -1467,7 +1538,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     const vivo = () => mountedRef.current && voloIdRef.current === id;
     fermaAnimazione();
     fermaRegistrazione(false);
-    buttaVideo();
+    // il video già fatto resta (è dello stesso viaggio): si butta solo per rifarlo
+    if (registra) buttaVideo();
     setPoster(false);
     inPausaRef.current = false;
     kmFattiRef.current = 0;
@@ -1494,12 +1566,16 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     markerRef.current = marker;
     aggiornaContatore();
     preparaTracciatoFatto(map);
+    // La linea intera parte SUBITO, così la mappa la prepara durante l'apertura:
+    // in volo cambia solo il taglio.
+    const traccia = tracciatoProgressivo(tratte.map(tr => tr.pathCoords));
+    (map.getSource("flyover-traccia") as GeoJSONSource | undefined)?.setData(lineaFatta(traccia.percorso));
     const precarico = avviaPrecarico(map, tratte);
     // Il titolo d'apertura: a schermo e nel video sulla vista d'apertura e
     // dentro il decollo, poi sfuma.
     titoloFinoRef.current = Infinity;
     setTitoloVisibile(true);
-    avviaRegistrazione(map);
+    if (registra) avviaRegistrazione(map);
 
     // 0. Sulla vista d'apertura, col titolo, finché arrivano i riquadri del
     //    decollo e della prima tratta (con un tetto).
@@ -1534,8 +1610,6 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
 
     // 2. Le tratte. Il contatore aggiunge solo i km contati (lib/voloVideo).
     const kmTratte = kmContatiPerTratta(tratte);
-    const fatto = map.getSource("flyover-fatto") as GeoJSONSource | undefined;
-    let giaFatto: [number, number][] = [];     // le tratte concluse, già srotolate
     let primaKm = 0;
     for (let i = 0; i < tratte.length; i++) {
       const tr = tratte[i];
@@ -1551,13 +1625,13 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         (t, rawT) => {
           const tm = easeInOutCubic(Math.min(1, rawT * VELOCITA_MARKER));
           marker.setLngLat(pointAlongPath(tr.pathCoords, tm));
-          // la linea finisce sotto l'icona: stesso `tm` del marker
-          fatto?.setData(lineaFatta(unwrapPath([...giaFatto, ...percorsoFatto(tr.pathCoords, tm)])));
+          // la linea finisce sotto l'icona: stesso `tm` del marker (solo stile:
+          // niente ricalcolo nel processo della mappa, vedi tracciatoProgressivo)
+          tagliaTraccia(map, traccia.progresso(i, tm));
           kmFattiRef.current = primaKm + kmTratte[i] * t;
           aggiornaContatore();
         });
       if (!ok) return;
-      giaFatto = unwrapPath([...giaFatto, ...tr.pathCoords]);
       primaKm += kmTratte[i];
     }
 
@@ -1639,10 +1713,192 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   };
 
   const scaricaVideo = async () => {
-    if (!video || !formato) return;
-    const file = new File([video.blob], nomeFileVideo(posterTitle, formato), { type: video.blob.type });
+    if (!video) return;
+    const tipo = video.blob.type || "video/mp4";
+    const nome = nomeFileVideo(posterTitle, { mime: tipo, estensione: tipo.includes("mp4") ? "mp4" : "webm" });
+    const file = new File([video.blob], nome, { type: tipo });
     await shareOrDownload(file, tripsCount > 1 ? "Il mio viaggio in 3D" : posterTitle);
   };
+
+  /** Il colore e il simbolo dell'icona per un mezzo (come vestiMarker, senza DOM). */
+  const vesteDi = (modo: string) => ({
+    color: modo === "casa" ? "#64748b" : (TRANSPORT_MAP[modo]?.color ?? "#60a5fa"),
+    img: iconeModiRef.current[modo] ?? null,
+  });
+
+  /** Aspetta che la mappa abbia i riquadri della vista, con un tetto. Dopo un
+   *  jumpTo i riquadri si chiedono solo al render successivo: si fa girare. */
+  const mappaNitida = (map: MapLibreMap, maxMs: number) => new Promise<void>(res => {
+    const t0 = performance.now();
+    let giri = 0;
+    const prova = () => {
+      giri++;
+      let pronta = true;
+      try { pronta = map.areTilesLoaded(); } catch { /* mappa sparita: si va avanti */ }
+      if ((pronta && giri > 1) || performance.now() - t0 > maxMs || !mountedRef.current) { res(); return; }
+      requestAnimationFrame(prova);
+    };
+    map.triggerRepaint();
+    requestAnimationFrame(prova);
+  });
+
+  /**
+   * «Crea video»: il volo ricostruito FOTOGRAMMA PER FOTOGRAMMA (lib/copioneVolo)
+   * e codificato in mp4 (WebCodecs + mp4-muxer). Per ogni fotogramma: la mappa
+   * va dove dice il copione, si aspetta che sia nitida, la si copia, sopra si
+   * disegnano icona, contatore e titolo, e si codifica con il SUO istante
+   * (n/30 s) — così il video è sempre a 30 fps pieni, anche se ogni fotogramma
+   * ha richiesto un secondo. Dove il browser non sa farlo, si ripiega sul volo
+   * registrato dal vivo.
+   */
+  const costruisciVideo = async () => {
+    const map = mapRef.current;
+    const tratte = legsRef.current;
+    if (!map || !tratte.length || creazioneRef.current) return;
+    const mc = map.getCanvas();
+    const { w, h } = misureVideo(mc.width, mc.height);
+    const codec = await codecCostruzione(w, h);
+    if (!codec) {
+      if (formato) avviaVolo(map, true);      // il ripiego: registrazione dal vivo
+      return;
+    }
+    creazioneRef.current = true;
+    annullaVideoRef.current = false;
+    buttaVideo();
+    setCreazione(0);
+    gesti(map, false);
+    const camPoster = cameraPoster(map, 45);
+    let encoder: VideoEncoder | null = null;
+    try {
+      const { Muxer, ArrayBufferTarget } = await import("mp4-muxer");
+      // le icone dei mezzi, come nel volo dal vivo
+      const modi = new Set(tratte.map(modoDi));
+      await Promise.all([...modi].filter(m => !iconeModiRef.current[m]).map(async m => {
+        const Icon = m === "casa" ? Home : TRANSPORT_MAP[m]?.Icon;
+        if (!Icon) return;
+        try { iconeModiRef.current[m] = await loadModeIcon(Icon, "#ffffff"); } catch { /* solo il colore */ }
+      }));
+      if (!camPoster) return;               // niente da inquadrare: il finally rimette a posto
+
+      const tela = document.createElement("canvas");
+      tela.width = w; tela.height = h;
+      const ctx = tela.getContext("2d")!;
+      const ultimoVolo = document.createElement("canvas");
+      ultimoVolo.width = w; ultimoVolo.height = h;
+      const ctxUltimo = ultimoVolo.getContext("2d")!;
+      const k = w / (mc.clientWidth || w);
+      const SFONDO = "#060e1e";
+
+      // Il poster del finale: la stessa composizione dell'immagine condivisa.
+      chiudiTracciatoFatto(map);
+      map.jumpTo({ center: [camPoster.lon, camPoster.lat], zoom: camPoster.zoom, pitch: camPoster.pitch, bearing: camPoster.bearing });
+      await mappaNitida(map, 4000);
+      const [flagImgs, logoImg] = await Promise.all([loadFlagImages(), loadBrandLogo()]);
+      const snap = await catturaCanvasMappa();
+      const finale = snap ? composePoster(snap, flagImgs, logoImg, mc.width / (mc.clientWidth || mc.width)) : null;
+
+      // La linea che si scopre, come nel volo dal vivo.
+      preparaTracciatoFatto(map);
+      const traccia = tracciatoProgressivo(tratte.map(tr => tr.pathCoords));
+      (map.getSource("flyover-traccia") as GeoJSONSource | undefined)?.setData(lineaFatta(traccia.percorso));
+      // ⚠️ la mappa spegne il percorso intero con una dissolvenza di 300 ms in
+      // tempo VERO: il primo fotogramma del video, che arriva prima, lo
+      // mostrava ancora tutto (visto nel video dell'anno). Si aspetta che sparisca.
+      await attesa(450);
+
+      const copione = copioneVolo(tratte, camPoster, kmContatiPerTratta(tratte), TEMPI_VIDEO);
+      const passo = 1000 / FPS_VIDEO;
+      const n = Math.ceil(copione.durataMs / passo);
+
+      const target = new ArrayBufferTarget();
+      const muxer = new Muxer({ target, video: { codec: "avc", width: w, height: h, frameRate: FPS_VIDEO }, fastStart: "in-memory" });
+      let errore: unknown = null;
+      encoder = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: e => { errore = e; } });
+      // 4 Mbit/s: a 6 un volo di 22 s pesava 16,7 MB (un anno sarebbe passato i 40)
+      encoder.configure({ codec, width: w, height: h, bitrate: 4_000_000, framerate: FPS_VIDEO });
+
+      for (let i = 0; i <= n; i++) {
+        if (annullaVideoRef.current || !mountedRef.current) break;
+        if (errore) throw errore;
+        const s = copione.statoAl(i * passo);
+        ctx.fillStyle = SFONDO;
+        ctx.fillRect(0, 0, w, h);
+        if (s.fase !== "finale") {
+          map.jumpTo({ center: [s.camera.lon, s.camera.lat], zoom: s.camera.zoom, pitch: s.camera.pitch, bearing: s.camera.bearing });
+          tagliaTraccia(map, s.tratta >= 0 ? traccia.progresso(s.tratta, s.tm) : 0);
+          await mappaNitida(map, ATTESA_FOTOGRAMMA_MS);
+          const img = await catturaCanvasMappa();
+          if (img) ctx.drawImage(img, 0, 0, w, h);
+          if (s.icona) {
+            const p = map.project(s.icona);
+            disegnaIcona(ctx, p.x * k, p.y * k, k, vesteDi(modoDi(tratte[Math.max(0, s.tratta)])));
+          }
+          disegnaContatore(ctx, `${formatKm(s.km)} / ${formatKm(totalKmRef.current)} km`, w, k);
+          if (s.titolo > 0) disegnaTitolo(ctx, s.titolo, posterTitle, dateRangeLabel, w, h, k);
+          ctxUltimo.drawImage(tela, 0, 0);
+        } else {
+          // il poster entra in dissolvenza sull'ultimo fotogramma del volo e si
+          // avvicina piano (un fermo-immagine fa impigrire il codificatore)
+          if (finale) {
+            const z = 1 + 0.03 * s.k;
+            ctx.drawImage(finale, -(z - 1) * w / 2, -(z - 1) * h / 2, w * z, h * z);
+          }
+          if (s.inFase < 700) {
+            ctx.globalAlpha = 1 - s.inFase / 700;
+            ctx.drawImage(ultimoVolo, 0, 0);
+            ctx.globalAlpha = 1;
+          }
+        }
+        const fotogramma = new VideoFrame(tela, { timestamp: Math.round(i * 1e6 / FPS_VIDEO), duration: Math.round(1e6 / FPS_VIDEO) });
+        encoder.encode(fotogramma, { keyFrame: i % (FPS_VIDEO * 2) === 0 });
+        fotogramma.close();
+        while (encoder.encodeQueueSize > 4) await attesa(4);
+        if (i % 6 === 0) {
+          setCreazione(Math.round((i / n) * 100));
+          const a = anteprimaRef.current;
+          if (a) {
+            // le proporzioni del video vero (verticale sul telefono, larga su desktop)
+            const ah = Math.round(180 * h / w);
+            if (a.height !== ah) { a.width = 180; a.height = ah; a.style.aspectRatio = `${w} / ${h}`; }
+            a.getContext("2d")?.drawImage(tela, 0, 0, a.width, a.height);
+          }
+        }
+      }
+      if (annullaVideoRef.current || !mountedRef.current) return;
+      await encoder.flush();
+      if (errore) throw errore;
+      muxer.finalize();
+      const blob = new Blob([target.buffer], { type: "video/mp4" });
+      if (!mountedRef.current) return;
+      const url = URL.createObjectURL(blob);
+      videoUrlRef.current = url;
+      setVideo({ url, blob });
+    } catch {
+      // il video non è venuto: il poster resta com'era, si può riprovare
+    } finally {
+      try { if (encoder && encoder.state !== "closed") encoder.close(); } catch { /* già chiuso */ }
+      creazioneRef.current = false;
+      if (mountedRef.current) {
+        try {
+          chiudiTracciatoFatto(map);
+          if (camPoster) map.jumpTo({ center: [camPoster.lon, camPoster.lat], zoom: camPoster.zoom, pitch: camPoster.pitch, bearing: camPoster.bearing });
+          gesti(map, true);
+        } catch { /* mappa sparita */ }
+        setCreazione(null);
+      }
+    }
+  };
+
+  // Che video sa fare questo browser: costruito (WebCodecs + H.264), o almeno
+  // registrato dal vivo (MediaRecorder). Si chiede una volta, all'apertura.
+  useEffect(() => {
+    if (!animato) return;
+    let vivo = true;
+    void codecCostruzione(720, 1280).then(c => {
+      if (vivo) setSa(c ? "costruito" : formato ? "dal-vivo" : null);
+    });
+    return () => { vivo = false; };
+  }, [animato, formato]);
 
   // Chiudendo: si ferma tutto e si libera il video (la mappa la toglie l'altro effetto).
   useEffect(() => () => {
@@ -1974,6 +2230,28 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
           </div>
         )}
 
+        {/* «Crea video» al lavoro: sotto la mappa salta da un fotogramma
+            all'altro, quindi la si copre; si vede invece il video che nasce. */}
+        {creazione !== null && (
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 40, background: "#060e1e",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 24,
+          }}>
+            <canvas ref={anteprimaRef} width={180} height={320}
+              style={{ width: 180, maxWidth: "60%", aspectRatio: "9 / 16", borderRadius: 12, border: "0.5px solid #1a2d4a", background: "#060e1e" }} />
+            <div style={{ width: 200, maxWidth: "70%", height: 4, borderRadius: 2, background: "rgba(255,255,255,0.12)", overflow: "hidden" }}>
+              <div style={{ width: `${creazione}%`, height: "100%", background: "#fbbf24", transition: "width 0.2s linear" }} />
+            </div>
+            <div style={{ color: "#f0f4ff", fontSize: 14, fontWeight: 600 }}>{t("Creo il video… {pct}%", { pct: creazione })}</div>
+            <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 12, textAlign: "center", maxWidth: 260 }}>
+              {t("Il video si crea fotogramma per fotogramma: tieni l'app aperta.")}
+            </div>
+            <button type="button" onClick={() => { annullaVideoRef.current = true; }} style={stileBottoneVolo}>
+              <X className="w-3.5 h-3.5" /> {t("Annulla")}
+            </button>
+          </div>
+        )}
+
         {poster && (
           <>
             {/* Dati viaggio, in alto a destra. Due stili di card:
@@ -2119,9 +2397,13 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                 è in Satellite. */}
             {animato && (video || styleMode === "satellite") && (
               <div style={{ position: "absolute", right: 16, bottom: 66, zIndex: 26, display: "flex", gap: 10 }}>
-                {video && (
+                {video ? (
                   <button type="button" onClick={scaricaVideo} style={stileBottoneVolo}>
                     <Film className="w-3.5 h-3.5" /> {t("Scarica video")}
+                  </button>
+                ) : sa && styleMode === "satellite" && (
+                  <button type="button" onClick={() => { void costruisciVideo(); }} style={stileBottoneVolo}>
+                    <Film className="w-3.5 h-3.5" /> {t("Crea video")}
                   </button>
                 )}
                 {styleMode === "satellite" && (

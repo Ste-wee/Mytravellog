@@ -1,6 +1,7 @@
 import { Trip } from "./storage";
 import { distanceKm } from "./geo";
 import { haversineKm } from "./haversine";
+import { unwrapSegments } from "./lonWrap";
 
 // Il tipo viene dalla fonte unica: ridichiararlo qui significava aggiornare
 // due elenchi a ogni mezzo nuovo (il pullman ha trovato 3 di questi fossili).
@@ -307,38 +308,88 @@ export function pathLengthKm(path: [number, number][]): number {
   return total;
 }
 
+/** La y di Mercatore in "giri di mondo": l'unità con cui la mappa misura le linee. */
+function yMercatore(lat: number): number {
+  const l = Math.max(-85.0511, Math.min(85.0511, lat)) * Math.PI / 180;
+  return Math.log(Math.tan(Math.PI / 4 + l / 2)) / (2 * Math.PI);
+}
+/** Lunghezza di un segmento come la misura la mappa (per `line-progress`). */
+function lunghezzaMappa(a: [number, number], b: [number, number]): number {
+  return Math.hypot((b[0] - a[0]) / 360, yMercatore(b[1]) - yMercatore(a[1]));
+}
+
+export interface TracciatoProgressivo {
+  /** Tutte le tratte in UNA linea srotolata: alla mappa si passa una volta sola. */
+  percorso: [number, number][];
+  /** Dove sta l'icona — tratta `i`, frazione `t` come `pointAlongPath` — in
+   *  frazione 0..1 della linea intera, misurata come la misura la mappa. */
+  progresso: (i: number, t: number) => number;
+}
+
+/**
+ * Il tracciato che si disegna, senza ridisegnarlo.
+ *
+ * Prima, a ogni fotogramma, si mandava alla mappa la linea fatta fino
+ * all'icona (setData a ogni fotogramma): la mappa la ricalcola nel suo
+ * processo secondario, lo stesso che prepara i riquadri, e su un telefono
+ * la linea restava INDIETRO rispetto all'icona — misurato a CPU/4: fino a
+ * 64 px, l'auto che corre dove la linea non c'è ancora («non segue la
+ * strada»), e un terzo dei fotogrammi persi. Ora la linea intera si manda
+ * UNA volta e si scopre con un taglio (`line-gradient` su `line-progress`),
+ * che è solo stile: si applica nel fotogramma stesso.
+ *
+ * `line-progress` misura la linea in coordinate di Mercatore, mentre l'icona
+ * avanza a km veri: qui si converte il punto dell'icona nella misura della
+ * mappa, così il taglio cade esattamente sotto di lei.
+ */
+export function tracciatoProgressivo(tratte: [number, number][][]): TracciatoProgressivo {
+  // ⚠️ niente filtro sulle tratte vuote: gli indici devono restare quelli del volo
+  const segs = unwrapSegments(tratte);
+  const percorso: [number, number][] = [];
+  const inizio: number[] = [];      // lunghezza-mappa prima di ogni tratta
+  const lunghezza: number[] = [];   // lunghezza-mappa di ogni tratta
+  let totale = 0;
+  for (const seg of segs) {
+    inizio.push(totale);
+    if (seg.length === 0) { lunghezza.push(0); continue; }
+    let l = 0;
+    for (let j = 1; j < seg.length; j++) l += lunghezzaMappa(seg[j - 1], seg[j]);
+    lunghezza.push(l);
+    totale += l;
+    const ultimo = percorso[percorso.length - 1];
+    const daQui = ultimo && ultimo[0] === seg[0][0] && ultimo[1] === seg[0][1] ? seg.slice(1) : seg;
+    percorso.push(...daQui);
+  }
+  const progresso = (i: number, t: number): number => {
+    const seg = segs[i];
+    if (!seg || totale === 0) return 0;
+    const frazione = (m: number) => Math.min(1, Math.max(0, m / totale));
+    if (t <= 0 || seg.length < 2) return frazione(inizio[i]);
+    if (t >= 1) return frazione(inizio[i] + lunghezza[i]);
+    // lo stesso cammino di pointAlongPath (km veri), contando però la mappa
+    const km = pathLengthKm(seg) * t;
+    let fatti = 0, mappa = 0;
+    for (let j = 1; j < seg.length; j++) {
+      const segKm = haversineKm(seg[j - 1][1], seg[j - 1][0], seg[j][1], seg[j][0]);
+      if (fatti + segKm >= km || j === seg.length - 1) {
+        const f = segKm === 0 ? 0 : Math.min(1, Math.max(0, (km - fatti) / segKm));
+        const p: [number, number] = [seg[j - 1][0] + (seg[j][0] - seg[j - 1][0]) * f, seg[j - 1][1] + (seg[j][1] - seg[j - 1][1]) * f];
+        return frazione(inizio[i] + mappa + lunghezzaMappa(seg[j - 1], p));
+      }
+      fatti += segKm;
+      mappa += lunghezzaMappa(seg[j - 1], seg[j]);
+    }
+    return frazione(inizio[i] + lunghezza[i]);
+  };
+  return { percorso, progresso };
+}
+
 /**
  * Punto [lon,lat] alla frazione `t` (0-1) di un percorso, camminando a
  * velocità costante lungo i suoi segmenti (non semplicemente interpolando
  * tra il primo e l'ultimo punto) — usata per animare l'icona del mezzo
  * lungo un tracciato stradale con molti punti ravvicinati in modo ineguale.
  */
-/**
- * Il pezzo di percorso GIÀ FATTO alla frazione `t`: dall'inizio fino al punto
- * raggiunto (lo stesso di `pointAlongPath`, quindi la linea finisce esattamente
- * sotto l'icona del mezzo). Serve al tracciato che si disegna mentre si vola.
- */
-export function percorsoFatto(path: [number, number][], t: number): [number, number][] {
-  if (path.length === 0) return [];
-  if (t <= 0) return [path[0]];
-  if (t >= 1) return path.slice();
-  const total = pathLengthKm(path);
-  if (total === 0) return [path[0]];
-  const targetKm = total * t;
-  const out: [number, number][] = [path[0]];
-  let covered = 0;
-  for (let i = 1; i < path.length; i++) {
-    const segKm = haversineKm(path[i - 1][1], path[i - 1][0], path[i][1], path[i][0]);
-    if (covered + segKm >= targetKm) {
-      out.push(pointAlongPath(path, t));
-      return out;
-    }
-    out.push(path[i]);
-    covered += segKm;
-  }
-  return out;
-}
-
 export function pointAlongPath(path: [number, number][], t: number): [number, number] {
   if (path.length === 0) return [0, 0];
   if (path.length === 1 || t <= 0) return path[0];
