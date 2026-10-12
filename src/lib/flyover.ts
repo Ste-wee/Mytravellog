@@ -1,7 +1,7 @@
 import { Trip } from "./storage";
 import { distanceKm } from "./geo";
 import { haversineKm } from "./haversine";
-import { unwrapSegments } from "./lonWrap";
+import { unwrapNear, unwrapSegments } from "./lonWrap";
 
 // Il tipo viene dalla fonte unica: ridichiararlo qui significava aggiornare
 // due elenchi a ogni mezzo nuovo (il pullman ha trovato 3 di questi fossili).
@@ -406,8 +406,13 @@ export function pointAlongPath(path: [number, number][], t: number): [number, nu
       const segT = segKm === 0 ? 0 : (targetKm - covered) / segKm;
       const clampedT = Math.min(1, Math.max(0, segT));
       const [lon1, lat1] = path[i - 1];
-      const [lon2, lat2] = path[i];
-      return [lon1 + (lon2 - lon1) * clampedT, lat1 + (lat2 - lat1) * clampedT];
+      // ⚠️ la strada CORTA oltre il 180°: Tokyo (139.6) → Honolulu (-157.9)
+      // interpolato alla lettera passava sopra Asia, Europa e Africa, mentre
+      // linea e camera andavano sul Pacifico (visto nel video, 2026-10-12)
+      const lon2 = unwrapNear(path[i][0], lon1);
+      const lat2 = path[i][1];
+      const lon = lon1 + (lon2 - lon1) * clampedT;
+      return [((lon % 360) + 540) % 360 - 180, lat1 + (lat2 - lat1) * clampedT];
     }
     covered += segKm;
   }

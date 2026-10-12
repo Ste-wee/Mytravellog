@@ -248,6 +248,15 @@ describe("pointAlongPath", () => {
   it("un percorso vuoto non lancia un errore", () => {
     expect(pointAlongPath([], 0.5)).toEqual([0, 0]);
   });
+
+  it("oltre il 180° prende la strada corta (Tokyo → Honolulu sul Pacifico)", () => {
+    const tokyoHonolulu: [number, number][] = [[139.65, 35.68], [-157.86, 21.31]];
+    const [lon] = pointAlongPath(tokyoHonolulu, 0.5);
+    // a metà strada sul Pacifico (circa 171°E), non sull'Europa o sull'Africa
+    expect(Math.abs(lon)).toBeGreaterThan(160);
+    expect(lon).toBeGreaterThanOrEqual(-180);
+    expect(lon).toBeLessThan(180);
+  });
 });
 
 describe("tracciatoFitto", () => {

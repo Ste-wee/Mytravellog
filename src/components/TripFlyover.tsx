@@ -1726,6 +1726,20 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     img: iconeModiRef.current[modo] ?? null,
   });
 
+  /** Aspetta che la pagina sia in primo piano. Con l'app in background la mappa
+   *  non disegna, e la copia di salvataggio di `catturaCanvasMappa` (dopo
+   *  400 ms) metterebbe nel video un fotogramma nero. */
+  const visibile = () => new Promise<void>(res => {
+    if (document.visibilityState !== "hidden") { res(); return; }
+    const su = () => {
+      if (document.visibilityState === "hidden") return;
+      document.removeEventListener("visibilitychange", su);
+      // un giro di disegno prima di copiare: al ritorno il canvas può essere vuoto
+      requestAnimationFrame(() => res());
+    };
+    document.addEventListener("visibilitychange", su);
+  });
+
   /** Aspetta che la mappa abbia i riquadri della vista, con un tetto. Dopo un
    *  jumpTo i riquadri si chiedono solo al render successivo: si fa girare. */
   const mappaNitida = (map: MapLibreMap, maxMs: number) => new Promise<void>(res => {
@@ -1755,14 +1769,17 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     const map = mapRef.current;
     const tratte = legsRef.current;
     if (!map || !tratte.length || creazioneRef.current) return;
+    // ⚠️ il segnale si accende PRIMA dell'attesa sul codice: con due tocchi
+    // rapidi partivano due creazioni sulla stessa mappa
+    creazioneRef.current = true;
     const mc = map.getCanvas();
     const { w, h } = misureVideo(mc.width, mc.height);
     const codec = await codecCostruzione(w, h);
     if (!codec) {
-      if (formato) avviaVolo(map, true);      // il ripiego: registrazione dal vivo
+      creazioneRef.current = false;
+      if (formato && mountedRef.current) avviaVolo(map, true);   // il ripiego: registrazione dal vivo
       return;
     }
-    creazioneRef.current = true;
     annullaVideoRef.current = false;
     buttaVideo();
     setCreazione(0);
@@ -1790,9 +1807,12 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       const SFONDO = "#060e1e";
 
       // Il poster del finale: la stessa composizione dell'immagine condivisa.
+      // (il percorso intero si riaccende con una dissolvenza in tempo vero:
+      // senza l'attesa il poster del video poteva uscire con la linea a metà)
       chiudiTracciatoFatto(map);
       map.jumpTo({ center: [camPoster.lon, camPoster.lat], zoom: camPoster.zoom, pitch: camPoster.pitch, bearing: camPoster.bearing });
-      await mappaNitida(map, 4000);
+      await Promise.all([mappaNitida(map, 4000), attesa(450)]);
+      await visibile();
       const [flagImgs, logoImg] = await Promise.all([loadFlagImages(), loadBrandLogo()]);
       const snap = await catturaCanvasMappa();
       const finale = snap ? composePoster(snap, flagImgs, logoImg, mc.width / (mc.clientWidth || mc.width)) : null;
@@ -1827,11 +1847,16 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
           map.jumpTo({ center: [s.camera.lon, s.camera.lat], zoom: s.camera.zoom, pitch: s.camera.pitch, bearing: s.camera.bearing });
           tagliaTraccia(map, s.tratta >= 0 ? traccia.progresso(s.tratta, s.tm) : 0);
           await mappaNitida(map, ATTESA_FOTOGRAMMA_MS);
+          await visibile();
           const img = await catturaCanvasMappa();
           if (img) ctx.drawImage(img, 0, 0, w, h);
           if (s.icona) {
             const p = map.project(s.icona);
-            disegnaIcona(ctx, p.x * k, p.y * k, k, vesteDi(modoDi(tratte[Math.max(0, s.tratta)])));
+            // solo se il punto si vede: `project` dà un pixel anche a un punto
+            // DIETRO il globo (Milano, all'inizio di Milano → Tokyo → Honolulu)
+            const q = map.unproject(p);
+            const visto = Math.abs(q.lat - s.icona[1]) < 0.5 && Math.abs(((q.lng - s.icona[0]) % 360 + 540) % 360 - 180) < 0.5;
+            if (visto) disegnaIcona(ctx, p.x * k, p.y * k, k, vesteDi(modoDi(tratte[Math.max(0, s.tratta)])));
           }
           disegnaContatore(ctx, `${formatKm(s.km)} / ${formatKm(totalKmRef.current)} km`, w, k);
           if (s.titolo > 0) disegnaTitolo(ctx, s.titolo, posterTitle, dateRangeLabel, w, h, k);
