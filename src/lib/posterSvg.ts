@@ -320,9 +320,14 @@ function nomiDisposti(
   const d = disponiEtichette(punti, {
     w: W, h: mapH, misura: t => t.length * FONT * 0.6, altezza: FONT + 2, raggioStella: 7, scostamento: 11,
     distanzaGrappolo: 27, margine: 20, filoMax: 160, linee,
+    // la firma «By 🐻» in basso a destra (brandSignatureSvg): niente nomi né riquadri lì sotto
+    vietate: [{ x: W - 110, y: mapH - 56, w: 110, h: 56 }],
   });
   const scritta = (t: string, x: number, y: number, allinea: string) =>
     `<text x="${n(x)}" y="${n(y)}" text-anchor="${allinea}" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="${FONT}" fill="#ffffff" stroke="#000000" stroke-width="4" stroke-linejoin="round" paint-order="stroke">${escapeXml(t)}</text>`;
+  const bollino = (numero: number, cx: number, cy: number, raggio: number) =>
+    `<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(raggio)}" fill="#05070d" stroke="#ffffff" stroke-width="1.5"/>`
+    + `<text x="${n(cx)}" y="${n(cy + 5.5)}" text-anchor="middle" font-family="Georgia, serif" font-size="16" fill="#ffffff">${numero}</text>`;
   const filo = (f: { x1: number; y1: number; x2: number; y2: number }, op: number) =>
     `<line x1="${n(f.x1)}" y1="${n(f.y1)}" x2="${n(f.x2)}" y2="${n(f.y2)}" stroke="#ffffff" stroke-opacity="${op}" stroke-width="1.2"/>`;
   const nomi = [...d.conFilo.map(e => filo(e.filo, 0.55)), ...[...d.accanto, ...d.conFilo].map(e => scritta(e.nome, e.testo.x, e.testo.y, e.testo.allinea))].join("");
@@ -338,13 +343,16 @@ function nomiDisposti(
       + `<g clip-path="url(#${id})"><rect x="${n(r.posto.x)}" y="${n(r.posto.y)}" width="${n(r.posto.w)}" height="${n(r.posto.h)}" fill="#000000"/>`
       + `<g transform="${t}"><g fill="none" stroke="${CONFINI.colore}" stroke-opacity="${CONFINI.opacita}" stroke-width="${CONFINI.spessore}">${confini}</g>`
       + `<g fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${tracciati}</g></g>`
+      // le stelle di altre tappe che cadono nel riquadro: piccole e spente (come a schermo)
+      + r.altre.map(s => `<circle cx="${n(s.x)}" cy="${n(s.y)}" r="2.75" fill="#ffffff" fill-opacity="0.3"/>`).join("")
       + r.stelle.map(s => `<circle cx="${n(s.x)}" cy="${n(s.y)}" r="16" fill="url(#starGlow)"/><circle cx="${n(s.x)}" cy="${n(s.y)}" r="5" fill="#ffffff"/>`).join("")
       + r.conFilo.map(e => filo(e.filo, 0.55)).join("")
       + [...r.nomi, ...r.conFilo].map(e => scritta(e.nome, e.testo.x, e.testo.y, e.testo.allinea)).join("")
       + `</g>`
       + `<rect x="${n(r.posto.x)}" y="${n(r.posto.y)}" width="${n(r.posto.w)}" height="${n(r.posto.h)}" rx="10" fill="none" stroke="#ffffff" stroke-opacity="0.8" stroke-width="1.5"/>`
-      + `<text x="${n(r.posto.x + 12)}" y="${n(r.posto.y + 26)}" font-family="Georgia, serif" font-weight="bold" font-size="22" fill="#ffffff">${r.numero}</text>`
-      + `<text x="${n(r.numeroZona.x + r.numeroZona.w / 2)}" y="${n(r.numeroZona.y + r.numeroZona.h * 0.8)}" text-anchor="middle" font-family="Georgia, serif" font-size="18" fill="#ffffff">${r.numero}</text>`
+      // il numero in un bollino, sull'angolo del riquadro e accanto al tratteggio
+      + bollino(r.numero, r.posto.x + 20, r.posto.y + 20, 14)
+      + bollino(r.numero, r.numeroZona.x + r.numeroZona.w / 2, r.numeroZona.y + r.numeroZona.h / 2, r.numeroZona.w / 2)
       + `</g>`;
   }).join("");
   return `<g id="nomi">${nomi}</g><g id="riquadri">${riquadri}</g>`;

@@ -48,11 +48,15 @@ export interface Riquadro {
   centroPosto: { x: number; y: number };
   /** Il filo dal tratteggio al riquadro. */
   filo: { x1: number; y1: number; x2: number; y2: number };
-  /** Dove scrivere il numero accanto al tratteggio: un angolo libero, che i
-   *  nomi della mappa grande non coprono (prima si leggeva «Innsbruck¹»). */
+  /** Il bollino col numero accanto al tratteggio (un quadrato: ci sta il
+   *  cerchio), in un angolo libero che i nomi della mappa grande non coprono
+   *  (prima si leggeva «Innsbruck¹»). */
   numeroZona: Box;
   /** Le stelle e i nomi DENTRO il riquadro, già in pixel del foglio. */
   stelle: { id: string; x: number; y: number }[];
+  /** Le stelle di ALTRE tappe che cadono nel riquadro ingrandito: si
+   *  disegnano piccole e spente (il loro nome è sulla mappa grande). */
+  altre: { x: number; y: number }[];
   nomi: Etichetta[];
   /** Nomi che nel riquadro non stavano accanto: restano DENTRO, col filo. */
   conFilo: EtichettaConFilo[];
@@ -221,8 +225,58 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
     for (let a = 0; a < g.length; a++) for (let b = a + 1; b < g.length; b++) if (dist(g[a], g[b]) < o.distanzaGrappolo * 0.7) return true;
     return false;
   };
+  // quanto DOVREBBE ingrandire un gruppo (abbastanza che le due stelle più
+  // vicine abbiano spazio per due nomi) e quanto PUÒ (il tetto in pixel: in
+  // proporzione allo schermo, su desktop un riquadro arrivava a mezzo poster
+  // quasi vuoto — visto: Napoli–Cosenza)
+  const serve = (o.altezza + o.scostamento) * 2 + 4;
+  const wMax = Math.min(o.w * 0.55, 300), hMax = Math.min(o.h * 0.42, 220);
+  const misureGruppo = (g: Punto[]) => {
+    const xs = g.map(p => p.x), ys = g.map(p => p.y);
+    const zw = Math.max(...xs) - Math.min(...xs), zh = Math.max(...ys) - Math.min(...ys);
+    let minimo = Infinity;
+    for (let a = 0; a < g.length; a++) for (let b = a + 1; b < g.length; b++) minimo = Math.min(minimo, Math.max(1, dist(g[a], g[b])));
+    const voluta = Math.min(8, Math.max(2, serve / minimo));
+    const aria = { x: Math.max(...g.map(p => o.misura(p.nome))) + 24, y: (o.altezza + o.scostamento) * 2 + 18 };
+    const possibile = Math.min(Math.max(1.5, (wMax - aria.x) / Math.max(1, zw)), Math.max(1.5, (hMax - aria.y) / Math.max(1, zh)));
+    return { voluta, possibile, aria, zw, zh };
+  };
+  // un gruppo che nemmeno al massimo ingrandimento stacca le sue stelle si
+  // divide nei suoi grappoli più stretti, ognuno col suo riquadro; chi resta
+  // fuori fa gruppo a sé (scelta C, «Due riquadri», 2026-10-15: sul telefono
+  // l'Umbria restava appiccicata dentro un riquadro da Pisa a Roma)
+  const dividi = (g: Punto[], r: number): Punto[][] => {
+    if (g.length <= 3 || r < 4) return [g];
+    const m = misureGruppo(g);
+    if (m.possibile >= m.voluta * 0.85) return [g];
+    const sotto = grappoli(g, r / 2);
+    const stretti = sotto.filter(s => s.length >= 3);
+    if (!stretti.length) return [g];
+    const sciolti = sotto.filter(s => s.length < 3).flat();
+    return [...stretti.flatMap(s => dividi(s, r / 2)), ...(sciolti.length >= 3 ? [sciolti] : [])];
+  };
   const daIngrandire = grappoli(punti, o.distanzaGrappolo)
+    .flatMap(g => dividi(g, o.distanzaGrappolo))
     .filter(g => g.length >= 3 && (vicinissime(g) || g.some(p => nonEntrano.has(p.id))));
+  // una stella libera che cade DENTRO la zona di un gruppo entra nel gruppo:
+  // ingrandita lì con le altre, invece che spenta nel riquadro e col filo
+  // sulla mappa grande (visto: Montepulciano, rimasto fuori dall'Umbria)
+  // — nella zona tratteggiata PIÙ PICCOLA che la contiene (Montepulciano sta
+  // anche nella zona della costa, ma è umbro)
+  const presi = new Set(daIngrandire.flat());
+  const tratteggi = daIngrandire.map(g => {
+    const xs = g.map(q => q.x), ys = g.map(q => q.y);
+    return { x0: Math.min(...xs) - 8, x1: Math.max(...xs) + 8, y0: Math.min(...ys) - 8, y1: Math.max(...ys) + 8 };
+  });
+  for (const q of punti) {
+    if (presi.has(q)) continue;
+    let meglio = -1, area = Infinity;
+    tratteggi.forEach((z, i) => {
+      const a = (z.x1 - z.x0) * (z.y1 - z.y0);
+      if (q.x > z.x0 && q.x < z.x1 && q.y > z.y0 && q.y < z.y1 && a < area) { meglio = i; area = a; }
+    });
+    if (meglio >= 0) { daIngrandire[meglio].push(q); presi.add(q); }
+  }
   const nelRiquadro = new Set(daIngrandire.flat().map(p => p.id));
 
   // le zone tratteggiate si conoscono già qui, PRIMA dei nomi della mappa
@@ -252,18 +306,8 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
   const tornaFuori: Punto[] = [];
   for (const { g, i } of ordine) {
     const zona = zone[i];
-    let minimo = Infinity;
-    for (let a = 0; a < g.length; a++) for (let b = a + 1; b < g.length; b++) minimo = Math.min(minimo, Math.max(1, dist(g[a], g[b])));
-    // abbastanza grande che due stelle vicine abbiano spazio per due nomi
-    const serve = (o.altezza + o.scostamento) * 2 + 4;
-    let scala = Math.min(8, Math.max(2, serve / minimo));
-    const lungo = Math.max(...g.map(p => o.misura(p.nome)));
-    // tetto in pixel: in proporzione allo schermo, su desktop un riquadro
-    // arrivava a mezzo poster quasi vuoto (visto: Napoli–Cosenza)
-    const wMax = Math.min(o.w * 0.55, 300), hMax = Math.min(o.h * 0.42, 220);
-    const aria = { x: lungo + 24, y: (o.altezza + o.scostamento) * 2 + 18 };
-    const zw = zona.w - 16, zh = zona.h - 16;
-    scala = Math.min(scala, Math.max(1.5, (wMax - aria.x) / Math.max(1, zw)), Math.max(1.5, (hMax - aria.y) / Math.max(1, zh)));
+    const { voluta, possibile, aria, zw, zh } = misureGruppo(g);
+    let scala = Math.min(voluta, possibile);
     let w = Math.round(Math.max(110, zw * scala + aria.x)), h = Math.round(Math.max(76, zh * scala + aria.y));
     const centroZona = { x: zona.x + zona.w / 2, y: zona.y + zona.h / 2 };
     const libero = (r: Box) => dentro(r, o.w, o.h, o.margine)
@@ -279,7 +323,6 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
     }
     posto = posto ?? cercaPosto(centroZona, w, h, 30, Math.max(o.w, o.h), libero);
     if (!posto) { tornaFuori.push(...g); continue; }
-    occupatiRiquadri.push(posto);
     const centroPosto = { x: posto.x + posto.w / 2, y: posto.y + posto.h / 2 };
     const dentroRiq = (p: { x: number; y: number }) => ({ x: centroPosto.x + (p.x - centroZona.x) * scala, y: centroPosto.y + (p.y - centroZona.y) * scala });
     const membri = g.map(p => ({ ...p, ...dentroRiq(p) }));
@@ -295,6 +338,7 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
     // chi non sta accanto resta nel riquadro col filo (prima finiva sulla mappa
     // grande, con fili da un capo all'altro: Como e Varenna fuori, Bellagio dentro)
     const filiDentro: EtichettaConFilo[] = [];
+    const senzaNomeQui: Punto[] = [];
     const stelleLoc = [...locali, ...altreVisibili].map(q => ({ x: q.x - o.raggioStella - 1, y: q.y - o.raggioStella - 1, w: 2 * o.raggioStella + 2, h: 2 * o.raggioStella + 2 }));
     for (const q of interni.falliti) {
       const tw = o.misura(q.nome);
@@ -304,8 +348,14 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
         && !filiDentro.some(e => sovrapposti(r, e.box, 2))
         && !sovrapposti(r, angoloNumero, 1));
       if (box) filiDentro.push(conIlFilo(q.id, q.nome, q, box, o.altezza));
-      else tornaFuori.push(punti.find(x => x.id === q.id)!);
+      else senzaNomeQui.push(punti.find(x => x.id === q.id)!);
     }
+    // un riquadro che non tiene dentro almeno metà dei suoi nomi non serve:
+    // si scarta e le sue stelle tornano sulla mappa grande (visto sul telefono:
+    // un riquadro rimpicciolito per entrare, con tre stelle e nessun nome)
+    if (interni.fatti.length + filiDentro.length < g.length / 2) { tornaFuori.push(...g); continue; }
+    tornaFuori.push(...senzaNomeQui);
+    occupatiRiquadri.push(posto);
     const sposta = <T extends Etichetta>(e: T): T => ({
       ...e, box: { ...e.box, x: e.box.x + pz.x, y: e.box.y + pz.y }, testo: { ...e.testo, x: e.testo.x + pz.x, y: e.testo.y + pz.y },
     });
@@ -314,6 +364,7 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
       numero: 0, ids: g.map(p => p.id), zona, posto: pz, numeroZona: zona, scala, centroZona, centroPosto,
       filo: { x1: a.x, y1: a.y, x2: b.x, y2: b.y },
       stelle: membri.map(p => ({ id: p.id, x: p.x, y: p.y })),
+      altre: altreVisibili.map(q => ({ x: q.x + pz.x, y: q.y + pz.y })),
       nomi: interni.fatti.map(sposta),
       conFilo: filiDentro.map(e => ({ ...sposta(e), filo: { x1: e.filo.x1 + pz.x, y1: e.filo.y1 + pz.y, x2: e.filo.x2 + pz.x, y2: e.filo.y2 + pz.y } })),
     });
@@ -334,7 +385,7 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
   };
   const numeri: Box[] = [];
   for (const r of riquadri) {
-    const z = r.zona, n = o.altezza;
+    const z = r.zona, n = Math.round(o.altezza * 1.3);   // il bollino (scelta D): un cerchio poco più alto del testo
     const angoli: Box[] = [
       { x: z.x + z.w + 2, y: z.y - n, w: n, h: n },
       { x: z.x - 2 - n, y: z.y - n, w: n, h: n },
@@ -343,8 +394,8 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
       { x: z.x + z.w + 2, y: z.y + z.h / 2 - n / 2, w: n, h: n },
       { x: z.x - 2 - n, y: z.y + z.h / 2 - n / 2, w: n, h: n },
     ];
-    // angoli tutti presi (scene fitte): lungo il bordo, poi un giro più in là
-    for (const s of [2, 2 + n]) {
+    // angoli tutti presi (scene fitte): lungo il bordo, poi qualche giro più in là
+    for (const s of [2, 2 + n, 2 + 2 * n, 2 + 3 * n]) {
       for (let x = z.x - s - n; x <= z.x + z.w + s; x += n / 2) {
         angoli.push({ x, y: z.y - s - n, w: n, h: n }, { x, y: z.y + z.h + s, w: n, h: n });
       }

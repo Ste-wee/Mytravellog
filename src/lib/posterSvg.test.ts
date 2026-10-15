@@ -310,6 +310,10 @@ describe("buildPosterSvg — i nomi della Mappa della vita (nomiOvunque)", () =>
     expect(s).toContain('id="riquadro-1"');
     expect(s).toMatch(/<clipPath id="riq1">/);
     expect(s).toMatch(/scale\(\d+(\.\d+)?\)/);
+    // il numero in un bollino, due per riquadro: accanto al tratteggio e nell'angolo
+    const riquadri = (s.match(/id="riquadro-\d+"/g) ?? []).length;
+    expect(riquadri).toBeGreaterThan(0);
+    expect((s.match(/<circle [^>]*fill="#05070d"/g) ?? []).length).toBe(2 * riquadri);
   });
 
   it("nel riquadro le linee non ingrassano (non-scaling-stroke)", () => {

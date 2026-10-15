@@ -224,6 +224,8 @@ describe("disponiEtichette", () => {
         for (const e of [...d.accanto, ...d.conFilo]) {
           expect(sovrapposti(e.box, r.numeroZona), `scena ${scena}: ${e.id} sul numero ${r.numero}`).toBe(false);
         }
+        // due bollini non si sovrappongono (visti il 7 e l'8 uno sull'altro)
+        for (const q of d.riquadri) if (q !== r) expect(sovrapposti(q.numeroZona, r.numeroZona), `scena ${scena}: bollini ${q.numero} e ${r.numero}`).toBe(false);
         for (const q of punti) {
           const stella: Box = { x: q.x - o.raggioStella, y: q.y - o.raggioStella, w: 2 * o.raggioStella, h: 2 * o.raggioStella };
           if (!sovrapposti(stella, r.zona)) expect(sovrapposti(stella, r.numeroZona), `scena ${scena}: numero ${r.numero} su una stella`).toBe(false);
@@ -246,11 +248,11 @@ describe("disponiEtichette", () => {
   });
 
   it("una stella chiusa fra un tratteggio e i bordi tiene il suo nome, anche sopra il tratteggio", () => {
-    // il grappolo fa la zona; «Lontana» è dentro il rettangolo della zona ma
-    // fuori dal grappolo, e tutto attorno è vietato: resta solo il tratteggio
+    // il grappolo fa la zona; «Lontana» è appena fuori (dentro, entrerebbe
+    // nel gruppo) e tutto attorno è vietato: resta solo il tratteggio
     // (grappoli larghi: distanzaGrappolo 40 → stelle fino a 64 px dal centro)
     const g = [p("c", 300, 400, "Centro"), p("a", 310, 405, "Accanto"), p("n", 300, 340, "Nord"), p("e", 360, 400, "Est")];
-    const sola = p("L", 360, 340, "Lontana");   // 85 px dal centro: fuori dal grappolo, dentro la zona
+    const sola = p("L", 372, 345, "Lontana");   // appena fuori dalla zona: a sinistra il nome ci finisce sopra
     const d = disponiEtichette([...g, sola], {
       ...OPZ, distanzaGrappolo: 40,
       // libero solo l'interno della zona e, lontano, una fascia per il riquadro
@@ -267,7 +269,7 @@ describe("disponiEtichette", () => {
   it("…e se nemmeno accanto c'è posto, col filo sopra il tratteggio", () => {
     // la stessa scena, ma il nome lungo accanto a sinistra toccherebbe «Nord»
     const g = [p("c", 300, 400, "Centro"), p("a", 310, 405, "Accanto"), p("n", 300, 340, "Nord"), p("e", 360, 400, "Est")];
-    const d = disponiEtichette([...g, p("L", 360, 340, "Lontanissima")], {
+    const d = disponiEtichette([...g, p("L", 372, 345, "Lontanissima")], {
       ...OPZ, distanzaGrappolo: 40,
       vietate: [{ x: 0, y: 0, w: 600, h: 328 }, { x: 372, y: 328, w: 228, h: 272 }, { x: 0, y: 328, w: 288, h: 272 }, { x: 288, y: 417, w: 84, h: 183 }],
     });
@@ -286,6 +288,66 @@ describe("disponiEtichette", () => {
     expect(d.conFilo).toHaveLength(1);
     const f = d.conFilo[0].filo;
     expect(Math.hypot(f.x2 - f.x1, f.y2 - f.y1)).toBeLessThanOrEqual(80);
+  });
+
+  // le coordinate VERE del telefono (390 px) in cui l'Umbria restava
+  // appiccicata dentro un solo riquadro da Pisa a Roma
+  const CENTRO_ITALIA_TELEFONO = [
+    p("Pisa", 200, 333), p("Grosseto", 206, 345), p("Roma", 219, 356), p("Città del Vaticano", 219.5, 356.3),
+    p("Ascoli Piceno", 229, 344), p("San Benedetto", 232, 343),
+    p("Perugia", 218, 341), p("San Feliciano", 216, 341), p("Cortona", 214, 339), p("Montepulciano", 212, 341), p("Spello", 221, 342), p("Assisi", 220, 341),
+  ];
+  const UMBRIA = ["Perugia", "San Feliciano", "Cortona", "Montepulciano", "Spello", "Assisi"];
+  const OPZ_TELEFONO: Opzioni = { ...OPZ, w: 340, h: 600, altezza: 13, raggioStella: 4, scostamento: 6, margine: 8 };
+
+  it("un gruppo che nemmeno ingrandito si stacca si divide: l'Umbria ha il suo riquadro (scelta C)", () => {
+    const d = disponiEtichette(CENTRO_ITALIA_TELEFONO, OPZ_TELEFONO);
+    const umbria = d.riquadri.find(r => r.ids.includes("Perugia"))!;
+    expect(umbria, "un riquadro con Perugia").toBeDefined();
+    expect([...umbria.ids].sort()).toEqual([...UMBRIA].sort());   // solo l'Umbria, non la costa
+    expect(d.riquadri.length).toBeGreaterThanOrEqual(2);
+    expect(d.senzaPosto).toEqual([]);
+  });
+
+  it("un riquadro che non tiene almeno metà dei suoi nomi si scarta: i nomi tornano fuori", () => {
+    // tre stelle fitte dai nomi lunghi; libera solo una tasca bassa sotto di
+    // loro: il riquadro ci entrerebbe solo rimpicciolito, e i nomi no
+    // (nomi da 108 px; la tasca è 160×80: ci sta solo un riquadro
+    // rimpicciolito, e lì dentro nomi così non entrano — scena cercata
+    // apposta fra tante: deve fallire se la regola manca)
+    const g = [p("a", 300, 300, "Montescudaio Basso"), p("b", 304, 302, "Castelvecchio Alto"), p("c", 302, 305, "Monteriggioni Alta")];
+    const d = disponiEtichette(g, {
+      ...OPZ,
+      vietate: [{ x: 0, y: 0, w: 600, h: 330 }, { x: 0, y: 410, w: 600, h: 390 }, { x: 0, y: 330, w: 220, h: 80 }, { x: 380, y: 330, w: 220, h: 80 }],
+    });
+    expect(d.riquadri).toEqual([]);
+    expect(d.senzaPosto).toEqual([]);
+    expect(d.conFilo.map(e => e.id).sort()).toEqual(["a", "b", "c"]);
+  });
+
+  it("una stella libera in due zone entra in quella più piccola, anche se l'altra viene prima", () => {
+    // A (prima, più alta) e B (più bassa) si toccano col tratteggio; F sta
+    // nel mezzo, a più di 24 px da entrambi i centri: non è di nessuno dei due
+    const A = [p("A1", 300, 300), p("A2", 303, 300), p("A3", 300, 303), p("A4", 322, 300), p("A5", 300, 318)];
+    const B = [p("B1", 350, 300), p("B2", 353, 300), p("B3", 350, 303), p("B4", 328, 300)];
+    const d = disponiEtichette([...A, ...B, p("F", 325, 308)], OPZ);
+    const rB = d.riquadri.find(r => r.ids.includes("B1"))!;
+    expect(rB.ids).toContain("F");
+    expect(d.riquadri.find(r => r.ids.includes("A1"))!.ids).not.toContain("F");
+  });
+
+  it("nel riquadro, le stelle di ALTRE tappe che ci cadono dentro sono elencate a parte (scelta B)", () => {
+    const d = disponiEtichette(CENTRO_ITALIA_TELEFONO, OPZ_TELEFONO);
+    for (const r of d.riquadri) {
+      const fuori = CENTRO_ITALIA_TELEFONO.filter(q => !r.ids.includes(q.id));
+      // ogni stella «altrui» dentro il riquadro è nell'elenco, e nessuna del gruppo
+      const attese = fuori
+        .map(q => ({ x: r.centroPosto.x + (q.x - r.centroZona.x) * r.scala, y: r.centroPosto.y + (q.y - r.centroZona.y) * r.scala }))
+        .filter(q => q.x > r.posto.x && q.x < r.posto.x + r.posto.w && q.y > r.posto.y && q.y < r.posto.y + r.posto.h);
+      expect(r.altre).toHaveLength(attese.length);
+      for (const s of r.stelle) expect(r.altre.some(a => Math.abs(a.x - s.x) < 0.01 && Math.abs(a.y - s.y) < 0.01)).toBe(false);
+    }
+    expect(d.riquadri.some(r => r.altre.length > 0), "la prova ha davvero visto stelle altrui").toBe(true);
   });
 
   it("nessun punto: nessuna scritta", () => {

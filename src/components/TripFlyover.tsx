@@ -184,12 +184,20 @@ function disegnaNomiSuCanvas(ctx: CanvasRenderingContext2D,
     ctx.fillStyle = "#ffffff"; ctx.fillText(s, x, y);
   };
   const fontNome = `italic ${FONT_NOMI.px}px ${FONT_NOMI.famiglia}`;
+  const bollino = (numero: number, cx: number, cy: number, raggio: number) => {
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(cx, cy, raggio, 0, Math.PI * 2);
+    ctx.fillStyle = BOLLINO.fondo; ctx.fill();
+    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.font = `${BOLLINO.font}px Georgia, serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "#ffffff"; ctx.fillText(String(numero), cx, cy + 0.5);
+  };
   // le zone tratteggiate e i loro fili
   for (const r of d.riquadri) {
     ctx.setLineDash([3, 3]); ctx.strokeStyle = "rgba(255,255,255,0.75)"; ctx.lineWidth = 1;
     roundRectPath(ctx, r.zona.x, r.zona.y, r.zona.w, r.zona.h, 3); ctx.stroke();
     linea(r.filo, "rgba(255,255,255,0.5)", 0.9);
-    testo(String(r.numero), r.numeroZona.x + r.numeroZona.w / 2, r.numeroZona.y + r.numeroZona.h * 0.8, "middle", "10px Georgia, serif");
+    bollino(r.numero, r.numeroZona.x + r.numeroZona.w / 2, r.numeroZona.y + r.numeroZona.h / 2, r.numeroZona.w / 2);
   }
   for (const e of d.conFilo) linea(e.filo, "rgba(255,255,255,0.55)", 0.7);
   // i riquadri: la foto della zona ingrandita, il bordo, il numero, i nomi
@@ -205,11 +213,14 @@ function disegnaNomiSuCanvas(ctx: CanvasRenderingContext2D,
         g.addColorStop(0, coloreStelle); g.addColorStop(0.35, coloreStelle); g.addColorStop(1, "rgba(0,0,0,0)");
         ctx.fillStyle = g; ctx.fillRect(s.x - 7, s.y - 7, 14, 14);
       }
+      ctx.globalAlpha = ATTENUATE.opacita; ctx.fillStyle = coloreStelle;
+      for (const s of r.altre) { ctx.beginPath(); ctx.arc(s.x, s.y, 3 * ATTENUATE.misura, 0, Math.PI * 2); ctx.fill(); }
+      ctx.globalAlpha = 1;
     }
     ctx.restore();
     ctx.setLineDash([]); ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 1;
     roundRectPath(ctx, r.posto.x, r.posto.y, r.posto.w, r.posto.h, 6); ctx.stroke();
-    testo(String(r.numero), r.posto.x + 7, r.posto.y + 15, "start", "600 12px Georgia, serif");
+    bollino(r.numero, r.posto.x + BOLLINO.angolo, r.posto.y + BOLLINO.angolo, BOLLINO.raggio);
     for (const e of r.conFilo) linea(e.filo, "rgba(255,255,255,0.55)", 0.7);
     for (const e of [...r.nomi, ...r.conFilo]) testo(e.nome, e.testo.x, e.testo.y, e.testo.allinea, fontNome);
   }
@@ -394,6 +405,13 @@ const AVVICINAMENTO_ZOOM = 0.3;
 const FONT_NOMI = { px: 11, famiglia: '"Noto Serif", Georgia, serif' };
 /** L'alone nero dietro ai nomi, perché si leggano su confini, linee e foto. */
 const ALONE_NOMI = { paintOrder: "stroke", stroke: "rgba(0,0,0,0.85)", strokeWidth: 2.6, strokeLinejoin: "round" } as const;
+/** Le stelle dentro un riquadro che non sono del riquadro: più piccole e
+ *  spente (le stesse misure nel master SVG, vedi posterSvg). */
+const ATTENUATE = { misura: 0.55, opacita: 0.3 };
+/** Il numero di zone e riquadri in un bollino (scelta D, 2026-10-15): cerchio
+ *  scuro col bordo bianco, uguale sul tratteggio e nell'angolo del riquadro.
+ *  Il raggio sulla zona lo dà la sua casella (lib/etichetteMappa). */
+const BOLLINO = { raggio: 8.5, font: 10, angolo: 12, fondo: "#05070d" };
 const FPS_VIDEO = 30;
 const ATTESA_FOTOGRAMMA_MS = 3000;
 /** Il ritmo del video costruito: le STESSE fasi e curve del volo dal vivo
@@ -525,7 +543,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   /** False mentre la mappa si muove: i nomi spariscono e tornano a mappa ferma. */
   const [nomiFermi, setNomiFermi] = useState(true);
   const calcoloNomiRef = useRef(0);
-  const mappaRiqRef = useRef<{ map: MapLibreMap; div: HTMLDivElement; stile: StyleSpecification } | null>(null);
+  const mappaRiqRef = useRef<{ map: MapLibreMap; div: HTMLDivElement; stile: StyleSpecification; stella: number } | null>(null);
   const mappaRiqInVoloRef = useRef<{ stile: StyleSpecification; p: Promise<MapLibreMap | null> } | null>(null);
   /** Le foto dei riquadri della vista di adesso, finché arrivano (le aspetta,
    *  poco, l'immagine condivisa). */
@@ -889,7 +907,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     if (!map.getSource("flyover-stops")) {
       map.addSource("flyover-stops", {
         type: "geojson",
-        data: { type: "FeatureCollection", features: stops.map((s, i) => ({ type: "Feature", geometry: { type: "Point", coordinates: [s.lon, s.lat] }, properties: { name: s.label, final: i === stops.length - 1 } })) },
+        data: { type: "FeatureCollection", features: stops.map((s, i) => ({ type: "Feature", geometry: { type: "Point", coordinates: [s.lon, s.lat] }, properties: { name: s.label, final: i === stops.length - 1, i } })) },
       });
     }
     if (!map.hasImage("flyover-pin")) map.addImage("flyover-pin", createPinImageData(), { pixelRatio: 2 });
@@ -914,7 +932,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
             ? "flyover-star"
             : puntiVita ? "flyover-dot"
             : (hasFinalPin ? ["case", ["get", "final"], "flyover-pin-final", "flyover-pin"] : "flyover-pin"),
-          "icon-size": constellation ? 0.8 : puntiVita ? 1 : 0.9,
+          "icon-size": constellation ? 0.8 : puntiVita ? 1 : 0.9,   // ⚠️ la rilegge mappaPerRiquadri (stelle attenuate nei riquadri)
           "icon-anchor": constellation || puntiVita ? "center" : "bottom",
           "icon-allow-overlap": true,
           "icon-ignore-placement": true,
@@ -2096,7 +2114,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         return null;
       }
       addOverlayLayers(m, styleModeRef.current);
-      mappaRiqRef.current = { map: m, div, stile };
+      const misura = m.getLayer("flyover-stops") ? m.getLayoutProperty("flyover-stops", "icon-size") : 1;
+      mappaRiqRef.current = { map: m, div, stile, stella: typeof misura === "number" ? misura : 1 };
       return m;
     })();
     const voce = { stile, p };
@@ -2118,14 +2137,23 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   });
 
   /** Un riquadro fotografato: la stessa mappa, centrata sulla zona e ingrandita
-   *  della sua scala (in Mercatore ingrandire è proprio moltiplicare i pixel). */
+   *  della sua scala (in Mercatore ingrandire è proprio moltiplicare i pixel).
+   *  Le stelle che NON sono del riquadro escono piccole e spente: senza nome
+   *  lì (il loro è sulla mappa grande) sembravano tappe dimenticate (scelta B,
+   *  «Attenuate», 2026-10-15). */
   const fotografaRiquadro = async (map: MapLibreMap, m: MapLibreMap, r: Riquadro): Promise<HTMLCanvasElement | null> => {
     try {
-      const div = mappaRiqRef.current?.div;
-      if (!div) return null;
+      const riq = mappaRiqRef.current;
+      if (!riq) return null;
+      const { div, stella } = riq;
       div.style.width = `${Math.round(r.posto.w)}px`;
       div.style.height = `${Math.round(r.posto.h)}px`;
       m.resize();
+      if (m.getLayer("flyover-stops")) {
+        const delRiquadro = ["in", ["get", "i"], ["literal", r.ids.map(Number)]];
+        m.setLayoutProperty("flyover-stops", "icon-size", ["case", delRiquadro, stella, stella * ATTENUATE.misura]);
+        m.setPaintProperty("flyover-stops", "icon-opacity", ["case", delRiquadro, 1, ATTENUATE.opacita]);
+      }
       const centro = map.unproject([r.centroZona.x, r.centroZona.y]);
       m.jumpTo({ center: [centro.lng, centro.lat], zoom: map.getZoom() + Math.log2(r.scala), pitch: 0, bearing: 0 });
       await mappaFerma(m, 12000);
@@ -2164,6 +2192,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     const d = disponiEtichette(punti, {
       w: W, h: H, misura: misuraNome, altezza: FONT_NOMI.px + 2, raggioStella: 4, scostamento: 6,
       distanzaGrappolo: 15, margine: 8, linee,
+      // la firma «By 🐻» dell'immagine condivisa (drawBrandSignatureCanvas): copriva «La Spezia»
+      vietate: [{ x: W - 84, y: H - 56, w: 84, h: 56 }],
     });
     const foto: Record<number, HTMLCanvasElement> = {};
     const url: Record<number, string> = {};
@@ -2444,7 +2474,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                   <rect x={r.zona.x} y={r.zona.y} width={r.zona.w} height={r.zona.h} rx={3}
                     fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth={1} strokeDasharray="3 3" />
                   <line x1={r.filo.x1} y1={r.filo.y1} x2={r.filo.x2} y2={r.filo.y2} stroke="rgba(255,255,255,0.5)" strokeWidth={0.9} />
-                  <text x={r.numeroZona.x + r.numeroZona.w / 2} y={r.numeroZona.y + r.numeroZona.h * 0.8} textAnchor="middle" fill="#fff" fontSize={10} fontFamily="Georgia, serif" style={ALONE_NOMI}>{r.numero}</text>
+                  <circle cx={r.numeroZona.x + r.numeroZona.w / 2} cy={r.numeroZona.y + r.numeroZona.h / 2} r={r.numeroZona.w / 2} fill={BOLLINO.fondo} stroke="#fff" strokeWidth={1} />
+                  <text x={r.numeroZona.x + r.numeroZona.w / 2} y={r.numeroZona.y + r.numeroZona.h / 2} dy="0.35em" textAnchor="middle" fill="#fff" fontSize={BOLLINO.font} fontFamily="Georgia, serif">{r.numero}</text>
                 </g>
               ))}
               {nomi.d.conFilo.map(e => (
@@ -2467,7 +2498,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
             <svg width={nomi.w} height={nomi.h} style={{ position: "absolute", left: 0, top: 0, overflow: "visible" }}>
               {nomi.d.riquadri.map(r => (
                 <g key={r.numero}>
-                  <text x={r.posto.x + 7} y={r.posto.y + 15} fill="#fff" fontSize={12} fontWeight={600} fontFamily="Georgia, serif" style={ALONE_NOMI}>{r.numero}</text>
+                  <circle cx={r.posto.x + BOLLINO.angolo} cy={r.posto.y + BOLLINO.angolo} r={BOLLINO.raggio} fill={BOLLINO.fondo} stroke="#fff" strokeWidth={1} />
+                  <text x={r.posto.x + BOLLINO.angolo} y={r.posto.y + BOLLINO.angolo} dy="0.35em" textAnchor="middle" fill="#fff" fontSize={BOLLINO.font} fontFamily="Georgia, serif">{r.numero}</text>
                   {r.conFilo.map(e => (
                     <line key={`f${e.id}`} x1={e.filo.x1} y1={e.filo.y1} x2={e.filo.x2} y2={e.filo.y2} stroke="rgba(255,255,255,0.55)" strokeWidth={0.7} />
                   ))}
