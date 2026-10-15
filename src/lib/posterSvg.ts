@@ -1,5 +1,6 @@
 import { loadWorldAtlasCountries, polygonsOf, WorldAtlasResolution } from "./worldAtlas";
 import { LOGO_DATA_URI } from "./brandLogo";
+import { disponiEtichette } from "./etichetteMappa";
 
 /**
  * Generatore del MASTER DI STAMPA in SVG per la vista "Costellazione":
@@ -52,8 +53,12 @@ export interface PosterSvgInput {
   dateLabel?: string | null;
   /** Es. "1315 km · 6 tappe". */
   stats?: string | null;
-  /** Nasconde i nomi delle tappe (Mappa della vita: costellazione pulita). */
+  /** Nasconde i nomi delle tappe. */
   hideLabels?: boolean;
+  /** Mappa della vita (2026-10-15): i nomi OVUNQUE, disposti come a schermo
+   *  (lib/etichetteMappa) — accanto, col filo, o dentro i riquadri di
+   *  ingrandimento dove le stelle quasi si toccano. */
+  nomiOvunque?: boolean;
   width?: number;
   height?: number;
 }
@@ -166,7 +171,7 @@ export function buildPosterSvg(input: PosterSvgInput): string {
   const W = input.width ?? 1600;
   const H = input.height ?? 1000;
   const pad = 120;
-  const { routeCoords = [], routeSegments, stops, borders = [], title, dateLabel, stats, hideLabels = false } = input;
+  const { routeCoords = [], routeSegments, stops, borders = [], title, dateLabel, stats, hideLabels = false, nomiOvunque = false } = input;
   // Uno o più tracciati: la Mappa della vita passa un percorso per viaggio; gli
   // altri poster un singolo percorso. Normalizzati qui in una lista di segmenti.
   // Antimeridiano: i segmenti vengono srotolati in un'UNICA catena (il primo
@@ -255,10 +260,12 @@ export function buildPosterSvg(input: PosterSvgInput): string {
     return `<circle cx="${n(x)}" cy="${n(y)}" r="16" fill="url(#starGlow)"/><circle data-led="1" cx="${n(x)}" cy="${n(y)}" r="5" fill="#ffffff"/>`;
   }).join("");
 
-  const labelEls = hideLabels ? "" : drawStops.map(s => {
+  const labelEls = hideLabels || nomiOvunque ? "" : drawStops.map(s => {
     const [x, y] = project(s.lon, s.lat);
     return `<text x="${n(x)}" y="${n(y - 14)}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="20" fill="#ffffff">${escapeXml(s.label)}</text>`;
   }).join("");
+
+  const nomiEls = nomiOvunque ? nomiDisposti(drawStops, segments, project, W, mapH, bordersPaths) : "";
 
   // Didascalia centrata nella fascia inferiore riservata.
   const titleEls: string[] = [];
@@ -283,10 +290,62 @@ export function buildPosterSvg(input: PosterSvgInput): string {
     tracciatoG,
     stelleG,
     etichetteG,
+    nomiEls,
     dividerEl,
     `<g id="titolo">${titleEls.join("")}</g>`,
     // Firma nell'angolo in basso a destra dell'AREA MAPPA (sopra la didascalia).
     brandSignatureSvg(W, mapH - 10),
     `</svg>`,
   ].join("");
+}
+
+/**
+ * I nomi della Mappa della vita nel master di stampa, con la stessa logica
+ * dello schermo (lib/etichetteMappa) alle misure della stampa (1600 px ≈ 1,8
+ * volte lo schermo). Livelli: «nomi» (accanto e col filo) e «riquadri»; nei
+ * riquadri confini e tracciato sono la stessa geometria ingrandita
+ * (`non-scaling-stroke`: le linee restano sottili), le stelle NON portano
+ * `data-led` — il punto-LED di un posto è uno solo, quello sulla mappa.
+ */
+function nomiDisposti(
+  stelle: Stop[], segmenti: [number, number][][], project: (lon: number, lat: number) => [number, number],
+  W: number, mapH: number, bordersPaths: string,
+): string {
+  const n = (v: number) => (Math.round(v * 10) / 10).toString();
+  const FONT = 20;
+  const punti = stelle.map((s, i) => { const [x, y] = project(s.lon, s.lat); return { id: String(i), nome: s.label, x, y }; });
+  const linee = segmenti.filter(s => s.length > 1).map(seg => seg.map(([lon, lat]) => { const [x, y] = project(lon, lat); return { x, y }; }));
+  // misura: stima LARGA del Georgia corsivo (qui non si può misurare): meglio
+  // un filo d'aria in più che due nomi che si toccano (visto a 0,5)
+  const d = disponiEtichette(punti, {
+    w: W, h: mapH, misura: t => t.length * FONT * 0.6, altezza: FONT + 2, raggioStella: 7, scostamento: 11,
+    distanzaGrappolo: 27, margine: 20, filoMax: 160, linee,
+  });
+  const scritta = (t: string, x: number, y: number, allinea: string) =>
+    `<text x="${n(x)}" y="${n(y)}" text-anchor="${allinea}" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="${FONT}" fill="#ffffff" stroke="#000000" stroke-width="4" stroke-linejoin="round" paint-order="stroke">${escapeXml(t)}</text>`;
+  const filo = (f: { x1: number; y1: number; x2: number; y2: number }, op: number) =>
+    `<line x1="${n(f.x1)}" y1="${n(f.y1)}" x2="${n(f.x2)}" y2="${n(f.y2)}" stroke="#ffffff" stroke-opacity="${op}" stroke-width="1.2"/>`;
+  const nomi = [...d.conFilo.map(e => filo(e.filo, 0.55)), ...[...d.accanto, ...d.conFilo].map(e => scritta(e.nome, e.testo.x, e.testo.y, e.testo.allinea))].join("");
+  const tracciati = linee.map(l => `<path d="M${l.map(p => `${n(p.x)},${n(p.y)}`).join("L")}" vector-effect="non-scaling-stroke"/>`).join("");
+  const confini = bordersPaths.replace(/<path /g, '<path vector-effect="non-scaling-stroke" ');
+  const riquadri = d.riquadri.map(r => {
+    const id = `riq${r.numero}`;
+    const t = `translate(${n(r.centroPosto.x)} ${n(r.centroPosto.y)}) scale(${r.scala.toFixed(4)}) translate(${n(-r.centroZona.x)} ${n(-r.centroZona.y)})`;
+    return `<g id="riquadro-${r.numero}">`
+      + `<rect x="${n(r.zona.x)}" y="${n(r.zona.y)}" width="${n(r.zona.w)}" height="${n(r.zona.h)}" rx="5" fill="none" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.5" stroke-dasharray="6 5"/>`
+      + filo(r.filo, 0.5)
+      + `<clipPath id="${id}"><rect x="${n(r.posto.x)}" y="${n(r.posto.y)}" width="${n(r.posto.w)}" height="${n(r.posto.h)}" rx="10"/></clipPath>`
+      + `<g clip-path="url(#${id})"><rect x="${n(r.posto.x)}" y="${n(r.posto.y)}" width="${n(r.posto.w)}" height="${n(r.posto.h)}" fill="#000000"/>`
+      + `<g transform="${t}"><g fill="none" stroke="${CONFINI.colore}" stroke-opacity="${CONFINI.opacita}" stroke-width="${CONFINI.spessore}">${confini}</g>`
+      + `<g fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${tracciati}</g></g>`
+      + r.stelle.map(s => `<circle cx="${n(s.x)}" cy="${n(s.y)}" r="16" fill="url(#starGlow)"/><circle cx="${n(s.x)}" cy="${n(s.y)}" r="5" fill="#ffffff"/>`).join("")
+      + r.conFilo.map(e => filo(e.filo, 0.55)).join("")
+      + [...r.nomi, ...r.conFilo].map(e => scritta(e.nome, e.testo.x, e.testo.y, e.testo.allinea)).join("")
+      + `</g>`
+      + `<rect x="${n(r.posto.x)}" y="${n(r.posto.y)}" width="${n(r.posto.w)}" height="${n(r.posto.h)}" rx="10" fill="none" stroke="#ffffff" stroke-opacity="0.8" stroke-width="1.5"/>`
+      + `<text x="${n(r.posto.x + 12)}" y="${n(r.posto.y + 26)}" font-family="Georgia, serif" font-weight="bold" font-size="22" fill="#ffffff">${r.numero}</text>`
+      + `<text x="${n(r.zona.x + r.zona.w + 5)}" y="${n(r.zona.y - 4)}" font-family="Georgia, serif" font-size="18" fill="#ffffff">${r.numero}</text>`
+      + `</g>`;
+  }).join("");
+  return `<g id="nomi">${nomi}</g><g id="riquadri">${riquadri}</g>`;
 }

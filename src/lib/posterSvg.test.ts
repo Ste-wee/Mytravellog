@@ -278,3 +278,52 @@ describe("CONFINI — una sola fonte per schermo e stampa", () => {
     expect(CONFINI.opacita).toBe(0.45);
   });
 });
+
+describe("buildPosterSvg — i nomi della Mappa della vita (nomiOvunque)", () => {
+  // un grappolo stretto sul lago di Como e stelle lontane
+  const VITA = {
+    routeSegments: [
+      [[9.26, 45.99], [9.28, 46.01], [9.24, 46.02]],
+      [[2.35, 48.86], [4.83, 45.76]],
+    ] as [number, number][][],
+    stops: [
+      { lon: 9.26, lat: 45.99, label: "Bellagio" },
+      { lon: 9.28, lat: 46.01, label: "Varenna" },
+      { lon: 9.24, lat: 46.02, label: "Menaggio" },
+      { lon: 2.35, lat: 48.86, label: "Parigi" },
+      { lon: 4.83, lat: 45.76, label: "Lione" },
+      { lon: 12.5, lat: 41.9, label: "Roma" },
+    ],
+    title: "",
+    nomiOvunque: true,
+  };
+  const s = buildPosterSvg(VITA);
+  const testi = Array.from(s.matchAll(/<text [^>]*font-style="italic"[^>]*>([^<]+)<\/text>/g)).map(m => m[1]);
+
+  it("ogni tappa ha il suo nome, una volta sola", () => {
+    for (const t of VITA.stops) expect(testi.filter(x => x === t.label)).toHaveLength(1);
+  });
+
+  it("il grappolo finisce in un riquadro ritagliato, coi livelli nomi/riquadri", () => {
+    expect(s).toContain('id="nomi"');
+    expect(s).toContain('id="riquadri"');
+    expect(s).toContain('id="riquadro-1"');
+    expect(s).toMatch(/<clipPath id="riq1">/);
+    expect(s).toMatch(/scale\(\d+(\.\d+)?\)/);
+  });
+
+  it("nel riquadro le linee non ingrassano (non-scaling-stroke)", () => {
+    const riq = s.slice(s.indexOf('id="riquadri"'));
+    expect(riq).toContain('vector-effect="non-scaling-stroke"');
+  });
+
+  it("i punti-LED restano uno per tappa: le stelle del riquadro non sono LED", () => {
+    expect((s.match(/data-led="1"/g) ?? []).length).toBe(VITA.stops.length);
+  });
+
+  it("senza nomiOvunque la Mappa della vita resta com'era (hideLabels)", () => {
+    const vecchia = buildPosterSvg({ ...VITA, nomiOvunque: false, hideLabels: true });
+    expect(vecchia).not.toContain("Bellagio");
+    expect(vecchia).not.toContain('id="riquadri"');
+  });
+});

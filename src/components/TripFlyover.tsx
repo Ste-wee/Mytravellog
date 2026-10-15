@@ -13,6 +13,7 @@ import { unwrapNear } from "@/lib/lonWrap";
 import { codecCostruzione, formatoRegistrabile, kmContatiPerTratta, misureVideo, nomeFileVideo } from "@/lib/voloVideo";
 import { riquadriDelVolo } from "@/lib/riquadriVolo";
 import { copioneVolo, type Camera, type TempiCopione } from "@/lib/copioneVolo";
+import { disponiEtichette, type Disposizione, type Riquadro } from "@/lib/etichetteMappa";
 import fixWebmDuration from "fix-webm-duration";
 import { compagniDeiViaggi, viaggiCon } from "@/lib/compagni";
 import { fetchMapStyle } from "@/components/WorldMap";
@@ -48,6 +49,19 @@ async function buildSatelliteStyle(): Promise<StyleSpecification> {
   const style = await fetchMapStyle();
   style.projection = { type: "globe" };
   style.glyphs = `https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_KEY}`;
+  return style;
+}
+
+/**
+ * Satellite per la Mappa della vita (scelta di Stefano, 2026-10-15): PIATTO
+ * (Mercatore, come la Costellazione — i riquadri ingrandiscono la mappa in
+ * modo lineare, cosa che il globo non permette) e SENZA i nomi di MapTiler,
+ * che si doppierebbero con i nostri (lib/etichetteMappa).
+ */
+async function buildSatelliteStylePiatto(): Promise<StyleSpecification> {
+  const style = await buildSatelliteStyle();
+  style.projection = { type: "mercator" };
+  style.layers = style.layers.filter(l => l.type !== "symbol");
   return style;
 }
 
@@ -124,6 +138,74 @@ function createStarImageData(forma: "larga" | "soffusa" | "secca"): ImageData {
   ctx.fillStyle = "#ffffff";
   ctx.beginPath(); ctx.arc(cx, cy, s * 0.11, 0, Math.PI * 2); ctx.fill();
   return ctx.getImageData(0, 0, s, s);
+}
+
+/** La tappa della Mappa della vita in Satellite: un punto ambra (il colore dei
+ *  km e del tracciato satellite) con il bordo bianco, che si legge sulle foto
+ *  dall'alto dove una stella bianca sparirebbe sulla neve e sulle città. */
+function createDotImageData(): ImageData {
+  const s = 32;
+  const c = document.createElement("canvas");
+  c.width = s; c.height = s;
+  const ctx = c.getContext("2d")!;
+  const cx = s / 2, cy = s / 2;
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, s / 2);
+  g.addColorStop(0.35, "rgba(251,191,36,0.35)");
+  g.addColorStop(1, "rgba(251,191,36,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, s, s);
+  ctx.beginPath(); ctx.arc(cx, cy, s * 0.17, 0, Math.PI * 2);
+  ctx.fillStyle = "#fbbf24"; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = "#ffffff"; ctx.stroke();
+  return ctx.getImageData(0, 0, s, s);
+}
+
+/**
+ * I nomi, i fili e i riquadri della Mappa della vita sull'immagine condivisa:
+ * la STESSA disposizione dello schermo (pixel CSS), moltiplicata per `k`.
+ */
+function disegnaNomiSuCanvas(ctx: CanvasRenderingContext2D,
+  n: { d: Disposizione; foto: Record<number, HTMLCanvasElement> }, k: number) {
+  const { d, foto } = n;
+  ctx.save();
+  ctx.scale(k, k);
+  const linea = (f: { x1: number; y1: number; x2: number; y2: number }, colore: string, spessore: number) => {
+    ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2);
+    ctx.strokeStyle = colore; ctx.lineWidth = spessore; ctx.setLineDash([]); ctx.stroke();
+  };
+  const testo = (s: string, x: number, y: number, allinea: "middle" | "start" | "end", font: string) => {
+    ctx.font = font;
+    ctx.textAlign = allinea === "middle" ? "center" : allinea === "start" ? "left" : "right";
+    ctx.textBaseline = "alphabetic";
+    ctx.lineJoin = "round"; ctx.lineWidth = 2.6; ctx.strokeStyle = "rgba(0,0,0,0.85)";
+    ctx.strokeText(s, x, y);
+    ctx.fillStyle = "#ffffff"; ctx.fillText(s, x, y);
+  };
+  const fontNome = `italic ${FONT_NOMI.px}px ${FONT_NOMI.famiglia}`;
+  // le zone tratteggiate e i loro fili
+  for (const r of d.riquadri) {
+    ctx.setLineDash([3, 3]); ctx.strokeStyle = "rgba(255,255,255,0.75)"; ctx.lineWidth = 1;
+    roundRectPath(ctx, r.zona.x, r.zona.y, r.zona.w, r.zona.h, 3); ctx.stroke();
+    linea(r.filo, "rgba(255,255,255,0.5)", 0.9);
+    testo(String(r.numero), r.zona.x + r.zona.w + 3, r.zona.y - 2, "start", "10px Georgia, serif");
+  }
+  for (const e of d.conFilo) linea(e.filo, "rgba(255,255,255,0.55)", 0.7);
+  // i riquadri: la foto della zona ingrandita, il bordo, il numero, i nomi
+  for (const r of d.riquadri) {
+    ctx.save();
+    roundRectPath(ctx, r.posto.x, r.posto.y, r.posto.w, r.posto.h, 6); ctx.clip();
+    ctx.fillStyle = "#000"; ctx.fillRect(r.posto.x, r.posto.y, r.posto.w, r.posto.h);
+    const f = foto[r.numero];
+    if (f) ctx.drawImage(f, r.posto.x, r.posto.y, r.posto.w, r.posto.h);
+    ctx.restore();
+    ctx.setLineDash([]); ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 1;
+    roundRectPath(ctx, r.posto.x, r.posto.y, r.posto.w, r.posto.h, 6); ctx.stroke();
+    testo(String(r.numero), r.posto.x + 7, r.posto.y + 15, "start", "600 12px Georgia, serif");
+    for (const e of r.conFilo) linea(e.filo, "rgba(255,255,255,0.55)", 0.7);
+    for (const e of [...r.nomi, ...r.conFilo]) testo(e.nome, e.testo.x, e.testo.y, e.testo.allinea, fontNome);
+  }
+  for (const e of [...d.accanto, ...d.conFilo]) testo(e.nome, e.testo.x, e.testo.y, e.testo.allinea, fontNome);
+  ctx.restore();
 }
 
 /** Rettangolo con angoli arrotondati (per comporre il poster su canvas). */
@@ -298,6 +380,11 @@ const ATTESA_TAPPA_MS = 1500;
 const AVVICINAMENTO_ZOOM = 0.3;
 /** Il video costruito («Crea video»): 30 fotogrammi al secondo, e per ognuno
  *  si aspettano i riquadri al massimo questo tempo. */
+/** Il carattere dei nomi della Mappa della vita (lo stesso a schermo e
+ *  nell'immagine condivisa: Noto Serif corsivo, già caricato per le didascalie). */
+const FONT_NOMI = { px: 11, famiglia: '"Noto Serif", Georgia, serif' };
+/** L'alone nero dietro ai nomi, perché si leggano su confini, linee e foto. */
+const ALONE_NOMI = { paintOrder: "stroke", stroke: "rgba(0,0,0,0.85)", strokeWidth: 2.6, strokeLinejoin: "round" } as const;
 const FPS_VIDEO = 30;
 const ATTESA_FOTOGRAMMA_MS = 3000;
 /** Il ritmo del video costruito: le STESSE fasi e curve del volo dal vivo
@@ -414,9 +501,23 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   const [poster, setPoster] = useState(false); // overlay del poster pronti (dopo l'inquadratura)
   const [savingRelief, setSavingRelief] = useState(false);
   const [exportingSvg, setExportingSvg] = useState(false);
-  // La Mappa della vita parte (e resta) in Costellazione: niente Satellite,
-  // che lì è quasi identico al globo della Home.
+  // La Mappa della vita parte in Costellazione; dal 2026-10-15 si può passare
+  // al Satellite (piatto, vedi buildSatelliteStylePiatto), scelta di Stefano.
   const [styleMode, setStyleMode] = useState<MapStyleMode>(lifeMap ? "constellation" : "satellite");
+  /** Lo stile che la mappa ha addosso adesso (lo copia la mappa dei riquadri). */
+  const stileRef = useRef<StyleSpecification | null>(null);
+  const styleModeRef = useRef<MapStyleMode>(styleMode);
+  styleModeRef.current = styleMode;
+  /** Mappa della vita: nomi, fili e riquadri della vista di adesso (vedi
+   *  calcolaNomi), con le foto dei riquadri. Li ricopia l'immagine condivisa. */
+  type NomiMappa = { d: Disposizione; foto: Record<number, HTMLCanvasElement>; url: Record<number, string>; w: number; h: number };
+  const [nomi, setNomi] = useState<NomiMappa | null>(null);
+  const nomiRef = useRef<NomiMappa | null>(null);
+  /** False mentre la mappa si muove: i nomi spariscono e tornano a mappa ferma. */
+  const [nomiFermi, setNomiFermi] = useState(true);
+  const calcoloNomiRef = useRef(0);
+  const mappaRiqRef = useRef<{ map: MapLibreMap; div: HTMLDivElement; stile: StyleSpecification } | null>(null);
+  const misuraRef = useRef<CanvasRenderingContext2D | null>(null);
   /** Il compagno selezionato, o null per tutti. Filtra la costellazione. */
   /**
    * ⚠️ BANCO DI PROVA (2026-08-27, da smontare quando Stefano sceglie): le due
@@ -784,6 +885,9 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         createStarImageData(lifeMap ? (stellaSecca ? "secca" : "soffusa") : "larga"),
         { pixelRatio: 2 });
     }
+    // Mappa della vita in Satellite: punti ambra invece delle puntine
+    const puntiVita = lifeMap && !constellation;
+    if (puntiVita && !map.hasImage("flyover-dot")) map.addImage("flyover-dot", createDotImageData(), { pixelRatio: 2 });
     // Pin della tappa finale col medaglione del mezzo (solo viste con puntine).
     const hasFinalPin = !constellation && !!finalPinDataRef.current;
     if (hasFinalPin && !map.hasImage("flyover-pin-final")) {
@@ -795,9 +899,10 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         layout: {
           "icon-image": constellation
             ? "flyover-star"
+            : puntiVita ? "flyover-dot"
             : (hasFinalPin ? ["case", ["get", "final"], "flyover-pin-final", "flyover-pin"] : "flyover-pin"),
-          "icon-size": constellation ? 0.8 : 0.9,
-          "icon-anchor": constellation ? "center" : "bottom",
+          "icon-size": constellation ? 0.8 : puntiVita ? 1 : 0.9,
+          "icon-anchor": constellation || puntiVita ? "center" : "bottom",
           "icon-allow-overlap": true,
           "icon-ignore-placement": true,
           "icon-pitch-alignment": "viewport",
@@ -835,8 +940,11 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     switchingRef.current = true;
     setSwitching(true);
     try {
-      const style = mode === "satellite" ? await buildSatelliteStyle() : buildConstellationStyle();
+      const style = mode === "satellite"
+        ? await (lifeMap ? buildSatelliteStylePiatto() : buildSatelliteStyle())
+        : buildConstellationStyle();
       if (!mapRef.current) return;
+      stileRef.current = style;
       map.setStyle(style, { diff: false });
       await new Promise<void>(res => {
         let done = false;
@@ -846,7 +954,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       });
       if (!mapRef.current || !mountedRef.current) return;
       addOverlayLayers(map, mode);
-      await flyToOverview(map, mode === "constellation" ? 0 : 45);
+      // la Mappa della vita resta piatta anche in Satellite (vedi buildSatelliteStylePiatto)
+      await flyToOverview(map, mode === "constellation" || lifeMap ? 0 : 45);
     } catch { /* se il cambio stile fallisce, resta la vista precedente */ }
     finally {
       switchingRef.current = false;
@@ -877,8 +986,13 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     const stamp = () => { if (logoImg) drawBrandSignatureCanvas(ctx, c.width, c.height, dpr, logoImg); };
 
     // Mappa della vita: nessuna caption nemmeno nell'immagine salvata/condivisa
-    // (coerente con la vista a schermo, mappa "nuda").
-    if (lifeMap) { stamp(); return c; }
+    // (coerente con la vista a schermo, mappa "nuda") — ma i NOMI, i fili e i
+    // riquadri della vista sì, gli stessi dello schermo (vedi calcolaNomi).
+    if (lifeMap) {
+      if (nomiRef.current) disegnaNomiSuCanvas(ctx, nomiRef.current, dpr);
+      stamp();
+      return c;
+    }
 
     // Costellazione: DIDASCALIA senza riquadro (serif elegante, monocromatica),
     // allineata a destra, come la caption di una stampa celeste. Disegnata qui
@@ -1175,7 +1289,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       // Mappa della vita: SVG "nudo" (nessuna caption) → niente titolo/date/stat.
       const title = lifeMap ? "" : (tripsCount > 1 ? `${tripsCount} viaggi` : viaggi[0].title);
       const stats = statLine();
-      const svg = buildPosterSvg({ routeSegments: routeSegsRef.current, stops, borders: rings, title, dateLabel: lifeMap ? null : dateRangeLabel, stats, hideLabels: lifeMap });
+      const svg = buildPosterSvg({ routeSegments: routeSegsRef.current, stops, borders: rings, title, dateLabel: lifeMap ? null : dateRangeLabel, stats, hideLabels: false, nomiOvunque: lifeMap });
       const blob = new Blob([svg], { type: "image/svg+xml" });
       const base = lifeMap ? "mappa-della-vita" : (tripsCount === 1 ? viaggi[0].title : "viaggio").replace(/[^\w.-]+/g, "_").slice(0, 40) || "viaggio";
       downloadBlob(blob, `${base}-costellazione.svg`);
@@ -1914,6 +2028,117 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     }
   };
 
+  // ══ I NOMI DELLA MAPPA DELLA VITA ═════════════════════════════════════
+  // Scelta di Stefano (2026-10-15, fra due mockup sulla mappa vera): nomi
+  // OVUNQUE e, dove le stelle quasi si toccano, RIQUADRI di ingrandimento
+  // quanti ne servono; un nome isolato che non entra va col filo. Il dove lo
+  // decide lib/etichetteMappa (puro); qui lo si disegna sopra la mappa, e la
+  // stessa disposizione finisce nell'immagine condivisa.
+
+  /** Copia del canvas di una mappa, presa dentro il suo evento "render". */
+  const copiaMappa = (m: MapLibreMap) => new Promise<HTMLCanvasElement>(res => {
+    const src = m.getCanvas();
+    const grab = () => {
+      const c = document.createElement("canvas");
+      c.width = src.width; c.height = src.height;
+      c.getContext("2d")!.drawImage(src, 0, 0);
+      return c;
+    };
+    let fatto = false;
+    const fin = (c: HTMLCanvasElement) => { if (!fatto) { fatto = true; res(c); } };
+    m.once("render", () => fin(grab()));
+    m.triggerRepaint();
+    setTimeout(() => fin(grab()), 600);
+  });
+
+  /** La mappa NASCOSTA che fotografa i riquadri: una sola, riusata per tutti
+   *  (un contesto WebGL in più, non uno per riquadro), rifatta se cambia stile. */
+  const mappaPerRiquadri = async (stile: StyleSpecification): Promise<MapLibreMap | null> => {
+    const lib = libRef.current;
+    if (!lib) return null;
+    const c = mappaRiqRef.current;
+    if (c && c.stile === stile) return c.map;
+    if (c) { try { c.map.remove(); } catch { /* già via */ } c.div.remove(); mappaRiqRef.current = null; }
+    const div = document.createElement("div");
+    div.style.cssText = "position:fixed;left:-10000px;top:0;width:200px;height:150px;pointer-events:none;";
+    document.body.appendChild(div);
+    const m = new lib.Map({ container: div, style: JSON.parse(JSON.stringify(stile)), interactive: false, attributionControl: false, fadeDuration: 0 });
+    await new Promise<void>(r => { m.once("load", () => r()); setTimeout(r, 6000); });
+    addOverlayLayers(m, styleModeRef.current);
+    mappaRiqRef.current = { map: m, div, stile };
+    return m;
+  };
+
+  /** Un riquadro fotografato: la stessa mappa, centrata sulla zona e ingrandita
+   *  della sua scala (in Mercatore ingrandire è proprio moltiplicare i pixel). */
+  const fotografaRiquadro = async (map: MapLibreMap, m: MapLibreMap, r: Riquadro): Promise<HTMLCanvasElement | null> => {
+    try {
+      const div = mappaRiqRef.current?.div;
+      if (!div) return null;
+      div.style.width = `${Math.round(r.posto.w)}px`;
+      div.style.height = `${Math.round(r.posto.h)}px`;
+      m.resize();
+      const centro = map.unproject([r.centroZona.x, r.centroZona.y]);
+      m.jumpTo({ center: [centro.lng, centro.lat], zoom: map.getZoom() + Math.log2(r.scala), pitch: 0, bearing: 0 });
+      await mappaNitida(m, 3000);
+      await visibile();
+      return await copiaMappa(m);
+    } catch {
+      return null;
+    }
+  };
+
+  const misuraNome = (s: string) => {
+    if (!misuraRef.current) misuraRef.current = document.createElement("canvas").getContext("2d");
+    const c = misuraRef.current;
+    if (!c) return s.length * FONT_NOMI.px * 0.55;
+    c.font = `italic ${FONT_NOMI.px}px ${FONT_NOMI.famiglia}`;
+    return c.measureText(s).width;
+  };
+
+  /** Ricalcola nomi, fili e riquadri per la vista di adesso. */
+  const calcolaNomi = async (map: MapLibreMap) => {
+    const id = ++calcoloNomiRef.current;
+    const el = map.getContainer();
+    const W = el.clientWidth, H = el.clientHeight;
+    if (!W || !H) return;
+    try { await document.fonts?.load(`italic ${FONT_NOMI.px}px "Noto Serif"`); } catch { /* si misura col ripiego */ }
+    if (calcoloNomiRef.current !== id) return;
+    // le longitudini vicino al centro della vista (antimeridiano: vedi lonWrap)
+    const cLng = map.getCenter().lng;
+    const punti = stopsRef.current
+      .map((s, i) => { const p = map.project([unwrapNear(s.lon, cLng), s.lat]); return { id: String(i), nome: s.label, x: p.x, y: p.y }; })
+      .filter(p => p.nome && p.x >= 0 && p.x <= W && p.y >= 0 && p.y <= H);
+    const linee = routeSegsRef.current.filter(s => s.length > 1).map(seg => {
+      const off = unwrapNear(seg[0][0], cLng) - seg[0][0];
+      return seg.map(([lon, lat]) => { const p = map.project([lon + off, lat]); return { x: p.x, y: p.y }; });
+    });
+    const d = disponiEtichette(punti, {
+      w: W, h: H, misura: misuraNome, altezza: FONT_NOMI.px + 2, raggioStella: 4, scostamento: 6,
+      distanzaGrappolo: 15, margine: 8, linee,
+    });
+    const foto: Record<number, HTMLCanvasElement> = {};
+    const url: Record<number, string> = {};
+    // i nomi tornano SUBITO; le foto dei riquadri arrivano una alla volta
+    // (ciascuna aspetta i suoi riquadri della mappa, anche qualche secondo)
+    const mostra = () => {
+      nomiRef.current = { d, foto: { ...foto }, url: { ...url }, w: W, h: H };
+      setNomi(nomiRef.current);
+    };
+    mostra();
+    setNomiFermi(true);
+    const stile = stileRef.current;
+    if (d.riquadri.length && stile) {
+      const m = await mappaPerRiquadri(stile);
+      for (const r of d.riquadri) {
+        if (calcoloNomiRef.current !== id || !mountedRef.current || !m) return;
+        const c = await fotografaRiquadro(map, m, r);
+        if (calcoloNomiRef.current !== id || !mountedRef.current) return;
+        if (c) { foto[r.numero] = c; url[r.numero] = c.toDataURL("image/png"); mostra(); }
+      }
+    }
+  };
+
   // Che video sa fare questo browser: costruito (WebCodecs + H.264), o almeno
   // registrato dal vivo (MediaRecorder). Si chiede una volta, all'apertura.
   useEffect(() => {
@@ -2032,6 +2257,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         // Mappa della vita: parte direttamente in Costellazione (nessun Satellite).
         const style = lifeMap ? buildConstellationStyle() : await buildSatelliteStyle();
         if (cancelled) return;
+        stileRef.current = style;
 
         if (!containerRef.current || cancelled) return;
         map = new maplibregl.Map({
@@ -2069,6 +2295,25 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
             return;
           }
 
+          // Mappa della vita: i NOMI (vedi calcolaNomi) spariscono mentre la
+          // mappa si muove e si ricalcolano a mappa ferma — dopo ogni spostamento,
+          // zoom, cambio di stile o di misura.
+          if (lifeMap) {
+            const m = map;
+            // la Mappa della vita resta piatta e dritta, come la stampa: i
+            // riquadri ingrandiscono la zona contando su una mappa senza
+            // rotazione né inclinazione (con due dita la si girava)
+            try { m.dragRotate.disable(); m.touchZoomRotate.disableRotation(); m.touchPitch.disable(); m.keyboard.disableRotation(); } catch { /* gesto assente */ }
+            let attesaNomi: number | undefined;
+            const aMappaFerma = () => {
+              window.clearTimeout(attesaNomi);
+              attesaNomi = window.setTimeout(() => { if (!cancelled && mountedRef.current) void calcolaNomi(m); }, 150);
+            };
+            m.on("movestart", () => { calcoloNomiRef.current++; setNomiFermi(false); });
+            m.on("moveend", aMappaFerma);
+            m.on("resize", aMappaFerma);
+          }
+
           // Mappa della vita: nessun volo, inquadra subito il poster
           // sull'intero percorso, poi mostra gli overlay. Costellazione
           // piatta dall'alto (pitch 0), come il master di stampa.
@@ -2092,6 +2337,12 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       mountedRef.current = false;
       precaricoRef.current?.abort();
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
+      // la mappa nascosta dei riquadri e i nomi della vista di prima
+      calcoloNomiRef.current++;
+      const riq = mappaRiqRef.current;
+      if (riq) { try { riq.map.remove(); } catch { /* già via */ } riq.div.remove(); mappaRiqRef.current = null; }
+      nomiRef.current = null;
+      setNomi(null);
     };
   // ⚠️ Dipendenza NON vuota: la mappa si ricostruisce quando cambia il filtro
   // per compagno. Ricostruire è il prezzo giusto qui — l'effetto è già scritto
@@ -2123,6 +2374,57 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
           animation: "flyoverModalIn 0.28s cubic-bezier(0.22,1,0.36,1) both",
         }}>
         <div style={{ position: "absolute", inset: 0 }} ref={containerRef} />
+
+        {/* Mappa della vita: nomi, fili e riquadri (lib/etichetteMappa).
+            Sopra la mappa e sotto i comandi; spariscono mentre la mappa si
+            muove (la disposizione vale per una vista ferma). */}
+        {lifeMap && poster && nomi && (
+          <div aria-hidden style={{
+            position: "absolute", inset: 0, zIndex: 20, pointerEvents: "none",
+            opacity: nomiFermi ? 1 : 0, transition: nomiFermi ? "opacity 200ms ease" : "none",
+          }}>
+            <svg width={nomi.w} height={nomi.h} style={{ position: "absolute", left: 0, top: 0, overflow: "visible" }}>
+              {nomi.d.riquadri.map(r => (
+                <g key={`z${r.numero}`}>
+                  <rect x={r.zona.x} y={r.zona.y} width={r.zona.w} height={r.zona.h} rx={3}
+                    fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth={1} strokeDasharray="3 3" />
+                  <line x1={r.filo.x1} y1={r.filo.y1} x2={r.filo.x2} y2={r.filo.y2} stroke="rgba(255,255,255,0.5)" strokeWidth={0.9} />
+                  <text x={r.zona.x + r.zona.w + 3} y={r.zona.y - 2} fill="#fff" fontSize={10} fontFamily="Georgia, serif" style={ALONE_NOMI}>{r.numero}</text>
+                </g>
+              ))}
+              {nomi.d.conFilo.map(e => (
+                <line key={`f${e.id}`} x1={e.filo.x1} y1={e.filo.y1} x2={e.filo.x2} y2={e.filo.y2} stroke="rgba(255,255,255,0.55)" strokeWidth={0.7} />
+              ))}
+              {[...nomi.d.accanto, ...nomi.d.conFilo].map(e => (
+                <text key={`n${e.id}`} x={e.testo.x} y={e.testo.y} textAnchor={e.testo.allinea} style={ALONE_NOMI}
+                  fill="#fff" fontSize={FONT_NOMI.px} fontStyle="italic" fontFamily={FONT_NOMI.famiglia}>{e.nome}</text>
+              ))}
+            </svg>
+            {nomi.d.riquadri.map(r => (
+              <div key={`r${r.numero}`} style={{
+                position: "absolute", left: r.posto.x, top: r.posto.y, width: r.posto.w, height: r.posto.h,
+                border: "1px solid rgba(255,255,255,0.8)", borderRadius: 6, overflow: "hidden",
+                background: "#000", boxShadow: "0 6px 18px rgba(0,0,0,0.6)",
+              }}>
+                {nomi.url[r.numero] && <img src={nomi.url[r.numero]} alt="" style={{ width: "100%", height: "100%", display: "block" }} />}
+              </div>
+            ))}
+            <svg width={nomi.w} height={nomi.h} style={{ position: "absolute", left: 0, top: 0, overflow: "visible" }}>
+              {nomi.d.riquadri.map(r => (
+                <g key={r.numero}>
+                  <text x={r.posto.x + 7} y={r.posto.y + 15} fill="#fff" fontSize={12} fontWeight={600} fontFamily="Georgia, serif" style={ALONE_NOMI}>{r.numero}</text>
+                  {r.conFilo.map(e => (
+                    <line key={`f${e.id}`} x1={e.filo.x1} y1={e.filo.y1} x2={e.filo.x2} y2={e.filo.y2} stroke="rgba(255,255,255,0.55)" strokeWidth={0.7} />
+                  ))}
+                  {[...r.nomi, ...r.conFilo].map(e => (
+                    <text key={e.id} x={e.testo.x} y={e.testo.y} textAnchor={e.testo.allinea} style={ALONE_NOMI}
+                      fill="#fff" fontSize={FONT_NOMI.px} fontStyle="italic" fontFamily={FONT_NOMI.famiglia}>{e.nome}</text>
+                  ))}
+                </g>
+              ))}
+            </svg>
+          </div>
+        )}
 
         {/* Chiudi in alto a sinistra (la card dati sta in alto a destra). */}
         <button onClick={onClose} aria-label={t("Chiudi")}
@@ -2208,15 +2510,17 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
           </>
         )}
 
-        {/* Toggle vista: satellite inclinato · costellazione (master di stampa).
-            Nascosto sulla Mappa della vita (lì c'è solo la Costellazione) e
-            durante il volo (che è in Satellite: cambiare stile a metà
-            azzererebbe tracciato e marker). */}
-        {phase === "ready" && !lifeMap && !inVolo && (
+        {/* Toggle vista: satellite · costellazione (master di stampa). Anche
+            sulla Mappa della vita dal 2026-10-15 (lì il Satellite è piatto e
+            sparisce a riposo come gli altri comandi). Nascosto durante il volo
+            (che è in Satellite: cambiare stile a metà azzererebbe tracciato e
+            marker). */}
+        {phase === "ready" && !inVolo && (
           <div style={{
             position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 30,
             display: "flex", gap: 2, padding: 3, borderRadius: 999,
             background: "rgba(10,22,40,0.8)", border: "0.5px solid #1a2d4a", backdropFilter: "blur(2px)",
+            ...velo,
           }}>
             {([["satellite", "Satellite"], ["constellation", "Costellazione"]] as const).map(([mode, label]) => {
               const active = styleMode === mode;
