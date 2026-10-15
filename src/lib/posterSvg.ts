@@ -344,7 +344,7 @@ function nomiDisposti(
       + `</g>`
       + `<rect x="${n(r.posto.x)}" y="${n(r.posto.y)}" width="${n(r.posto.w)}" height="${n(r.posto.h)}" rx="10" fill="none" stroke="#ffffff" stroke-opacity="0.8" stroke-width="1.5"/>`
       + `<text x="${n(r.posto.x + 12)}" y="${n(r.posto.y + 26)}" font-family="Georgia, serif" font-weight="bold" font-size="22" fill="#ffffff">${r.numero}</text>`
-      + `<text x="${n(r.zona.x + r.zona.w + 5)}" y="${n(r.zona.y - 4)}" font-family="Georgia, serif" font-size="18" fill="#ffffff">${r.numero}</text>`
+      + `<text x="${n(r.numeroZona.x + r.numeroZona.w / 2)}" y="${n(r.numeroZona.y + r.numeroZona.h * 0.8)}" text-anchor="middle" font-family="Georgia, serif" font-size="18" fill="#ffffff">${r.numero}</text>`
       + `</g>`;
   }).join("");
   return `<g id="nomi">${nomi}</g><g id="riquadri">${riquadri}</g>`;

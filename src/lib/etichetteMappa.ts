@@ -48,6 +48,9 @@ export interface Riquadro {
   centroPosto: { x: number; y: number };
   /** Il filo dal tratteggio al riquadro. */
   filo: { x1: number; y1: number; x2: number; y2: number };
+  /** Dove scrivere il numero accanto al tratteggio: un angolo libero, che i
+   *  nomi della mappa grande non coprono (prima si leggeva «Innsbruck¹»). */
+  numeroZona: Box;
   /** Le stelle e i nomi DENTRO il riquadro, già in pixel del foglio. */
   stelle: { id: string; x: number; y: number }[];
   nomi: Etichetta[];
@@ -83,7 +86,9 @@ export interface Opzioni {
   /** Zone vietate (es. i bottoni): niente nomi né riquadri. */
   vietate?: Box[];
   /** Quanto può essere lungo un filo sulla mappa grande (default 90 px):
-   *  oltre, un nome «col filo» non si capisce più di chi sia. */
+   *  oltre, un nome «col filo» non si capisce più di chi sia. Si supera solo
+   *  quando entro filoMax non c'è posto: allora meglio un filo lungo che
+   *  un nome che manca. */
   filoMax?: number;
 }
 
@@ -220,15 +225,27 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
     .filter(g => g.length >= 3 && (vicinissime(g) || g.some(p => nonEntrano.has(p.id))));
   const nelRiquadro = new Set(daIngrandire.flat().map(p => p.id));
 
-  // 2. di nuovo accanto, senza i punti dei riquadri (il loro spazio si libera)
-  const restanti = punti.filter(p => !nelRiquadro.has(p.id));
-  const fuori = accanto(restanti, stelle, o, o.w, o.h, vietate);
-
-  // 3. i riquadri: ingranditi quanto serve, nel vuoto più vicino
+  // le zone tratteggiate si conoscono già qui, PRIMA dei nomi della mappa
+  // grande: un nome scritto sopra un tratteggio si leggeva male (visto)
   const zone = daIngrandire.map(g => {
     const xs = g.map(p => p.x), ys = g.map(p => p.y);
     return { x: Math.min(...xs) - 8, y: Math.min(...ys) - 8, w: Math.max(...xs) - Math.min(...xs) + 16, h: Math.max(...ys) - Math.min(...ys) + 16 };
   });
+
+  // 2. di nuovo accanto, senza i punti dei riquadri (il loro spazio si libera),
+  //    lontano dai tratteggi
+  const restanti = punti.filter(p => !nelRiquadro.has(p.id));
+  const fuori = accanto(restanti, stelle, o, o.w, o.h, [...vietate, ...zone]);
+  // chi non ci sta senza toccare un tratteggio ci va sopra, accanto alla sua
+  // stella, come prima: vietarlo e basta faceva SPARIRE nomi (visto: Colmar,
+  // Ginevra, Innsbruck…). Il numero della zona poi si sposta, lui sì.
+  if (fuori.falliti.length) {
+    const ancora = accanto(fuori.falliti, stelle, o, o.w, o.h, [...vietate, ...fuori.fatti.map(e => e.box)]);
+    fuori.fatti.push(...ancora.fatti);
+    fuori.falliti = ancora.falliti;
+  }
+
+  // 3. i riquadri: ingranditi quanto serve, nel vuoto più vicino
   const occupatiRiquadri: Box[] = zone.map(z => ({ ...z }));
   const riquadri: Riquadro[] = [];
   const ordine = daIngrandire.map((g, i) => ({ g, i })).sort((a, b) => b.g.length - a.g.length);
@@ -294,7 +311,7 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
     });
     const a = piuVicino(zona, centroPosto), b = piuVicino(pz, centroZona);
     riquadri.push({
-      numero: 0, ids: g.map(p => p.id), zona, posto: pz, scala, centroZona, centroPosto,
+      numero: 0, ids: g.map(p => p.id), zona, posto: pz, numeroZona: zona, scala, centroZona, centroPosto,
       filo: { x1: a.x, y1: a.y, x2: b.x, y2: b.y },
       stelle: membri.map(p => ({ id: p.id, x: p.x, y: p.y })),
       nomi: interni.fatti.map(sposta),
@@ -303,6 +320,46 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
   }
   // numeri in ordine di lettura (dall'alto, poi da sinistra)
   riquadri.sort((a, b) => a.zona.y - b.zona.y || a.zona.x - b.zona.x).forEach((r, i) => { r.numero = i + 1; });
+  // il numero accanto al tratteggio, nel primo angolo libero da stelle, nomi,
+  // riquadri, fili e altri numeri: attaccato a un nome si leggeva «Bolzano 3»
+  // (visto). Si sceglie DOPO i riquadri, che così vanno nel vuoto più vicino
+  // senza un numero di troppo fra i piedi.
+  const stelleIngombro = stelle.map(s => ({ x: s.x - o.raggioStella - 1, y: s.y - o.raggioStella - 1, w: 2 * o.raggioStella + 2, h: 2 * o.raggioStella + 2 }));
+  const sulFilo = (b: Box, f: Riquadro["filo"]) => {
+    for (let k = 0; k <= 10; k++) {
+      const x = f.x1 + ((f.x2 - f.x1) * k) / 10, y = f.y1 + ((f.y2 - f.y1) * k) / 10;
+      if (x > b.x && x < b.x + b.w && y > b.y && y < b.y + b.h) return true;
+    }
+    return false;
+  };
+  const numeri: Box[] = [];
+  for (const r of riquadri) {
+    const z = r.zona, n = o.altezza;
+    const angoli: Box[] = [
+      { x: z.x + z.w + 2, y: z.y - n, w: n, h: n },
+      { x: z.x - 2 - n, y: z.y - n, w: n, h: n },
+      { x: z.x + z.w + 2, y: z.y + z.h, w: n, h: n },
+      { x: z.x - 2 - n, y: z.y + z.h, w: n, h: n },
+      { x: z.x + z.w + 2, y: z.y + z.h / 2 - n / 2, w: n, h: n },
+      { x: z.x - 2 - n, y: z.y + z.h / 2 - n / 2, w: n, h: n },
+    ];
+    // angoli tutti presi (scene fitte): lungo il bordo, poi un giro più in là
+    for (const s of [2, 2 + n]) {
+      for (let x = z.x - s - n; x <= z.x + z.w + s; x += n / 2) {
+        angoli.push({ x, y: z.y - s - n, w: n, h: n }, { x, y: z.y + z.h + s, w: n, h: n });
+      }
+      for (let y = z.y - s - n; y <= z.y + z.h + s; y += n / 2) {
+        angoli.push({ x: z.x - s - n, y, w: n, h: n }, { x: z.x + z.w + s, y, w: n, h: n });
+      }
+    }
+    r.numeroZona = angoli.find(b => dentro(b, o.w, o.h, 2)
+      && !stelleIngombro.some(s => sovrapposti(b, s))
+      && !fuori.fatti.some(e => sovrapposti(b, e.box, 1))
+      && !riquadri.some(q => sovrapposti(b, q.posto, 2) || (q !== r && sovrapposti(b, q.zona, 1)) || sulFilo(b, q.filo))
+      && !numeri.some(m => sovrapposti(b, m, 1))
+      && !vietate.some(v => sovrapposti(b, v, 1))) ?? angoli[0];
+    numeri.push(r.numeroZona);
+  }
 
   // 4. col filo: chi resta senza nome, nel posto libero più vicino
   const conFilo: EtichettaConFilo[] = [];
@@ -311,13 +368,19 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
   for (const p of [...fuori.falliti, ...tornaFuori.filter(q => !fuori.fatti.some(e => e.id === q.id))]) {
     if (conFilo.some(e => e.id === p.id)) continue;
     const tw = o.misura(p.nome), th = o.altezza;
-    const libero = (r: Box) => dentro(r, o.w, o.h, o.margine)
+    const libero = (sulTratteggio: boolean) => (r: Box) => dentro(r, o.w, o.h, o.margine)
       && !stelleBox.some(s => sovrapposti(r, s, 1))
       && !fuori.fatti.some(e => sovrapposti(r, e.box, 2))
       && !conFilo.some(e => sovrapposti(r, e.box, 2))
-      && !riquadri.some(q => sovrapposti(r, q.posto, 3) || sovrapposti(r, q.zona, 2))
+      && !riquadri.some(q => sovrapposti(r, q.posto, 3) || (!sulTratteggio && sovrapposti(r, q.zona, 2)) || sovrapposti(r, q.numeroZona, 2))
       && !vietate.some(b => sovrapposti(r, b, 2));
-    const box = postoColFilo(p, tw, th, o.scostamento, o.filoMax ?? 90, libero);
+    // ultima spiaggia: anche sopra un tratteggio (mai sopra il suo numero) e
+    // con il filo lungo quanto serve. Brutto, ma un nome che manca è peggio:
+    // ne sparivano (Chamonix sul telefono, Alberobello sul desktop; col
+    // doppio di filoMax ancora San Benedetto, visto). La ricerca parte
+    // comunque da vicino: il filo è lungo solo se serve.
+    const box = postoColFilo(p, tw, th, o.scostamento, o.filoMax ?? 90, libero(false))
+      ?? postoColFilo(p, tw, th, o.scostamento, Math.max(o.w, o.h), libero(true));
     if (!box) { senzaPosto.push(p.nome); continue; }
     conFilo.push(conIlFilo(p.id, p.nome, p, box, th));
   }

@@ -163,9 +163,11 @@ function createDotImageData(): ImageData {
 /**
  * I nomi, i fili e i riquadri della Mappa della vita sull'immagine condivisa:
  * la STESSA disposizione dello schermo (pixel CSS), moltiplicata per `k`.
+ * Un riquadro la cui foto non è ancora arrivata ha comunque le sue stelle, del
+ * `coloreStelle` della vista: prima usciva un rettangolo nero coi soli nomi.
  */
 function disegnaNomiSuCanvas(ctx: CanvasRenderingContext2D,
-  n: { d: Disposizione; foto: Record<number, HTMLCanvasElement> }, k: number) {
+  n: { d: Disposizione; foto: Record<number, HTMLCanvasElement> }, k: number, coloreStelle: string) {
   const { d, foto } = n;
   ctx.save();
   ctx.scale(k, k);
@@ -187,7 +189,7 @@ function disegnaNomiSuCanvas(ctx: CanvasRenderingContext2D,
     ctx.setLineDash([3, 3]); ctx.strokeStyle = "rgba(255,255,255,0.75)"; ctx.lineWidth = 1;
     roundRectPath(ctx, r.zona.x, r.zona.y, r.zona.w, r.zona.h, 3); ctx.stroke();
     linea(r.filo, "rgba(255,255,255,0.5)", 0.9);
-    testo(String(r.numero), r.zona.x + r.zona.w + 3, r.zona.y - 2, "start", "10px Georgia, serif");
+    testo(String(r.numero), r.numeroZona.x + r.numeroZona.w / 2, r.numeroZona.y + r.numeroZona.h * 0.8, "middle", "10px Georgia, serif");
   }
   for (const e of d.conFilo) linea(e.filo, "rgba(255,255,255,0.55)", 0.7);
   // i riquadri: la foto della zona ingrandita, il bordo, il numero, i nomi
@@ -197,6 +199,13 @@ function disegnaNomiSuCanvas(ctx: CanvasRenderingContext2D,
     ctx.fillStyle = "#000"; ctx.fillRect(r.posto.x, r.posto.y, r.posto.w, r.posto.h);
     const f = foto[r.numero];
     if (f) ctx.drawImage(f, r.posto.x, r.posto.y, r.posto.w, r.posto.h);
+    else {
+      for (const s of r.stelle) {
+        const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 7);
+        g.addColorStop(0, coloreStelle); g.addColorStop(0.35, coloreStelle); g.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = g; ctx.fillRect(s.x - 7, s.y - 7, 14, 14);
+      }
+    }
     ctx.restore();
     ctx.setLineDash([]); ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 1;
     roundRectPath(ctx, r.posto.x, r.posto.y, r.posto.w, r.posto.h, 6); ctx.stroke();
@@ -517,6 +526,10 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   const [nomiFermi, setNomiFermi] = useState(true);
   const calcoloNomiRef = useRef(0);
   const mappaRiqRef = useRef<{ map: MapLibreMap; div: HTMLDivElement; stile: StyleSpecification } | null>(null);
+  const mappaRiqInVoloRef = useRef<{ stile: StyleSpecification; p: Promise<MapLibreMap | null> } | null>(null);
+  /** Le foto dei riquadri della vista di adesso, finché arrivano (le aspetta,
+   *  poco, l'immagine condivisa). */
+  const fotoInCorsoRef = useRef<Promise<void> | null>(null);
   const misuraRef = useRef<CanvasRenderingContext2D | null>(null);
   /** Il compagno selezionato, o null per tutti. Filtra la costellazione. */
   /**
@@ -989,7 +1002,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     // (coerente con la vista a schermo, mappa "nuda") — ma i NOMI, i fili e i
     // riquadri della vista sì, gli stessi dello schermo (vedi calcolaNomi).
     if (lifeMap) {
-      if (nomiRef.current) disegnaNomiSuCanvas(ctx, nomiRef.current, dpr);
+      if (nomiRef.current) disegnaNomiSuCanvas(ctx, nomiRef.current, dpr, styleModeRef.current === "satellite" ? "#fbbf24" : "#ffffff");
       stamp();
       return c;
     }
@@ -1236,6 +1249,11 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
           ]);
         }
       } catch { /* font non disponibili: si usa il fallback */ }
+      // Mappa della vita: le foto dei riquadri ancora in arrivo si aspettano un
+      // poco, non di più — ⚠️ oltre ~5 s dal tocco il telefono rifiuta in
+      // silenzio la condivisione. Quelle che mancano escono con le sole stelle.
+      const fotoInCorso = fotoInCorsoRef.current;
+      if (lifeMap && fotoInCorso) await Promise.race([fotoInCorso, new Promise(r => setTimeout(r, 2000))]);
       // Copia il canvas DENTRO il gestore dell'evento "render", in modo
       // sincrono: il backbuffer WebGL (non preservato) è garantito pieno solo
       // lì. Prima la copia avveniva dopo l'await — sul percorso felice reggeva
@@ -2053,21 +2071,51 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
 
   /** La mappa NASCOSTA che fotografa i riquadri: una sola, riusata per tutti
    *  (un contesto WebGL in più, non uno per riquadro), rifatta se cambia stile. */
-  const mappaPerRiquadri = async (stile: StyleSpecification): Promise<MapLibreMap | null> => {
+  const mappaPerRiquadri = (stile: StyleSpecification): Promise<MapLibreMap | null> => {
     const lib = libRef.current;
-    if (!lib) return null;
+    if (!lib) return Promise.resolve(null);
     const c = mappaRiqRef.current;
-    if (c && c.stile === stile) return c.map;
+    if (c && c.stile === stile) return Promise.resolve(c.map);
+    // ⚠️ una già in costruzione per questo stile: si aspetta QUELLA. Prima un
+    // secondo calcolo (mappa spostata durante il caricamento) ne faceva
+    // un'altra, e la prima restava viva per sempre, col suo contesto WebGL
+    const inVolo = mappaRiqInVoloRef.current;
+    if (inVolo && inVolo.stile === stile) return inVolo.p;
     if (c) { try { c.map.remove(); } catch { /* già via */ } c.div.remove(); mappaRiqRef.current = null; }
-    const div = document.createElement("div");
-    div.style.cssText = "position:fixed;left:-10000px;top:0;width:200px;height:150px;pointer-events:none;";
-    document.body.appendChild(div);
-    const m = new lib.Map({ container: div, style: JSON.parse(JSON.stringify(stile)), interactive: false, attributionControl: false, fadeDuration: 0 });
-    await new Promise<void>(r => { m.once("load", () => r()); setTimeout(r, 6000); });
-    addOverlayLayers(m, styleModeRef.current);
-    mappaRiqRef.current = { map: m, div, stile };
-    return m;
+    const p = (async () => {
+      const div = document.createElement("div");
+      div.style.cssText = "position:fixed;left:-10000px;top:0;width:200px;height:150px;pointer-events:none;";
+      document.body.appendChild(div);
+      const m = new lib.Map({ container: div, style: JSON.parse(JSON.stringify(stile)), interactive: false, attributionControl: false, fadeDuration: 0 });
+      await new Promise<void>(r => { m.once("load", () => r()); setTimeout(r, 6000); });
+      // nel frattempo la Mappa della vita può essersi chiusa (la pulizia non
+      // l'ha vista: non era ancora in mappaRiqRef) o aver cambiato stile
+      if (!mountedRef.current || stileRef.current !== stile || mappaRiqInVoloRef.current !== voce) {
+        try { m.remove(); } catch { /* già via */ }
+        div.remove();
+        return null;
+      }
+      addOverlayLayers(m, styleModeRef.current);
+      mappaRiqRef.current = { map: m, div, stile };
+      return m;
+    })();
+    const voce = { stile, p };
+    mappaRiqInVoloRef.current = voce;
+    void p.finally(() => { if (mappaRiqInVoloRef.current === voce) mappaRiqInVoloRef.current = null; });
+    return p;
   };
+
+  /** Aspetta che la mappa dei riquadri abbia finito di caricare la vista
+   *  («idle»: tutti i suoi riquadri arrivati, niente in corso). ⚠️ Con
+   *  `mappaNitida` e 3 s di tetto le foto in Satellite uscivano sgranate e
+   *  restavano così finché non si spostava la mappa (visto: Genova–Pisa). */
+  const mappaFerma = (m: MapLibreMap, maxMs: number) => new Promise<void>(res => {
+    let fatto = false;
+    const fin = () => { if (!fatto) { fatto = true; res(); } };
+    m.once("idle", fin);
+    m.triggerRepaint();
+    setTimeout(fin, maxMs);
+  });
 
   /** Un riquadro fotografato: la stessa mappa, centrata sulla zona e ingrandita
    *  della sua scala (in Mercatore ingrandire è proprio moltiplicare i pixel). */
@@ -2080,7 +2128,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       m.resize();
       const centro = map.unproject([r.centroZona.x, r.centroZona.y]);
       m.jumpTo({ center: [centro.lng, centro.lat], zoom: map.getZoom() + Math.log2(r.scala), pitch: 0, bearing: 0 });
-      await mappaNitida(m, 3000);
+      await mappaFerma(m, 12000);
       await visibile();
       return await copiaMappa(m);
     } catch {
@@ -2128,7 +2176,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     mostra();
     setNomiFermi(true);
     const stile = stileRef.current;
-    if (d.riquadri.length && stile) {
+    if (!d.riquadri.length || !stile) { fotoInCorsoRef.current = null; return; }
+    const fotografa = async () => {
       const m = await mappaPerRiquadri(stile);
       for (const r of d.riquadri) {
         if (calcoloNomiRef.current !== id || !mountedRef.current || !m) return;
@@ -2136,7 +2185,11 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         if (calcoloNomiRef.current !== id || !mountedRef.current) return;
         if (c) { foto[r.numero] = c; url[r.numero] = c.toDataURL("image/png"); mostra(); }
       }
-    }
+    };
+    const p = fotografa();
+    fotoInCorsoRef.current = p;
+    await p;
+    if (fotoInCorsoRef.current === p) fotoInCorsoRef.current = null;
   };
 
   // Che video sa fare questo browser: costruito (WebCodecs + H.264), o almeno
@@ -2341,6 +2394,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       calcoloNomiRef.current++;
       const riq = mappaRiqRef.current;
       if (riq) { try { riq.map.remove(); } catch { /* già via */ } riq.div.remove(); mappaRiqRef.current = null; }
+      mappaRiqInVoloRef.current = null; // quella in costruzione si butta da sé (vedi mappaPerRiquadri)
+      fotoInCorsoRef.current = null;
       nomiRef.current = null;
       setNomi(null);
     };
@@ -2389,7 +2444,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                   <rect x={r.zona.x} y={r.zona.y} width={r.zona.w} height={r.zona.h} rx={3}
                     fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth={1} strokeDasharray="3 3" />
                   <line x1={r.filo.x1} y1={r.filo.y1} x2={r.filo.x2} y2={r.filo.y2} stroke="rgba(255,255,255,0.5)" strokeWidth={0.9} />
-                  <text x={r.zona.x + r.zona.w + 3} y={r.zona.y - 2} fill="#fff" fontSize={10} fontFamily="Georgia, serif" style={ALONE_NOMI}>{r.numero}</text>
+                  <text x={r.numeroZona.x + r.numeroZona.w / 2} y={r.numeroZona.y + r.numeroZona.h * 0.8} textAnchor="middle" fill="#fff" fontSize={10} fontFamily="Georgia, serif" style={ALONE_NOMI}>{r.numero}</text>
                 </g>
               ))}
               {nomi.d.conFilo.map(e => (

@@ -183,7 +183,7 @@ describe("disponiEtichette", () => {
     }
   });
 
-  it("sulla mappa grande un filo non è mai più lungo di filoMax", () => {
+  it("sulla mappa grande il filo resta entro filoMax, quando lì un posto c'è", () => {
     const vietate: Box[] = [{ x: 200, y: 260, w: 200, h: 80 }];
     const d = disponiEtichette([p("Montepulciano", 300, 300)], { ...OPZ, vietate, filoMax: 60 });
     for (const e of d.conFilo) expect(Math.hypot(e.filo.x2 - e.filo.x1, e.filo.y2 - e.filo.y1)).toBeLessThanOrEqual(60);
@@ -200,6 +200,92 @@ describe("disponiEtichette", () => {
     const r = disponiEtichette(g, OPZ).riquadri[0];
     const angolo: Box = { x: r.posto.x, y: r.posto.y, w: 22, h: 20 };
     for (const e of [...r.nomi, ...r.conFilo]) expect(sovrapposti(e.box, angolo)).toBe(false);
+  });
+
+  it("i nomi della mappa grande non toccano i tratteggi né i loro numeri (era «Bolzano 3»)", () => {
+    // tante scene da telefono, fitte, con un generatore fisso: il difetto
+    // c'era in alcune, non in tutte
+    let seme = 11;
+    const caso = () => (seme = (seme * 16807) % 2147483647) / 2147483647;
+    const o: Opzioni = { ...OPZ, w: 390, h: 700, altezza: 13, raggioStella: 4, scostamento: 6, margine: 8 };
+    let zoneViste = 0, senzaPosto = 0;
+    for (let scena = 0; scena < 25; scena++) {
+      const punti: Punto[] = [];
+      for (let g = 0; g < 6; g++) {
+        const cx = 60 + caso() * 270, cy = 80 + caso() * 540;
+        for (let i = 0; i < 5; i++) punti.push(p(`s${scena}g${g}i${i}`, cx + (caso() - 0.5) * 40, cy + (caso() - 0.5) * 40, "Nome" + "x".repeat(Math.floor(caso() * 6))));
+      }
+      const d = disponiEtichette(punti, o);
+      senzaPosto += d.senzaPosto.length;
+      for (const r of d.riquadri) {
+        zoneViste++;
+        // (sul tratteggio un nome ci può finire, come ultima spiaggia: vedi
+        // il test «dal lato libero» — sul numero mai)
+        for (const e of [...d.accanto, ...d.conFilo]) {
+          expect(sovrapposti(e.box, r.numeroZona), `scena ${scena}: ${e.id} sul numero ${r.numero}`).toBe(false);
+        }
+        for (const q of punti) {
+          const stella: Box = { x: q.x - o.raggioStella, y: q.y - o.raggioStella, w: 2 * o.raggioStella, h: 2 * o.raggioStella };
+          if (!sovrapposti(stella, r.zona)) expect(sovrapposti(stella, r.numeroZona), `scena ${scena}: numero ${r.numero} su una stella`).toBe(false);
+        }
+      }
+    }
+    expect(zoneViste).toBeGreaterThan(20);   // la prova ha davvero visto delle zone
+    expect(senzaPosto).toBe(0);              // e nessun nome è andato perso
+  });
+
+  it("un nome accanto a un tratteggio va dal lato libero, non sopra il tratteggio", () => {
+    // sopra «Lontano» c'è la zona del grappolo: il primo posto provato (sopra)
+    // la coprirebbe, sotto è libero
+    const g = [p("c", 300, 400, "Centro"), p("a", 303, 402, "Accanto"), p("b", 306, 398, "Basso")];
+    const d = disponiEtichette([...g, p("L", 320, 422, "Lontano")], OPZ);
+    expect(d.riquadri).toHaveLength(1);
+    const e = d.accanto.find(x => x.id === "L");
+    expect(e, "Lontano scritto accanto").toBeDefined();
+    expect(sovrapposti(e!.box, d.riquadri[0].zona)).toBe(false);
+  });
+
+  it("una stella chiusa fra un tratteggio e i bordi tiene il suo nome, anche sopra il tratteggio", () => {
+    // il grappolo fa la zona; «Lontana» è dentro il rettangolo della zona ma
+    // fuori dal grappolo, e tutto attorno è vietato: resta solo il tratteggio
+    // (grappoli larghi: distanzaGrappolo 40 → stelle fino a 64 px dal centro)
+    const g = [p("c", 300, 400, "Centro"), p("a", 310, 405, "Accanto"), p("n", 300, 340, "Nord"), p("e", 360, 400, "Est")];
+    const sola = p("L", 360, 340, "Lontana");   // 85 px dal centro: fuori dal grappolo, dentro la zona
+    const d = disponiEtichette([...g, sola], {
+      ...OPZ, distanzaGrappolo: 40,
+      // libero solo l'interno della zona e, lontano, una fascia per il riquadro
+      vietate: [{ x: 0, y: 0, w: 600, h: 328 }, { x: 372, y: 328, w: 228, h: 272 }, { x: 0, y: 328, w: 288, h: 272 }, { x: 288, y: 417, w: 84, h: 183 }],
+    });
+    expect(d.riquadri).toHaveLength(1);
+    expect(d.riquadri[0].ids).not.toContain("L");
+    expect(d.senzaPosto).toEqual([]);
+    // accanto (a sinistra, dentro il tratteggio), non col filo: di chi sia
+    // si capisce meglio
+    expect(d.accanto.map(e => e.id)).toContain("L");
+  });
+
+  it("…e se nemmeno accanto c'è posto, col filo sopra il tratteggio", () => {
+    // la stessa scena, ma il nome lungo accanto a sinistra toccherebbe «Nord»
+    const g = [p("c", 300, 400, "Centro"), p("a", 310, 405, "Accanto"), p("n", 300, 340, "Nord"), p("e", 360, 400, "Est")];
+    const d = disponiEtichette([...g, p("L", 360, 340, "Lontanissima")], {
+      ...OPZ, distanzaGrappolo: 40,
+      vietate: [{ x: 0, y: 0, w: 600, h: 328 }, { x: 372, y: 328, w: 228, h: 272 }, { x: 0, y: 328, w: 288, h: 272 }, { x: 288, y: 417, w: 84, h: 183 }],
+    });
+    expect(d.senzaPosto).toEqual([]);
+    expect(d.conFilo.map(e => e.id)).toContain("L");
+    expect(sovrapposti(d.conFilo.find(e => e.id === "L")!.box, d.riquadri[0].zona)).toBe(true);
+  });
+
+  it("se vicino non c'è posto, il filo si allunga piuttosto che perdere il nome (ma il meno possibile)", () => {
+    // tutto vietato tranne una tasca a ~70 px dalla stella: oltre filoMax 40
+    const d = disponiEtichette([p("L", 300, 400, "Lontano")], {
+      ...OPZ, filoMax: 40,
+      vietate: [{ x: 0, y: 0, w: 600, h: 383 }, { x: 0, y: 417, w: 600, h: 383 }, { x: 0, y: 383, w: 338, h: 34 }, { x: 422, y: 383, w: 178, h: 34 }],
+    });
+    expect(d.senzaPosto).toEqual([]);
+    expect(d.conFilo).toHaveLength(1);
+    const f = d.conFilo[0].filo;
+    expect(Math.hypot(f.x2 - f.x1, f.y2 - f.y1)).toBeLessThanOrEqual(80);
   });
 
   it("nessun punto: nessuna scritta", () => {
