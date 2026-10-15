@@ -398,8 +398,6 @@ const ATTESA_TAPPA_MS = 1500;
 /** Durante l'attesa d'apertura la camera si avvicina piano (livelli di zoom
  *  in tutta l'attesa): un globo fermo per tre secondi sembrava un video bloccato. */
 const AVVICINAMENTO_ZOOM = 0.3;
-/** Il video costruito («Crea video»): 30 fotogrammi al secondo, e per ognuno
- *  si aspettano i riquadri al massimo questo tempo. */
 /** Il carattere dei nomi della Mappa della vita (lo stesso a schermo e
  *  nell'immagine condivisa: Noto Serif corsivo, già caricato per le didascalie). */
 const FONT_NOMI = { px: 11, famiglia: '"Noto Serif", Georgia, serif' };
@@ -412,6 +410,8 @@ const ATTENUATE = { misura: 0.55, opacita: 0.3 };
  *  scuro col bordo bianco, uguale sul tratteggio e nell'angolo del riquadro.
  *  Il raggio sulla zona lo dà la sua casella (lib/etichetteMappa). */
 const BOLLINO = { raggio: 8.5, font: 10, angolo: 12, fondo: "#05070d" };
+/** Il video costruito («Crea video»): 30 fotogrammi al secondo, e per ognuno
+ *  si aspettano i riquadri al massimo questo tempo. */
 const FPS_VIDEO = 30;
 const ATTESA_FOTOGRAMMA_MS = 3000;
 /** Il ritmo del video costruito: le STESSE fasi e curve del volo dal vivo
@@ -2492,7 +2492,23 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                 border: "1px solid rgba(255,255,255,0.8)", borderRadius: 6, overflow: "hidden",
                 background: "#000", boxShadow: "0 6px 18px rgba(0,0,0,0.6)",
               }}>
-                {nomi.url[r.numero] && <img src={nomi.url[r.numero]} alt="" style={{ width: "100%", height: "100%", display: "block" }} />}
+                {nomi.url[r.numero]
+                  ? <img src={nomi.url[r.numero]} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
+                  // la foto non è ancora arrivata (in Satellite anche qualche
+                  // secondo): intanto le stelle, come nell'immagine condivisa,
+                  // invece di un rettangolo nero coi soli nomi
+                  : <svg width={r.posto.w} height={r.posto.h} style={{ display: "block" }}>
+                      {r.altre.map((s, i) => (
+                        <circle key={`a${i}`} cx={s.x - r.posto.x} cy={s.y - r.posto.y} r={3 * ATTENUATE.misura}
+                          fill={styleMode === "satellite" ? "#fbbf24" : "#fff"} fillOpacity={ATTENUATE.opacita} />
+                      ))}
+                      {r.stelle.map(s => (
+                        <g key={s.id} fill={styleMode === "satellite" ? "#fbbf24" : "#fff"}>
+                          <circle cx={s.x - r.posto.x} cy={s.y - r.posto.y} r={6} fillOpacity={0.25} />
+                          <circle cx={s.x - r.posto.x} cy={s.y - r.posto.y} r={2.5} />
+                        </g>
+                      ))}
+                    </svg>}
               </div>
             ))}
             <svg width={nomi.w} height={nomi.h} style={{ position: "absolute", left: 0, top: 0, overflow: "visible" }}>
