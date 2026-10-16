@@ -375,3 +375,49 @@ describe("buildPosterSvg — il titolo d'angolo della Mappa della vita", () => {
     expect(con.map(q => q.nome).sort()).toEqual(senza.map(q => q.nome).sort());   // nessuno perso
   });
 });
+
+describe("buildPosterSvg — la misura vera dei nomi (misuraTesto)", () => {
+  const STOPS = {
+    routeSegments: [[[9.26, 45.99], [9.28, 46.01], [9.24, 46.02]], [[2.35, 48.86], [4.83, 45.76]]] as [number, number][][],
+    stops: [
+      { lon: 9.26, lat: 45.99, label: "Bellagio" }, { lon: 9.28, lat: 46.01, label: "Varenna" }, { lon: 9.24, lat: 46.02, label: "Menaggio" },
+      { lon: 2.35, lat: 48.86, label: "Parigi" }, { lon: 4.83, lat: 45.76, label: "Lione" },
+    ],
+    title: "",
+    nomiOvunque: true,
+  };
+
+  it("se c'è la usa, col carattere dei nomi a 18 px", () => {
+    const font: string[] = [];
+    const s = buildPosterSvg({ ...STOPS, misuraTesto: (t, f) => { font.push(f); return t.length * 9; } });
+    expect(font.some(f => f.startsWith("italic 18px Georgia"))).toBe(true);
+    expect(s).toMatch(/font-style="italic" font-size="18"/);
+  });
+
+  it("nomi più stretti del previsto: meno fili (la stima larga li mandava lontani)", () => {
+    const fili = (s: string) => (s.slice(s.indexOf('<g id="nomi">'), s.indexOf('<g id="riquadri">')).match(/<line /g) ?? []).length;
+    const larga = buildPosterSvg({ ...STOPS, misuraTesto: t => t.length * 30 });
+    const vera = buildPosterSvg({ ...STOPS, misuraTesto: t => t.length * 8 });
+    expect(fili(vera)).toBeLessThanOrEqual(fili(larga));
+    expect(buildPosterSvg(STOPS)).toMatch(/font-size="18"/);   // senza misura: si stima, stesso corpo
+  });
+});
+
+describe("buildPosterSvg — il filo di un nome (scelta D)", () => {
+  it("tratteggiato, con un puntino all'attacco del nome, uno per filo", () => {
+    const s = buildPosterSvg({
+      routeSegments: [[[9.26, 45.99], [9.28, 46.01], [9.24, 46.02]], [[2.35, 48.86], [4.83, 45.76]]],
+      stops: [
+        { lon: 9.26, lat: 45.99, label: "Bellagio" }, { lon: 9.28, lat: 46.01, label: "Varenna" }, { lon: 9.24, lat: 46.02, label: "Menaggio" },
+        { lon: 2.35, lat: 48.86, label: "Parigi" }, { lon: 4.83, lat: 45.76, label: "Lione" },
+      ],
+      title: "", nomiOvunque: true,
+      misuraTesto: t => t.length * 30,   // nomi larghissimi: qualcuno va per forza col filo
+    });
+    const nomi = s.slice(s.indexOf('<g id="nomi">'), s.indexOf('<g id="riquadri">'));
+    const fili = nomi.match(/<line [^>]*>/g) ?? [];
+    expect(fili.length).toBeGreaterThan(0);
+    for (const l of fili) expect(l).toContain('stroke-dasharray="5 4"');
+    expect((nomi.match(/<circle [^>]*r="3.5"/g) ?? []).length).toBe(fili.length);
+  });
+});

@@ -63,6 +63,10 @@ export interface PosterSvgInput {
    *  destra e inclinato di 3° come a schermo (lib/titoloVita), al posto della
    *  didascalia in basso. Nomi e riquadri gli girano intorno. */
   titoloAngolo?: string;
+  /** Larghezza VERA di un testo in un font CSS (nel browser: il canvas). Senza,
+   *  si stima larga — e una stima larga manda i nomi lontani col filo quando
+   *  starebbero accanto (2026-10-16, visto sui viaggi veri di Stefano). */
+  misuraTesto?: (testo: string, font: string) => number;
   width?: number;
   height?: number;
 }
@@ -175,7 +179,7 @@ export function buildPosterSvg(input: PosterSvgInput): string {
   const W = input.width ?? 1600;
   const H = input.height ?? 1000;
   const pad = 120;
-  const { routeCoords = [], routeSegments, stops, borders = [], title, dateLabel, stats, hideLabels = false, nomiOvunque = false, titoloAngolo = "" } = input;
+  const { routeCoords = [], routeSegments, stops, borders = [], title, dateLabel, stats, hideLabels = false, nomiOvunque = false, titoloAngolo = "", misuraTesto } = input;
   // Uno o più tracciati: la Mappa della vita passa un percorso per viaggio; gli
   // altri poster un singolo percorso. Normalizzati qui in una lista di segmenti.
   // Antimeridiano: i segmenti vengono srotolati in un'UNICA catena (il primo
@@ -270,16 +274,16 @@ export function buildPosterSvg(input: PosterSvgInput): string {
   }).join("");
 
   // il titolo d'angolo: 44 px ≈ i 24 dello schermo alla scala della stampa;
-  // la larghezza è stimata larga (qui non si può misurare il carattere)
+  // misurato se si può, sennò stimato largo
   const angolo = titoloAngolo.trim();
   const TA = { px: 44, destra: 36, alto: 30 };
-  const taW = angolo.length * TA.px * 0.5;
+  const taW = misuraTesto ? misuraTesto(angolo, `600 ${TA.px}px "Cormorant Garamond", Georgia, serif`) : angolo.length * TA.px * 0.5;
   const taX = W - TA.destra, taY = TA.alto + TA.px;
   const titoloAngoloEl = angolo
     ? `<text x="${n(taX)}" y="${n(taY)}" text-anchor="end" transform="rotate(-3 ${n(taX - taW / 2)} ${n(taY - TA.px * 0.35)})" font-family="'Cormorant Garamond', Georgia, 'Times New Roman', serif" font-weight="600" font-size="${TA.px}" fill="#ffffff">${escapeXml(angolo)}</text>`
     : "";
   const vietataTitolo = angolo ? [{ x: taX - taW - 12, y: TA.alto - taW * 0.026 - 12, w: taW + 24, h: TA.px * 1.25 + taW * 0.052 + 24 }] : [];
-  const nomiEls = nomiOvunque ? nomiDisposti(drawStops, segments, project, W, mapH, bordersPaths, vietataTitolo) : "";
+  const nomiEls = nomiOvunque ? nomiDisposti(drawStops, segments, project, W, mapH, bordersPaths, vietataTitolo, misuraTesto) : "";
 
   // Didascalia centrata nella fascia inferiore riservata.
   const titleEls: string[] = [];
@@ -324,15 +328,20 @@ export function buildPosterSvg(input: PosterSvgInput): string {
 function nomiDisposti(
   stelle: Stop[], segmenti: [number, number][][], project: (lon: number, lat: number) => [number, number],
   W: number, mapH: number, bordersPaths: string, vietateIn: { x: number; y: number; w: number; h: number }[] = [],
+  misuraTesto?: (testo: string, font: string) => number,
 ): string {
   const n = (v: number) => (Math.round(v * 10) / 10).toString();
-  const FONT = 20;
+  // 18 (era 20): con la misura vera, i nomi col filo sui viaggi di prova da 10 a 6
+  const FONT = 18;
   const punti = stelle.map((s, i) => { const [x, y] = project(s.lon, s.lat); return { id: String(i), nome: s.label, x, y }; });
   const linee = segmenti.filter(s => s.length > 1).map(seg => seg.map(([lon, lat]) => { const [x, y] = project(lon, lat); return { x, y }; }));
-  // misura: stima LARGA del Georgia corsivo (qui non si può misurare): meglio
-  // un filo d'aria in più che due nomi che si toccano (visto a 0,5)
+  // misura: VERA quando c'è (il canvas, nel browser) + l'alone nero di 4 px;
+  // altrimenti stima LARGA del Georgia corsivo: meglio un filo d'aria in più
+  // che due nomi che si toccano (visto stimando a 0,5)
+  const fontNome = `italic ${FONT}px Georgia, 'Times New Roman', serif`;
+  const misura = misuraTesto ? (t: string) => misuraTesto(t, fontNome) + 4 : (t: string) => t.length * FONT * 0.6;
   const d = disponiEtichette(punti, {
-    w: W, h: mapH, misura: t => t.length * FONT * 0.6, altezza: FONT + 2, raggioStella: 7, scostamento: 11,
+    w: W, h: mapH, misura, altezza: FONT + 2, raggioStella: 7, scostamento: 11,
     distanzaGrappolo: 27, margine: 20, filoMax: 160, linee,
     // la firma «By 🐻» in basso a destra (brandSignatureSvg): niente nomi né riquadri lì sotto
     vietate: [{ x: W - 110, y: mapH - 56, w: 110, h: 56 }, ...vietateIn],
@@ -344,7 +353,13 @@ function nomiDisposti(
     + `<text x="${n(cx)}" y="${n(cy + 5.5)}" text-anchor="middle" font-family="Georgia, serif" font-size="16" fill="#ffffff">${numero}</text>`;
   const filo = (f: { x1: number; y1: number; x2: number; y2: number }, op: number) =>
     `<line x1="${n(f.x1)}" y1="${n(f.y1)}" x2="${n(f.x2)}" y2="${n(f.y2)}" stroke="#ffffff" stroke-opacity="${op}" stroke-width="1.2"/>`;
-  const nomi = [...d.conFilo.map(e => filo(e.filo, 0.55)), ...[...d.accanto, ...d.conFilo].map(e => scritta(e.nome, e.testo.x, e.testo.y, e.testo.allinea))].join("");
+  // il filo di un NOME (scelta D, 2026-10-16): tratteggiato, così non si scambia
+  // per una tratta, e un puntino all'attacco del nome — prima, quasi invisibile,
+  // «Riva del Garda» sembrava un posto vicino a Vienna
+  const filoNome = (f: { x1: number; y1: number; x2: number; y2: number }) =>
+    `<line x1="${n(f.x1)}" y1="${n(f.y1)}" x2="${n(f.x2)}" y2="${n(f.y2)}" stroke="#ffffff" stroke-opacity="0.9" stroke-width="1.8" stroke-dasharray="5 4" stroke-linecap="round"/>`
+    + `<circle cx="${n(f.x2)}" cy="${n(f.y2)}" r="3.5" fill="#ffffff"/>`;
+  const nomi = [...d.conFilo.map(e => filoNome(e.filo)), ...[...d.accanto, ...d.conFilo].map(e => scritta(e.nome, e.testo.x, e.testo.y, e.testo.allinea))].join("");
   const tracciati = linee.map(l => `<path d="M${l.map(p => `${n(p.x)},${n(p.y)}`).join("L")}" vector-effect="non-scaling-stroke"/>`).join("");
   const confini = bordersPaths.replace(/<path /g, '<path vector-effect="non-scaling-stroke" ');
   const riquadri = d.riquadri.map(r => {
@@ -360,7 +375,7 @@ function nomiDisposti(
       // le stelle di altre tappe che cadono nel riquadro: piccole e spente (come a schermo)
       + r.altre.map(s => `<circle cx="${n(s.x)}" cy="${n(s.y)}" r="2.75" fill="#ffffff" fill-opacity="0.3"/>`).join("")
       + r.stelle.map(s => `<circle cx="${n(s.x)}" cy="${n(s.y)}" r="16" fill="url(#starGlow)"/><circle cx="${n(s.x)}" cy="${n(s.y)}" r="5" fill="#ffffff"/>`).join("")
-      + r.conFilo.map(e => filo(e.filo, 0.55)).join("")
+      + r.conFilo.map(e => filoNome(e.filo)).join("")
       + [...r.nomi, ...r.conFilo].map(e => scritta(e.nome, e.testo.x, e.testo.y, e.testo.allinea)).join("")
       + `</g>`
       + `<rect x="${n(r.posto.x)}" y="${n(r.posto.y)}" width="${n(r.posto.w)}" height="${n(r.posto.h)}" rx="10" fill="none" stroke="#ffffff" stroke-opacity="0.8" stroke-width="1.5"/>`

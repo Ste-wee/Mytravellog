@@ -176,6 +176,13 @@ function disegnaNomiSuCanvas(ctx: CanvasRenderingContext2D,
     ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2);
     ctx.strokeStyle = colore; ctx.lineWidth = spessore; ctx.setLineDash([]); ctx.stroke();
   };
+  /** Il filo di un nome: tratteggiato + puntino all'attacco (FILO_NOME). */
+  const filoNome = (f: { x1: number; y1: number; x2: number; y2: number }) => {
+    ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2);
+    ctx.strokeStyle = FILO_NOME.colore; ctx.lineWidth = FILO_NOME.spessore; ctx.lineCap = "round";
+    ctx.setLineDash(FILO_NOME.tratteggio); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(f.x2, f.y2, FILO_NOME.puntino, 0, Math.PI * 2); ctx.fillStyle = "#ffffff"; ctx.fill();
+  };
   const testo = (s: string, x: number, y: number, allinea: "middle" | "start" | "end", font: string) => {
     ctx.font = font;
     ctx.textAlign = allinea === "middle" ? "center" : allinea === "start" ? "left" : "right";
@@ -200,7 +207,7 @@ function disegnaNomiSuCanvas(ctx: CanvasRenderingContext2D,
     linea(r.filo, "rgba(255,255,255,0.5)", 0.9);
     bollino(r.numero, r.numeroZona.x + r.numeroZona.w / 2, r.numeroZona.y + r.numeroZona.h / 2, r.numeroZona.w / 2);
   }
-  for (const e of d.conFilo) linea(e.filo, "rgba(255,255,255,0.55)", 0.7);
+  for (const e of d.conFilo) filoNome(e.filo);
   // i riquadri: la foto della zona ingrandita, il bordo, il numero, i nomi
   for (const r of d.riquadri) {
     ctx.save();
@@ -222,7 +229,7 @@ function disegnaNomiSuCanvas(ctx: CanvasRenderingContext2D,
     ctx.setLineDash([]); ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 1;
     roundRectPath(ctx, r.posto.x, r.posto.y, r.posto.w, r.posto.h, 6); ctx.stroke();
     bollino(r.numero, r.posto.x + BOLLINO.angolo, r.posto.y + BOLLINO.angolo, BOLLINO.raggio);
-    for (const e of r.conFilo) linea(e.filo, "rgba(255,255,255,0.55)", 0.7);
+    for (const e of r.conFilo) filoNome(e.filo);
     for (const e of [...r.nomi, ...r.conFilo]) testo(e.nome, e.testo.x, e.testo.y, e.testo.allinea, fontNome);
   }
   for (const e of [...d.accanto, ...d.conFilo]) testo(e.nome, e.testo.x, e.testo.y, e.testo.allinea, fontNome);
@@ -422,6 +429,11 @@ const ALONE_NOMI = { paintOrder: "stroke", stroke: "rgba(0,0,0,0.85)", strokeWid
 /** Le stelle dentro un riquadro che non sono del riquadro: più piccole e
  *  spente (le stesse misure nel master SVG, vedi posterSvg). */
 const ATTENUATE = { misura: 0.55, opacita: 0.3 };
+/** Il filo che lega un nome lontano alla sua stella (scelta D, 2026-10-16):
+ *  tratteggiato, così non si scambia per una tratta, con un puntino
+ *  all'attacco del nome. Lo stesso a schermo e nell'immagine condivisa; nel
+ *  master SVG le stesse forme alla scala della stampa (posterSvg). */
+const FILO_NOME = { colore: "rgba(255,255,255,0.9)", spessore: 1, tratteggio: [3, 2.5], puntino: 2 };
 /** Il numero di zone e riquadri in un bollino (scelta D, 2026-10-15): cerchio
  *  scuro col bordo bianco, uguale sul tratteggio e nell'angolo del riquadro.
  *  Il raggio sulla zona lo dà la sua casella (lib/etichetteMappa). */
@@ -1358,7 +1370,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       // Mappa della vita: SVG "nudo" (nessuna caption) → niente titolo/date/stat.
       const title = lifeMap ? "" : (tripsCount > 1 ? `${tripsCount} viaggi` : viaggi[0].title);
       const stats = statLine();
-      const svg = buildPosterSvg({ routeSegments: routeSegsRef.current, stops, borders: rings, title, dateLabel: lifeMap ? null : dateRangeLabel, stats, hideLabels: false, nomiOvunque: lifeMap, titoloAngolo: lifeMap ? titoloVita : undefined });
+      const svg = buildPosterSvg({ routeSegments: routeSegsRef.current, stops, borders: rings, title, dateLabel: lifeMap ? null : dateRangeLabel, stats, hideLabels: false, nomiOvunque: lifeMap, titoloAngolo: lifeMap ? titoloVita : undefined, misuraTesto });
       const blob = new Blob([svg], { type: "image/svg+xml" });
       const base = lifeMap ? "mappa-della-vita" : (tripsCount === 1 ? viaggi[0].title : "viaggio").replace(/[^\w.-]+/g, "_").slice(0, 40) || "viaggio";
       downloadBlob(blob, `${base}-costellazione.svg`);
@@ -2538,7 +2550,11 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                 </g>
               ))}
               {nomi.d.conFilo.map(e => (
-                <line key={`f${e.id}`} x1={e.filo.x1} y1={e.filo.y1} x2={e.filo.x2} y2={e.filo.y2} stroke="rgba(255,255,255,0.55)" strokeWidth={0.7} />
+                <g key={`f${e.id}`}>
+                  <line x1={e.filo.x1} y1={e.filo.y1} x2={e.filo.x2} y2={e.filo.y2} stroke={FILO_NOME.colore} strokeWidth={FILO_NOME.spessore}
+                    strokeDasharray={FILO_NOME.tratteggio.join(" ")} strokeLinecap="round" />
+                  <circle cx={e.filo.x2} cy={e.filo.y2} r={FILO_NOME.puntino} fill="#fff" />
+                </g>
               ))}
               {[...nomi.d.accanto, ...nomi.d.conFilo].map(e => (
                 <text key={`n${e.id}`} x={e.testo.x} y={e.testo.y} textAnchor={e.testo.allinea} style={ALONE_NOMI}
@@ -2576,7 +2592,11 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                   <circle cx={r.posto.x + BOLLINO.angolo} cy={r.posto.y + BOLLINO.angolo} r={BOLLINO.raggio} fill={BOLLINO.fondo} stroke="#fff" strokeWidth={1} />
                   <text x={r.posto.x + BOLLINO.angolo} y={r.posto.y + BOLLINO.angolo} dy="0.35em" textAnchor="middle" fill="#fff" fontSize={BOLLINO.font} fontFamily="Georgia, serif">{r.numero}</text>
                   {r.conFilo.map(e => (
-                    <line key={`f${e.id}`} x1={e.filo.x1} y1={e.filo.y1} x2={e.filo.x2} y2={e.filo.y2} stroke="rgba(255,255,255,0.55)" strokeWidth={0.7} />
+                    <g key={`f${e.id}`}>
+                  <line x1={e.filo.x1} y1={e.filo.y1} x2={e.filo.x2} y2={e.filo.y2} stroke={FILO_NOME.colore} strokeWidth={FILO_NOME.spessore}
+                    strokeDasharray={FILO_NOME.tratteggio.join(" ")} strokeLinecap="round" />
+                  <circle cx={e.filo.x2} cy={e.filo.y2} r={FILO_NOME.puntino} fill="#fff" />
+                </g>
                   ))}
                   {[...r.nomi, ...r.conFilo].map(e => (
                     <text key={e.id} x={e.testo.x} y={e.testo.y} textAnchor={e.testo.allinea} style={ALONE_NOMI}
