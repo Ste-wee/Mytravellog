@@ -331,3 +331,47 @@ describe("buildPosterSvg — i nomi della Mappa della vita (nomiOvunque)", () =>
     expect(vecchia).not.toContain('id="riquadri"');
   });
 });
+
+describe("buildPosterSvg — il titolo d'angolo della Mappa della vita", () => {
+  // una tappa a nord-est finisce in alto a destra del foglio, proprio sotto il titolo
+  const ANGOLO = {
+    routeSegments: [[[2.35, 48.86], [4.83, 45.76]], [[24.9, 60.2], [25.0, 60.1]]] as [number, number][][],
+    stops: [
+      { lon: 2.35, lat: 48.86, label: "Parigi" },
+      { lon: 4.83, lat: 45.76, label: "Lione" },
+      { lon: 24.9, lat: 60.2, label: "Helsinki" },
+      { lon: 25.0, lat: 60.1, label: "Espoo" },
+    ],
+    title: "",
+    nomiOvunque: true,
+  };
+  /** Le scritte del livello «nomi», con la loro x/y. */
+  const nomi = (s: string) => {
+    const g = s.slice(s.indexOf('<g id="nomi">'), s.indexOf('<g id="riquadri">'));
+    return Array.from(g.matchAll(/<text x="([\d.]+)" y="([\d.]+)"[^>]*>([^<]+)<\/text>/g)).map(m => ({ x: +m[1], y: +m[2], nome: m[3] }));
+  };
+
+  it("c'è, in alto a destra, inclinato, e il testo è al sicuro", () => {
+    const s = buildPosterSvg({ ...ANGOLO, titoloAngolo: "Le nostre <strade> & noi" });
+    const tit = s.slice(s.indexOf('<g id="titolo">'));
+    expect(tit).toContain("Le nostre &lt;strade&gt; &amp; noi");
+    expect(tit).toMatch(/text-anchor="end" transform="rotate\(-3 /);
+  });
+
+  it("vuoto: nessun titolo", () => {
+    const s = buildPosterSvg({ ...ANGOLO, titoloAngolo: "   " });
+    expect(s).not.toMatch(/<g id="titolo">[^<]*<text/);
+  });
+
+  it("i nomi non finiscono sotto il titolo", () => {
+    const titolo = "Tutte le strade del nord";
+    const senza = nomi(buildPosterSvg(ANGOLO));
+    const con = nomi(buildPosterSvg({ ...ANGOLO, titoloAngolo: titolo }));
+    const taW = titolo.length * 44 * 0.5, x0 = 1600 - 36 - taW - 12, y1 = 30 + 44 * 1.25 + taW * 0.052 + 12;
+    const sotto = (q: { x: number; y: number }) => q.x > x0 && q.y < y1 + 20;
+    // la prova vale solo se SENZA titolo qualche nome stava proprio lì
+    expect(senza.some(sotto), "senza titolo un nome dovrebbe stare in alto a destra").toBe(true);
+    expect(con.filter(sotto)).toEqual([]);
+    expect(con.map(q => q.nome).sort()).toEqual(senza.map(q => q.nome).sort());   // nessuno perso
+  });
+});

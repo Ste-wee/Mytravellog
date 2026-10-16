@@ -21,6 +21,7 @@ import { saveReliefImage } from "@/lib/photoStorage";
 import { buildPosterSvg, loadCountryRings, routeBounds, unwrapSegments, CONFINI } from "@/lib/posterSvg";
 import { X, Share2, Loader2, Download, Pause, Play, SkipForward, RotateCcw, Film, Home } from "lucide-react";
 import { canShareFile, downloadBlob, shareOrDownload } from "@/lib/share";
+import { geometriaTitoloVita, leggiTitoloVita, salvaTitoloVita, TITOLO_VITA, type GeometriaTitolo } from "@/lib/titoloVita";
 import { TRANSPORT } from "@/lib/transport";
 
 // Icona + colore del mezzo dalla fonte unica (@/lib/transport): il medaglione
@@ -225,6 +226,21 @@ function disegnaNomiSuCanvas(ctx: CanvasRenderingContext2D,
     for (const e of [...r.nomi, ...r.conFilo]) testo(e.nome, e.testo.x, e.testo.y, e.testo.allinea, fontNome);
   }
   for (const e of [...d.accanto, ...d.conFilo]) testo(e.nome, e.testo.x, e.testo.y, e.testo.allinea, fontNome);
+  ctx.restore();
+}
+
+/** Il titolo della Mappa della vita sull'immagine condivisa: la STESSA
+ *  geometria dello schermo (lib/titoloVita), in pixel CSS moltiplicati per `k`. */
+function disegnaTitoloVitaSuCanvas(ctx: CanvasRenderingContext2D, titolo: string, g: GeometriaTitolo, k: number) {
+  ctx.save();
+  ctx.scale(k, k);
+  ctx.translate(g.perno.x, g.perno.y);
+  ctx.rotate(TITOLO_VITA.inclinazione * Math.PI / 180);
+  ctx.translate(-g.perno.x, -g.perno.y);
+  ctx.font = g.font; ctx.textAlign = "right"; ctx.textBaseline = "alphabetic";
+  ctx.shadowColor = "rgba(0,0,0,0.9)"; ctx.shadowBlur = 5 * k; ctx.shadowOffsetY = 1 * k;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(titolo.trim(), g.x, g.y);
   ctx.restore();
 }
 
@@ -549,6 +565,14 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
    *  poco, l'immagine condivisa). */
   const fotoInCorsoRef = useRef<Promise<void> | null>(null);
   const misuraRef = useRef<CanvasRenderingContext2D | null>(null);
+  /** Il titolo della Mappa della vita (scelta di Stefano, 2026-10-16: «solo il
+   *  titolo», in alto a destra), salvato su questo dispositivo. */
+  const [titoloVita, setTitoloVita] = useState(() => (lifeMap ? leggiTitoloVita() : ""));
+  const titoloVitaRef = useRef(titoloVita);
+  titoloVitaRef.current = titoloVita;
+  const [scriviTitolo, setScriviTitolo] = useState(false);
+  /** Esc mentre si scrive: si esce senza salvare. */
+  const annullaTitoloRef = useRef(false);
   /** Il compagno selezionato, o null per tutti. Filtra la costellazione. */
   /**
    * ⚠️ BANCO DI PROVA (2026-08-27, da smontare quando Stefano sceglie): le due
@@ -715,9 +739,16 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       ];
   const statLine = (): string => statMetrics().map(m => `${m.v} ${m.l}`).join("  ·  ");
 
-  // Esc chiude il poster (oltre a click fuori / X).
+  // Esc chiude il poster (oltre a click fuori / X) — ma non mentre si scrive:
+  // dentro la casella del titolo Esc annulla la scrittura (prima chiudeva
+  // TUTTA la Mappa della vita, trovato dalla prova dal vivo).
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const dove = e.target as HTMLElement | null;
+      if (dove && (dove.tagName === "INPUT" || dove.tagName === "TEXTAREA")) return;
+      onClose();
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
@@ -1021,6 +1052,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     // riquadri della vista sì, gli stessi dello schermo (vedi calcolaNomi).
     if (lifeMap) {
       if (nomiRef.current) disegnaNomiSuCanvas(ctx, nomiRef.current, dpr, styleModeRef.current === "satellite" ? "#fbbf24" : "#ffffff");
+      const gT = geometriaTitoloVita(titoloVitaRef.current, c.width / dpr, misuraTesto);
+      if (gT) disegnaTitoloVitaSuCanvas(ctx, titoloVitaRef.current, gT, dpr);
       stamp();
       return c;
     }
@@ -1306,7 +1339,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     if (!blob) return;
     const name = lifeMap ? "mappa-della-vita" : (tripsCount === 1 ? viaggi[0].title : "viaggio").replace(/[^\w.-]+/g, "_").slice(0, 40) || "viaggio";
     const file = new File([blob], `${name}-3d.jpg`, { type: "image/jpeg" });
-    await shareOrDownload(file, lifeMap ? posterTitle : (tripsCount > 1 ? "Il mio viaggio in 3D" : viaggi[0].title));
+    await shareOrDownload(file, lifeMap ? (titoloVita.trim() || posterTitle) : (tripsCount > 1 ? "Il mio viaggio in 3D" : viaggi[0].title));
   };
 
   // "Esporta SVG" (solo Costellazione): master VETTORIALE a livelli per la stampa
@@ -1325,7 +1358,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       // Mappa della vita: SVG "nudo" (nessuna caption) → niente titolo/date/stat.
       const title = lifeMap ? "" : (tripsCount > 1 ? `${tripsCount} viaggi` : viaggi[0].title);
       const stats = statLine();
-      const svg = buildPosterSvg({ routeSegments: routeSegsRef.current, stops, borders: rings, title, dateLabel: lifeMap ? null : dateRangeLabel, stats, hideLabels: false, nomiOvunque: lifeMap });
+      const svg = buildPosterSvg({ routeSegments: routeSegsRef.current, stops, borders: rings, title, dateLabel: lifeMap ? null : dateRangeLabel, stats, hideLabels: false, nomiOvunque: lifeMap, titoloAngolo: lifeMap ? titoloVita : undefined });
       const blob = new Blob([svg], { type: "image/svg+xml" });
       const base = lifeMap ? "mappa-della-vita" : (tripsCount === 1 ? viaggi[0].title : "viaggio").replace(/[^\w.-]+/g, "_").slice(0, 40) || "viaggio";
       downloadBlob(blob, `${base}-costellazione.svg`);
@@ -2164,6 +2197,15 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     }
   };
 
+  /** Larghezza di un testo in un font (canvas fuori schermo, riusato). */
+  const misuraTesto = (testo: string, font: string) => {
+    if (!misuraRef.current) misuraRef.current = document.createElement("canvas").getContext("2d");
+    const c = misuraRef.current;
+    if (!c) return testo.length * 12;
+    c.font = font;
+    return c.measureText(testo).width;
+  };
+
   const misuraNome = (s: string) => {
     if (!misuraRef.current) misuraRef.current = document.createElement("canvas").getContext("2d");
     const c = misuraRef.current;
@@ -2178,7 +2220,12 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     const el = map.getContainer();
     const W = el.clientWidth, H = el.clientHeight;
     if (!W || !H) return;
-    try { await document.fonts?.load(`italic ${FONT_NOMI.px}px "Noto Serif"`); } catch { /* si misura col ripiego */ }
+    try {
+      await Promise.all([
+        document.fonts?.load(`italic ${FONT_NOMI.px}px "Noto Serif"`),
+        document.fonts?.load(`${TITOLO_VITA.peso} ${TITOLO_VITA.px}px "Cormorant Garamond"`),
+      ]);
+    } catch { /* si misura col ripiego */ }
     if (calcoloNomiRef.current !== id) return;
     // le longitudini vicino al centro della vista (antimeridiano: vedi lonWrap)
     const cLng = map.getCenter().lng;
@@ -2189,11 +2236,13 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       const off = unwrapNear(seg[0][0], cLng) - seg[0][0];
       return seg.map(([lon, lat]) => { const p = map.project([lon + off, lat]); return { x: p.x, y: p.y }; });
     });
+    // il titolo in alto a destra: nomi e riquadri gli girano intorno
+    const gTitolo = geometriaTitoloVita(titoloVitaRef.current, W, misuraTesto);
     const d = disponiEtichette(punti, {
       w: W, h: H, misura: misuraNome, altezza: FONT_NOMI.px + 2, raggioStella: 4, scostamento: 6,
       distanzaGrappolo: 15, margine: 8, linee,
       // la firma «By 🐻» dell'immagine condivisa (drawBrandSignatureCanvas): copriva «La Spezia»
-      vietate: [{ x: W - 84, y: H - 56, w: 84, h: 56 }],
+      vietate: [{ x: W - 84, y: H - 56, w: 84, h: 56 }, ...(gTitolo ? [gTitolo.ingombro] : [])],
     });
     const foto: Record<number, HTMLCanvasElement> = {};
     const url: Record<number, string> = {};
@@ -2221,6 +2270,16 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     await p;
     if (fotoInCorsoRef.current === p) fotoInCorsoRef.current = null;
   };
+
+  // Il titolo cambia: nomi e riquadri gli rigirano intorno (al primo giro no,
+  // ci pensa l'inquadratura iniziale col suo moveend).
+  const primoTitoloRef = useRef(true);
+  useEffect(() => {
+    if (primoTitoloRef.current) { primoTitoloRef.current = false; return; }
+    const m = mapRef.current;
+    if (lifeMap && m && mountedRef.current) void calcolaNomi(m);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [titoloVita]);
 
   // Che video sa fare questo browser: costruito (WebCodecs + H.264), o almeno
   // registrato dal vivo (MediaRecorder). Si chiede una volta, all'apertura.
@@ -2528,6 +2587,79 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
             </svg>
           </div>
         )}
+
+        {/* Mappa della vita: il TITOLO in alto a destra (lib/titoloVita), che
+            resta anche a riposo e coi comandi accesi si tocca per scriverlo, e
+            «By 🐻» in basso a destra, che coi comandi accesi lascia il posto ai
+            bottoni (scelte di Stefano, 2026-10-16). Le stesse misure
+            dell'immagine condivisa: a riposo lo schermo È il poster. */}
+        {lifeMap && phase === "ready" && (() => {
+          const Wc = nomi?.w ?? containerRef.current?.clientWidth ?? 0;
+          const Hc = nomi?.h ?? containerRef.current?.clientHeight ?? 0;
+          const g = scriviTitolo ? null : geometriaTitoloVita(titoloVita, Wc, misuraTesto);
+          // la casella e il «+» stanno dove andrebbe un titolo di media lunghezza
+          const alto = Wc / 2 - TITOLO_VITA.selettoreMezzo - TITOLO_VITA.destra >= 170 ? TITOLO_VITA.alto : TITOLO_VITA.altoSotto;
+          const fine = (valore: string) => {
+            if (!annullaTitoloRef.current) {
+              const v = valore.trim().slice(0, TITOLO_VITA.lettere);
+              salvaTitoloVita(v);
+              setTitoloVita(v);
+            }
+            annullaTitoloRef.current = false;
+            setScriviTitolo(false);
+          };
+          return (
+            <>
+              {g && (
+                <svg width={Wc} height={Hc} style={{ position: "absolute", left: 0, top: 0, zIndex: 25, overflow: "visible", pointerEvents: "none" }}>
+                  <text x={g.x} y={g.y} textAnchor="end"
+                    transform={`rotate(${TITOLO_VITA.inclinazione} ${g.perno.x} ${g.perno.y})`}
+                    fill="#fff" fontFamily={TITOLO_VITA.famiglia} fontSize={g.px} fontWeight={TITOLO_VITA.peso}
+                    onClick={() => setScriviTitolo(true)}
+                    style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.9))", cursor: "text", pointerEvents: comandiVisibili ? "auto" : "none" }}>
+                    <title>{t("Modifica il titolo")}</title>
+                    {titoloVita.trim()}
+                  </text>
+                </svg>
+              )}
+              {!g && !scriviTitolo && (
+                <button onClick={() => setScriviTitolo(true)}
+                  style={{
+                    position: "absolute", right: TITOLO_VITA.destra, top: alto, zIndex: 30,
+                    padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                    background: "rgba(10,22,40,0.8)", border: "0.5px dashed #60a5fa", color: "#60a5fa",
+                    ...velo,
+                  }}>
+                  ＋ {t("Aggiungi un titolo")}
+                </button>
+              )}
+              {scriviTitolo && (
+                <input autoFocus defaultValue={titoloVita} maxLength={TITOLO_VITA.lettere}
+                  placeholder={t("Titolo della mappa")} aria-label={t("Titolo della mappa")}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                    if (e.key === "Escape") { annullaTitoloRef.current = true; e.currentTarget.blur(); }
+                  }}
+                  onBlur={e => fine(e.currentTarget.value)}
+                  style={{
+                    position: "absolute", right: TITOLO_VITA.destra, top: alto - 4, zIndex: 30,
+                    width: Math.min(Wc - 2 * TITOLO_VITA.destra, 380), textAlign: "right",
+                    fontFamily: TITOLO_VITA.famiglia, fontSize: TITOLO_VITA.px, fontWeight: TITOLO_VITA.peso, color: "#fff",
+                    background: "rgba(10,22,40,0.7)", border: "1px dashed #60a5fa", borderRadius: 6,
+                    padding: "2px 8px", outline: "none",
+                  }} />
+              )}
+              <div aria-hidden style={{
+                position: "absolute", right: 18, bottom: 18, zIndex: 25, display: "flex", alignItems: "center", gap: 7,
+                opacity: comandiVisibili ? 0 : 0.9, transition: "opacity 400ms ease", pointerEvents: "none",
+                filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.85))",
+              }}>
+                <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontStyle: "italic", fontSize: 16, color: "#fff" }}>By</span>
+                <img src={`${import.meta.env.BASE_URL}logo-orsi.png`} alt="" width={34} height={34} style={{ display: "block" }} />
+              </div>
+            </>
+          );
+        })()}
 
         {/* Chiudi in alto a sinistra (la card dati sta in alto a destra). */}
         <button onClick={onClose} aria-label={t("Chiudi")}

@@ -59,6 +59,10 @@ export interface PosterSvgInput {
    *  (lib/etichetteMappa) — accanto, col filo, o dentro i riquadri di
    *  ingrandimento dove le stelle quasi si toccano. */
   nomiOvunque?: boolean;
+  /** Mappa della vita (2026-10-16): il titolo scritto da Stefano, in alto a
+   *  destra e inclinato di 3° come a schermo (lib/titoloVita), al posto della
+   *  didascalia in basso. Nomi e riquadri gli girano intorno. */
+  titoloAngolo?: string;
   width?: number;
   height?: number;
 }
@@ -171,7 +175,7 @@ export function buildPosterSvg(input: PosterSvgInput): string {
   const W = input.width ?? 1600;
   const H = input.height ?? 1000;
   const pad = 120;
-  const { routeCoords = [], routeSegments, stops, borders = [], title, dateLabel, stats, hideLabels = false, nomiOvunque = false } = input;
+  const { routeCoords = [], routeSegments, stops, borders = [], title, dateLabel, stats, hideLabels = false, nomiOvunque = false, titoloAngolo = "" } = input;
   // Uno o più tracciati: la Mappa della vita passa un percorso per viaggio; gli
   // altri poster un singolo percorso. Normalizzati qui in una lista di segmenti.
   // Antimeridiano: i segmenti vengono srotolati in un'UNICA catena (il primo
@@ -265,7 +269,17 @@ export function buildPosterSvg(input: PosterSvgInput): string {
     return `<text x="${n(x)}" y="${n(y - 14)}" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="20" fill="#ffffff">${escapeXml(s.label)}</text>`;
   }).join("");
 
-  const nomiEls = nomiOvunque ? nomiDisposti(drawStops, segments, project, W, mapH, bordersPaths) : "";
+  // il titolo d'angolo: 44 px ≈ i 24 dello schermo alla scala della stampa;
+  // la larghezza è stimata larga (qui non si può misurare il carattere)
+  const angolo = titoloAngolo.trim();
+  const TA = { px: 44, destra: 36, alto: 30 };
+  const taW = angolo.length * TA.px * 0.5;
+  const taX = W - TA.destra, taY = TA.alto + TA.px;
+  const titoloAngoloEl = angolo
+    ? `<text x="${n(taX)}" y="${n(taY)}" text-anchor="end" transform="rotate(-3 ${n(taX - taW / 2)} ${n(taY - TA.px * 0.35)})" font-family="'Cormorant Garamond', Georgia, 'Times New Roman', serif" font-weight="600" font-size="${TA.px}" fill="#ffffff">${escapeXml(angolo)}</text>`
+    : "";
+  const vietataTitolo = angolo ? [{ x: taX - taW - 12, y: TA.alto - taW * 0.026 - 12, w: taW + 24, h: TA.px * 1.25 + taW * 0.052 + 24 }] : [];
+  const nomiEls = nomiOvunque ? nomiDisposti(drawStops, segments, project, W, mapH, bordersPaths, vietataTitolo) : "";
 
   // Didascalia centrata nella fascia inferiore riservata.
   const titleEls: string[] = [];
@@ -292,7 +306,7 @@ export function buildPosterSvg(input: PosterSvgInput): string {
     etichetteG,
     nomiEls,
     dividerEl,
-    `<g id="titolo">${titleEls.join("")}</g>`,
+    `<g id="titolo">${titleEls.join("")}${titoloAngoloEl}</g>`,
     // Firma nell'angolo in basso a destra dell'AREA MAPPA (sopra la didascalia).
     brandSignatureSvg(W, mapH - 10),
     `</svg>`,
@@ -309,7 +323,7 @@ export function buildPosterSvg(input: PosterSvgInput): string {
  */
 function nomiDisposti(
   stelle: Stop[], segmenti: [number, number][][], project: (lon: number, lat: number) => [number, number],
-  W: number, mapH: number, bordersPaths: string,
+  W: number, mapH: number, bordersPaths: string, vietateIn: { x: number; y: number; w: number; h: number }[] = [],
 ): string {
   const n = (v: number) => (Math.round(v * 10) / 10).toString();
   const FONT = 20;
@@ -321,7 +335,7 @@ function nomiDisposti(
     w: W, h: mapH, misura: t => t.length * FONT * 0.6, altezza: FONT + 2, raggioStella: 7, scostamento: 11,
     distanzaGrappolo: 27, margine: 20, filoMax: 160, linee,
     // la firma «By 🐻» in basso a destra (brandSignatureSvg): niente nomi né riquadri lì sotto
-    vietate: [{ x: W - 110, y: mapH - 56, w: 110, h: 56 }],
+    vietate: [{ x: W - 110, y: mapH - 56, w: 110, h: 56 }, ...vietateIn],
   });
   const scritta = (t: string, x: number, y: number, allinea: string) =>
     `<text x="${n(x)}" y="${n(y)}" text-anchor="${allinea}" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="${FONT}" fill="#ffffff" stroke="#000000" stroke-width="4" stroke-linejoin="round" paint-order="stroke">${escapeXml(t)}</text>`;

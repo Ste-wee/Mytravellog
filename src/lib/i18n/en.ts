@@ -436,6 +436,10 @@ export const en = {
   "Creo il video… {pct}%": "Creating the video… {pct}%",
   "Il video si crea fotogramma per fotogramma: tieni l'app aperta.": "The video is built frame by frame: keep the app open.",
   "Rivivi": "Replay",
+  // Il titolo della Mappa della vita (2026-10-16)
+  "Aggiungi un titolo": "Add a title",
+  "Titolo della mappa": "Map title",
+  "Modifica il titolo": "Edit the title",
   "Impossibile caricare la mappa.": "The map could not be loaded.",
   "Questo viaggio non ha punti sufficienti per la mappa 3D (manca la posizione di casa o della destinazione).": "This trip doesn't have enough points for the 3D map (the home or destination position is missing).",
   "Periodo": "Dates",
