@@ -19,6 +19,7 @@ import { compagniDeiViaggi, viaggiCon } from "@/lib/compagni";
 import { fetchMapStyle } from "@/components/WorldMap";
 import { saveReliefImage } from "@/lib/photoStorage";
 import { buildPosterSvg, loadCountryRings, routeBounds, unwrapSegments, CONFINI } from "@/lib/posterSvg";
+import { loadCoste } from "@/lib/worldAtlas";
 import { X, Share2, Loader2, Download, Pause, Play, SkipForward, RotateCcw, Film, Home, Printer } from "lucide-react";
 import { canShareFile, downloadBlob, shareOrDownload } from "@/lib/share";
 import { geometriaTitoloVita, leggiTitoloVita, salvaTitoloVita, TITOLO_VITA, type BordiTitolo, type GeometriaTitolo } from "@/lib/titoloVita";
@@ -73,6 +74,17 @@ async function buildSatelliteStylePiatto(): Promise<StyleSpecification> {
 
 /** La foto satellitare della Mappa della vita, un po' più viva. */
 const SATELLITE_VIVO = { saturazione: 0.3, contrasto: 0.2 };
+
+/** Le coste nel Satellite della Mappa della vita (scelta E1 di Stefano,
+ *  2026-10-19, fra «tenue» e «forte» viste sulla mappa): un alone azzurro
+ *  largo e sfumato — l'acqua bassa vicino a riva, che a questa distanza la foto
+ *  non mostra — e una schiuma bianca sottile sul bordo. Coste vere
+ *  (world-atlas 50m, lib/worldAtlas): ⚠️ da vicino le isole croate escono
+ *  semplificate, detto e accettato. */
+const COSTE_E1 = {
+  acqua: { colore: "#5fc4cc", largo: 10, sfumato: 10, opacita: 0.35 },
+  schiuma: { colore: "#e8fbfb", largo: 1.2, sfumato: 1, opacita: 0.5 },
+};
 
 /**
  * «Per la stampa» (2026-10-19, per il puzzle-calendario puzzleYOU 64×48 cm):
@@ -597,6 +609,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
    *  poco, l'immagine condivisa). */
   const fotoInCorsoRef = useRef<Promise<void> | null>(null);
   const misuraRef = useRef<CanvasRenderingContext2D | null>(null);
+  /** Le coste della Mappa della vita (caricate una volta, vedi COSTE_E1). */
+  const costeRef = useRef<GeoJSON.Feature<GeoJSON.MultiLineString> | null>(null);
   /** Il titolo della Mappa della vita (scelta di Stefano, 2026-10-16: «solo il
    *  titolo», in alto a destra), salvato su questo dispositivo. */
   const [titoloVita, setTitoloVita] = useState(() => (lifeMap ? leggiTitoloVita() : ""));
@@ -930,10 +944,39 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
    * personalizzati): le guardie `getSource`/`getLayer`/`hasImage` evitano i
    * doppioni al primo caricamento e ricreano tutto dopo un cambio stile.
    */
+  /** Le coste (COSTE_E1) sotto tracciati e tappe: solo Mappa della vita, solo
+   *  Satellite, e solo quando sono arrivate (se arrivano dopo, le aggiunge
+   *  l'effetto che le carica). */
+  const aggiungiCoste = (map: MapLibreMap, mode: MapStyleMode) => {
+    const coste = costeRef.current;
+    if (!lifeMap || mode !== "satellite" || !coste || map.getSource("vita-coste")) return;
+    const sotto = map.getLayer("flyover-route-casing") ? "flyover-route-casing" : undefined;
+    map.addSource("vita-coste", { type: "geojson", data: coste });
+    for (const [id, c] of [["vita-coste-acqua", COSTE_E1.acqua], ["vita-coste-schiuma", COSTE_E1.schiuma]] as const) {
+      map.addLayer({
+        id, type: "line", source: "vita-coste", layout: { "line-join": "round" },
+        paint: { "line-color": c.colore, "line-width": c.largo, "line-blur": c.sfumato, "line-opacity": c.opacita },
+      }, sotto);
+    }
+  };
+  useEffect(() => {
+    if (!lifeMap) return;
+    let vivo = true;
+    loadCoste("50m").then(c => {
+      if (!vivo) return;
+      costeRef.current = c;
+      const m = mapRef.current;
+      if (m && styleModeRef.current === "satellite") { try { aggiungiCoste(m, "satellite"); } catch { /* stile in cambio: le aggiunge addOverlayLayers */ } }
+    }).catch(() => { /* senza rete: il Satellite resta senza coste */ });
+    return () => { vivo = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lifeMap]);
+
   const addOverlayLayers = (map: MapLibreMap, mode: MapStyleMode) => {
     const stops = stopsRef.current;
     if (!stops.length) return;
     const constellation = mode === "constellation";
+    aggiungiCoste(map, mode);   // per prime: sotto tracciati e tappe
     if (!map.getSource("flyover-route")) {
       // MultiLineString: un segmento per viaggio nella Mappa della vita (linee
       // separate, senza collegamenti), un solo segmento negli altri poster.

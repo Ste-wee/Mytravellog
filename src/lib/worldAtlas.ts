@@ -63,3 +63,25 @@ export async function loadWorldAtlasCountries(resolution: WorldAtlasResolution =
   const topo = await loadWorldAtlasTopology(resolution);
   return feature(topo, topo.objects.countries) as unknown as GeoJSON.FeatureCollection;
 }
+
+/**
+ * Le coste: gli anelli delle terre emerse come UNA MultiLineString — linee,
+ * non poligoni. ⚠️ Con le coste prese dai poligoni delle mattonelle della
+ * mappa, ogni taglio fra due mattonelle diventava un pezzo di costa finto in
+ * mezzo al mare (visto il 2026-10-19); una linea tagliata invece non aggiunge
+ * bordi. Accetta un Feature o una FeatureCollection di (Multi)Polygon.
+ */
+export function costeDaTerre(terre: GeoJSON.Feature | GeoJSON.FeatureCollection): GeoJSON.Feature<GeoJSON.MultiLineString> {
+  const features = terre.type === "FeatureCollection" ? terre.features : [terre];
+  const linee: GeoJSON.Position[][] = [];
+  for (const f of features) for (const poligono of polygonsOf(f.geometry)) for (const anello of poligono) linee.push(anello);
+  return { type: "Feature", properties: {}, geometry: { type: "MultiLineString", coordinates: linee } };
+}
+
+/** Le coste del mondo (world-atlas «land», stessa cache dei paesi). */
+export async function loadCoste(resolution: WorldAtlasResolution = "50m"): Promise<GeoJSON.Feature<GeoJSON.MultiLineString>> {
+  const topo = await loadWorldAtlasTopology(resolution);
+  // senza terre emerse nel file: nessuna costa (la mappa resta com'è)
+  if (!topo.objects.land) return costeDaTerre({ type: "FeatureCollection", features: [] });
+  return costeDaTerre(feature(topo, topo.objects.land) as unknown as GeoJSON.Feature | GeoJSON.FeatureCollection);
+}
