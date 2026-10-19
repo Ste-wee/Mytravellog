@@ -33,6 +33,15 @@ describe("geometriaTitoloVita", () => {
     expect(lungo.y).toBe(TITOLO_VITA.altoSotto + lungo.px);
   });
 
+  it("la stampa: margini suoi e nessun selettore da scavalcare (resta in alto)", () => {
+    const lungo = "Tutte le strade che abbiamo fatto insieme";
+    const schermo = geometriaTitoloVita(lungo, 1200, misura)!;
+    const stampa = geometriaTitoloVita(lungo, 1200, misura, { destra: 36, alto: 36, selettore: false })!;
+    expect(schermo.y).toBe(TITOLO_VITA.altoSotto + schermo.px);   // a schermo scende sotto il selettore
+    expect(stampa.y).toBe(36 + stampa.px);                         // in stampa no
+    expect(stampa.x).toBe(1200 - 36);
+  });
+
   it("un titolo lungo si rimpicciolisce per stare nel foglio, mai sotto il minimo", () => {
     const lungo = "Tutte le strade che abbiamo fatto insieme fin qui";
     const g = geometriaTitoloVita(lungo, 390, misura)!;

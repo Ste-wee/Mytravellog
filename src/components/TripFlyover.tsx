@@ -19,9 +19,9 @@ import { compagniDeiViaggi, viaggiCon } from "@/lib/compagni";
 import { fetchMapStyle } from "@/components/WorldMap";
 import { saveReliefImage } from "@/lib/photoStorage";
 import { buildPosterSvg, loadCountryRings, routeBounds, unwrapSegments, CONFINI } from "@/lib/posterSvg";
-import { X, Share2, Loader2, Download, Pause, Play, SkipForward, RotateCcw, Film, Home } from "lucide-react";
+import { X, Share2, Loader2, Download, Pause, Play, SkipForward, RotateCcw, Film, Home, Printer } from "lucide-react";
 import { canShareFile, downloadBlob, shareOrDownload } from "@/lib/share";
-import { geometriaTitoloVita, leggiTitoloVita, salvaTitoloVita, TITOLO_VITA, type GeometriaTitolo } from "@/lib/titoloVita";
+import { geometriaTitoloVita, leggiTitoloVita, salvaTitoloVita, TITOLO_VITA, type BordiTitolo, type GeometriaTitolo } from "@/lib/titoloVita";
 import { TRANSPORT } from "@/lib/transport";
 
 // Icona + colore del mezzo dalla fonte unica (@/lib/transport): il medaglione
@@ -63,8 +63,26 @@ async function buildSatelliteStylePiatto(): Promise<StyleSpecification> {
   const style = await buildSatelliteStyle();
   style.projection = { type: "mercator" };
   style.layers = style.layers.filter(l => l.type !== "symbol");
+  // più viva (scelta B di Stefano, 2026-10-19, provata sulle Alpi e
+  // sull'Adriatico): neve e coste risaltano, sullo schermo e in stampa
+  for (const l of style.layers) {
+    if (l.type === "raster") l.paint = { ...l.paint, "raster-saturation": SATELLITE_VIVO.saturazione, "raster-contrast": SATELLITE_VIVO.contrasto };
+  }
   return style;
 }
+
+/** La foto satellitare della Mappa della vita, un po' più viva. */
+const SATELLITE_VIVO = { saturazione: 0.3, contrasto: 0.2 };
+
+/**
+ * «Per la stampa» (2026-10-19, per il puzzle-calendario puzzleYOU 64×48 cm):
+ * un foglio 4:3 di 1200×900 px CSS disegnato a 6,4× = 7680×5760 (≈300 dpi a
+ * 64 cm). I nomi restano grandi come a schermo (11 px su 1200 ≈ 6 mm), i
+ * margini sono da stampa (36 px ≈ 2 cm: titolo e firma lontani dal taglio).
+ * In Satellite le foto si chiedono 3 livelli più dettagliate (riquadri da 64
+ * invece di 512): a 6,4× quelle dello schermo uscirebbero sgranate.
+ */
+const STAMPA = { w: 1200, h: 900, k: 6.4, margine: 36, tileSize: 64, scalaIcone: 3, attesaMs: 90000 };
 
 // Confini "a costellazione": tenui e sottili, per fare da
 // sfondo stellato senza rubare contrasto al tracciato/alle stelle. Pensata come
@@ -114,11 +132,12 @@ export function buildConstellationStyle(): StyleSpecification {
  *   largo le impastava (il suo screenshot dell'arco alpino). Soffusa = alone
  *   stretto e tenue; secca = solo il nucleo.
  */
-function createStarImageData(forma: "larga" | "soffusa" | "secca"): ImageData {
+function createStarImageData(forma: "larga" | "soffusa" | "secca", scala = 1): ImageData {
   const s = 48;
   const c = document.createElement("canvas");
-  c.width = s; c.height = s;
+  c.width = s * scala; c.height = s * scala;
   const ctx = c.getContext("2d")!;
+  ctx.scale(scala, scala);
   const cx = s / 2, cy = s / 2;
   if (forma === "larga") {
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, s / 2);
@@ -138,17 +157,18 @@ function createStarImageData(forma: "larga" | "soffusa" | "secca"): ImageData {
   }
   ctx.fillStyle = "#ffffff";
   ctx.beginPath(); ctx.arc(cx, cy, s * 0.11, 0, Math.PI * 2); ctx.fill();
-  return ctx.getImageData(0, 0, s, s);
+  return ctx.getImageData(0, 0, s * scala, s * scala);
 }
 
 /** La tappa della Mappa della vita in Satellite: un punto ambra (il colore dei
  *  km e del tracciato satellite) con il bordo bianco, che si legge sulle foto
  *  dall'alto dove una stella bianca sparirebbe sulla neve e sulle città. */
-function createDotImageData(): ImageData {
+function createDotImageData(scala = 1): ImageData {
   const s = 32;
   const c = document.createElement("canvas");
-  c.width = s; c.height = s;
+  c.width = s * scala; c.height = s * scala;
   const ctx = c.getContext("2d")!;
+  ctx.scale(scala, scala);
   const cx = s / 2, cy = s / 2;
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, s / 2);
   g.addColorStop(0.35, "rgba(251,191,36,0.35)");
@@ -158,7 +178,7 @@ function createDotImageData(): ImageData {
   ctx.beginPath(); ctx.arc(cx, cy, s * 0.17, 0, Math.PI * 2);
   ctx.fillStyle = "#fbbf24"; ctx.fill();
   ctx.lineWidth = 2; ctx.strokeStyle = "#ffffff"; ctx.stroke();
-  return ctx.getImageData(0, 0, s, s);
+  return ctx.getImageData(0, 0, s * scala, s * scala);
 }
 
 /**
@@ -273,9 +293,9 @@ function drawImageCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x:
 /** Firma "By 🐻" in basso a destra dello snapshot raster (Salva/Condividi),
  *  equivalente a quella degli export SVG. Ombra morbida così gli orsi bianchi
  *  restano visibili anche su porzioni chiare della mappa. */
-function drawBrandSignatureCanvas(ctx: CanvasRenderingContext2D, W: number, H: number, dpr: number, logo: HTMLImageElement) {
+function drawBrandSignatureCanvas(ctx: CanvasRenderingContext2D, W: number, H: number, dpr: number, logo: HTMLImageElement, margine = 18) {
   const u = dpr;
-  const size = 34 * u, pad = 18 * u, gap = 7 * u;
+  const size = 34 * u, pad = margine * u, gap = 7 * u;
   const top = H - pad - size, logoX = W - pad - size;
   ctx.save();
   ctx.globalAlpha = 0.9;
@@ -583,6 +603,9 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   const titoloVitaRef = useRef(titoloVita);
   titoloVitaRef.current = titoloVita;
   const [scriviTitolo, setScriviTitolo] = useState(false);
+  /** «Per la stampa» in corso: la percentuale, o null. */
+  const [stampa, setStampa] = useState<number | null>(null);
+  const stampaRef = useRef(false);
   /** Esc mentre si scrive: si esce senza salvare. */
   const annullaTitoloRef = useRef(false);
   /** Il compagno selezionato, o null per tutti. Filtra la costellazione. */
@@ -1357,6 +1380,91 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   // "Esporta SVG" (solo Costellazione): master VETTORIALE a livelli per la stampa
   // (resina + LED). Confini dal world-atlas ritagliati sul riquadro; tracciato e
   // stelle da dati nostri (precisi); nodi-stella marcati come punti-LED.
+  /**
+   * «Per la stampa»: la Mappa della vita com'è a schermo (stile, inquadratura,
+   * nomi, riquadri, titolo, firma) in un JPEG 4:3 grande, disegnato da una
+   * mappa NASCOSTA ad alta densità di pixel. Pensata per il computer: su
+   * iPhone una tela così grande non si può fare (Safari si ferma a 16,7 Mpx).
+   */
+  const handleStampa = async () => {
+    const lib = libRef.current, map = mapRef.current, stile = stileRef.current;
+    if (!lib || !map || !stile || stampaRef.current) return;
+    stampaRef.current = true;
+    setStampa(0);
+    const nascoste: { m: MapLibreMap; div: HTMLDivElement }[] = [];
+    const satellite = styleModeRef.current === "satellite";
+    // lo stesso stile, con le foto satellitari più dettagliate
+    const st = JSON.parse(JSON.stringify(stile)) as StyleSpecification;
+    for (const src of Object.values(st.sources)) if (src.type === "raster") src.tileSize = STAMPA.tileSize;
+    const nuovaMappa = async (w: number, h: number) => {
+      const div = document.createElement("div");
+      div.style.cssText = `position:fixed;left:-20000px;top:0;width:${w}px;height:${h}px;pointer-events:none;`;
+      document.body.appendChild(div);
+      const m = new lib.Map({
+        container: div, style: JSON.parse(JSON.stringify(st)), interactive: false, attributionControl: false,
+        fadeDuration: 0, pixelRatio: STAMPA.k, maxCanvasSize: [8192, 8192],
+      });
+      nascoste.push({ m, div });
+      await new Promise<void>(r => { m.once("load", () => r()); setTimeout(r, 20000); });
+      // stelle e punti disegnati GRANDI: a 6,4× quelli dello schermo sarebbero sfocati
+      if (satellite) m.addImage("flyover-dot", createDotImageData(STAMPA.scalaIcone), { pixelRatio: 2 * STAMPA.scalaIcone });
+      else m.addImage("flyover-star", createStarImageData(stellaSecca ? "secca" : "soffusa", STAMPA.scalaIcone), { pixelRatio: 2 * STAMPA.scalaIcone });
+      addOverlayLayers(m, styleModeRef.current);
+      return { m, div };
+    };
+    try {
+      await Promise.all([
+        document.fonts?.load(`italic ${FONT_NOMI.px}px "Noto Serif"`),
+        document.fonts?.load(`${TITOLO_VITA.peso} ${TITOLO_VITA.px}px "Cormorant Garamond"`),
+      ]).catch(() => undefined);
+      const { m } = await nuovaMappa(STAMPA.w, STAMPA.h);
+      // l'inquadratura dello schermo, dentro il foglio 4:3 (che ne mostra un po' di più)
+      const cam = m.cameraForBounds(map.getBounds(), { padding: STAMPA.margine });
+      if (cam) m.jumpTo(cam);
+      setStampa(5);
+      await mappaFerma(m, STAMPA.attesaMs);
+      if (!mountedRef.current) return;
+      const sfondo = await copiaMappa(m);
+      setStampa(25);
+      const { d, gTitolo } = disponiVita(m, STAMPA.w, STAMPA.h, {
+        margine: STAMPA.margine, firma: STAMPA.margine,
+        titolo: { destra: STAMPA.margine, alto: STAMPA.margine, selettore: false },
+      });
+      const foto: Record<number, HTMLCanvasElement> = {};
+      if (d.riquadri.length) {
+        const riq = await nuovaMappa(200, 150);
+        const misura = riq.m.getLayer("flyover-stops") ? riq.m.getLayoutProperty("flyover-stops", "icon-size") : 1;
+        const stella = typeof misura === "number" ? misura : 1;
+        for (const [i, r] of d.riquadri.entries()) {
+          if (!mountedRef.current) return;
+          const c = await fotografaRiquadro(m, riq.m, r, { div: riq.div, stella }, STAMPA.attesaMs);
+          if (c) foto[r.numero] = c;
+          setStampa(25 + Math.round((65 * (i + 1)) / d.riquadri.length));
+        }
+      }
+      // il foglio: mappa, nomi e riquadri, titolo, firma — come «Condividi»
+      const c = document.createElement("canvas");
+      c.width = sfondo.width; c.height = sfondo.height;
+      const ctx = c.getContext("2d")!;
+      const k = c.width / STAMPA.w;
+      ctx.fillStyle = "#000"; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(sfondo, 0, 0);
+      disegnaNomiSuCanvas(ctx, { d, foto }, k, satellite ? "#fbbf24" : "#ffffff");
+      if (gTitolo) disegnaTitoloVitaSuCanvas(ctx, titoloVitaRef.current, gTitolo, k);
+      const logo = await loadBrandLogo();
+      if (logo) drawBrandSignatureCanvas(ctx, c.width, c.height, k, logo, STAMPA.margine);
+      setStampa(95);
+      const blob = await new Promise<Blob | null>(res => c.toBlob(res, "image/jpeg", 0.92));
+      if (blob) downloadBlob(blob, `mappa-della-vita-stampa-${c.width}x${c.height}.jpg`);
+    } catch (e) {
+      console.error("Per la stampa:", e);
+    } finally {
+      for (const { m, div } of nascoste) { try { m.remove(); } catch { /* già via */ } div.remove(); }
+      stampaRef.current = false;
+      if (mountedRef.current) setStampa(null);
+    }
+  };
+
   const handleExportSvg = async () => {
     if (exportingSvg) return;
     setExportingSvg(true);
@@ -2186,9 +2294,9 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
    *  Le stelle che NON sono del riquadro escono piccole e spente: senza nome
    *  lì (il loro è sulla mappa grande) sembravano tappe dimenticate (scelta B,
    *  «Attenuate», 2026-10-15). */
-  const fotografaRiquadro = async (map: MapLibreMap, m: MapLibreMap, r: Riquadro): Promise<HTMLCanvasElement | null> => {
+  const fotografaRiquadro = async (map: MapLibreMap, m: MapLibreMap, r: Riquadro,
+    riq: { div: HTMLDivElement; stella: number } | null = mappaRiqRef.current, maxMs = 12000): Promise<HTMLCanvasElement | null> => {
     try {
-      const riq = mappaRiqRef.current;
       if (!riq) return null;
       const { div, stella } = riq;
       div.style.width = `${Math.round(r.posto.w)}px`;
@@ -2201,7 +2309,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       }
       const centro = map.unproject([r.centroZona.x, r.centroZona.y]);
       m.jumpTo({ center: [centro.lng, centro.lat], zoom: map.getZoom() + Math.log2(r.scala), pitch: 0, bearing: 0 });
-      await mappaFerma(m, 12000);
+      await mappaFerma(m, maxMs);
       await visibile();
       return await copiaMappa(m);
     } catch {
@@ -2227,6 +2335,33 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   };
 
   /** Ricalcola nomi, fili e riquadri per la vista di adesso. */
+  /** Nomi, fili e riquadri della Mappa della vita su un foglio W×H della mappa
+   *  `map`: lo schermo e la stampa usano la STESSA disposizione, cambiano solo
+   *  i margini (e la stampa non ha il selettore degli stili da scavalcare). */
+  const disponiVita = (map: MapLibreMap, W: number, H: number, bordo: { margine: number; firma: number; titolo?: BordiTitolo }) => {
+    // le longitudini vicino al centro della vista (antimeridiano: vedi lonWrap)
+    const cLng = map.getCenter().lng;
+    const punti = stopsRef.current
+      .map((s, i) => { const p = map.project([unwrapNear(s.lon, cLng), s.lat]); return { id: String(i), nome: s.label, x: p.x, y: p.y }; })
+      .filter(p => p.nome && p.x >= 0 && p.x <= W && p.y >= 0 && p.y <= H);
+    const linee = routeSegsRef.current.filter(s => s.length > 1).map(seg => {
+      const off = unwrapNear(seg[0][0], cLng) - seg[0][0];
+      return seg.map(([lon, lat]) => { const p = map.project([lon + off, lat]); return { x: p.x, y: p.y }; });
+    });
+    // il titolo in alto a destra: nomi e riquadri gli girano intorno
+    const gTitolo = geometriaTitoloVita(titoloVitaRef.current, W, misuraTesto, bordo.titolo);
+    const d = disponiEtichette(punti, {
+      w: W, h: H, misura: misuraNome, altezza: FONT_NOMI.px + 2, raggioStella: 4, scostamento: 6,
+      distanzaGrappolo: 15, margine: bordo.margine, linee,
+      // la firma «By 🐻» in basso a destra (drawBrandSignatureCanvas): copriva «La Spezia»
+      vietate: [
+        { x: W - bordo.firma - 66, y: H - bordo.firma - 38, w: bordo.firma + 66, h: bordo.firma + 38 },
+        ...(gTitolo ? [gTitolo.ingombro] : []),
+      ],
+    });
+    return { d, gTitolo };
+  };
+
   const calcolaNomi = async (map: MapLibreMap) => {
     const id = ++calcoloNomiRef.current;
     const el = map.getContainer();
@@ -2239,23 +2374,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       ]);
     } catch { /* si misura col ripiego */ }
     if (calcoloNomiRef.current !== id) return;
-    // le longitudini vicino al centro della vista (antimeridiano: vedi lonWrap)
-    const cLng = map.getCenter().lng;
-    const punti = stopsRef.current
-      .map((s, i) => { const p = map.project([unwrapNear(s.lon, cLng), s.lat]); return { id: String(i), nome: s.label, x: p.x, y: p.y }; })
-      .filter(p => p.nome && p.x >= 0 && p.x <= W && p.y >= 0 && p.y <= H);
-    const linee = routeSegsRef.current.filter(s => s.length > 1).map(seg => {
-      const off = unwrapNear(seg[0][0], cLng) - seg[0][0];
-      return seg.map(([lon, lat]) => { const p = map.project([lon + off, lat]); return { x: p.x, y: p.y }; });
-    });
-    // il titolo in alto a destra: nomi e riquadri gli girano intorno
-    const gTitolo = geometriaTitoloVita(titoloVitaRef.current, W, misuraTesto);
-    const d = disponiEtichette(punti, {
-      w: W, h: H, misura: misuraNome, altezza: FONT_NOMI.px + 2, raggioStella: 4, scostamento: 6,
-      distanzaGrappolo: 15, margine: 8, linee,
-      // la firma «By 🐻» dell'immagine condivisa (drawBrandSignatureCanvas): copriva «La Spezia»
-      vietate: [{ x: W - 84, y: H - 56, w: 84, h: 56 }, ...(gTitolo ? [gTitolo.ingombro] : [])],
-    });
+    const { d } = disponiVita(map, W, H, { margine: 8, firma: 18 });
     const foto: Record<number, HTMLCanvasElement> = {};
     const url: Record<number, string> = {};
     // i nomi tornano SUBITO; le foto dei riquadri arrivano una alla volta
@@ -2999,6 +3118,18 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
             )}
 
             <div style={{ position: "absolute", right: 16, bottom: 20, zIndex: 26, display: "flex", gap: 10, ...velo }}>
+              {lifeMap && window.innerWidth >= 768 && (
+                <button onClick={handleStampa} disabled={stampa !== null}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600,
+                    cursor: stampa !== null ? "default" : "pointer",
+                    padding: "8px 16px", borderRadius: 999, background: "rgba(255,255,255,0.08)",
+                    border: "0.5px solid rgba(255,255,255,0.35)", color: "rgba(255,255,255,0.85)",
+                  }}>
+                  {stampa !== null ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
+                  {stampa !== null ? t("Preparo la stampa… {pct}%", { pct: stampa }) : t("Per la stampa")}
+                </button>
+              )}
               {styleMode === "constellation" && (
                 <button onClick={handleExportSvg} disabled={exportingSvg}
                   style={{
