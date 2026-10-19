@@ -359,6 +359,55 @@ describe("disponiEtichette", () => {
     expect([...grande.ids].sort()).toEqual([...base.ids].sort());
   });
 
+  it("una stella che si vede nel riquadro e fuori non ha posto per il nome entra nel riquadro (Friburgo)", () => {
+    // tre stelle (l'Alsazia) e «Friburgo» lì accanto: fuori dal gruppo e dal
+    // tratteggio, ma dentro la finestra del riquadro; attorno a tutti un'area
+    // vietata, così sulla mappa grande nessun nome trova posto
+    const g = [p("a", 300, 300, "Colmar"), p("b", 315, 300, "Eguisheim"), p("c", 307, 313, "Kientzheim")];
+    const F = p("F", 326, 298, "Friburgo");
+    const d = disponiEtichette([...g, F], { ...OPZ, vietate: [{ x: 270, y: 270, w: 90, h: 70 }] });
+    expect(d.riquadri).toHaveLength(1);
+    const r = d.riquadri[0];
+    expect(r.ids).toContain("F");                                             // ospite del riquadro
+    expect([...r.nomi, ...r.conFilo].map(e => e.id)).toContain("F");         // col nome DENTRO
+    expect(d.conFilo.map(e => e.id)).not.toContain("F");                      // non fuori col filo
+    // e il tratteggio lo abbraccia
+    expect(F.x).toBeGreaterThan(r.zona.x); expect(F.x).toBeLessThan(r.zona.x + r.zona.w);
+  });
+
+  it("un filo sulla mappa grande non passa sotto un riquadro, quando c'è un'altra strada", () => {
+    // scene da telefono cercate apposta fra 400: in queste, senza la regola,
+    // un filo passa sotto un riquadro (come quello di Friburgo)
+    const o: Opzioni = { ...OPZ, w: 390, h: 700, altezza: 13, raggioStella: 4, scostamento: 6, margine: 8 };
+    let fili = 0;
+    for (const scena of [22, 30, 84, 282, 299]) {
+      let seme = scena;
+      const caso = () => (seme = (seme * 16807) % 2147483647) / 2147483647;
+      const punti: Punto[] = [];
+      for (let g = 0; g < 7; g++) {
+        const cx = 60 + caso() * 270, cy = 80 + caso() * 540;
+        for (let i = 0; i < 5; i++) {
+          // ⚠️ quest'ordine (nome, poi x, poi y) È la scena: cambiarlo cambia i punti
+          const nome = "Nome" + "x".repeat(Math.floor(caso() * 8));
+          const x = cx + (caso() - 0.5) * 40, y = cy + (caso() - 0.5) * 40;
+          punti.push(p(`g${g}i${i}`, x, y, nome));
+        }
+      }
+      const d = disponiEtichette(punti, o);
+      for (const e of d.conFilo) {
+        fili++;
+        for (let k = 1; k < 20; k++) {
+          const x = e.filo.x1 + ((e.filo.x2 - e.filo.x1) * k) / 20, y = e.filo.y1 + ((e.filo.y2 - e.filo.y1) * k) / 20;
+          for (const r of d.riquadri) {
+            const sotto = x > r.posto.x + 3 && x < r.posto.x + r.posto.w - 3 && y > r.posto.y + 3 && y < r.posto.y + r.posto.h - 3;
+            expect(sotto, `scena ${scena}: il filo di ${e.id} passa sotto il riquadro ${r.numero}`).toBe(false);
+          }
+        }
+      }
+    }
+    expect(fili).toBeGreaterThan(0);   // la prova ha visto dei fili
+  });
+
   it("nessun punto: nessuna scritta", () => {
     expect(disponiEtichette([], OPZ)).toEqual({ accanto: [], conFilo: [], riquadri: [], senzaPosto: [] });
   });

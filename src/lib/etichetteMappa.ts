@@ -309,6 +309,12 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
   const riquadri: Riquadro[] = [];
   const ordine = daIngrandire.map((g, i) => ({ g, i })).sort((a, b) => b.g.length - a.g.length);
   const tornaFuori: Punto[] = [];
+  // gli OSPITI: una stella che si vede dentro un riquadro e che sulla mappa
+  // grande non ha trovato posto accanto entra nel riquadro, col nome lì
+  // (visto coi viaggi veri: Friburgo spenta nel riquadro dell'Alsazia e il
+  // suo nome fuori, legato da un filo che passava SOTTO il riquadro)
+  const senzaNomeFuori = new Set(fuori.falliti.map(p => p.id));
+  const ospitati = new Set<string>();
   for (const { g, i } of ordine) {
     const zona = zone[i];
     const { voluta, possibile, aria, zw, zh } = misureGruppo(g);
@@ -330,10 +336,17 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
     if (!posto) { tornaFuori.push(...g); continue; }
     const centroPosto = { x: posto.x + posto.w / 2, y: posto.y + posto.h / 2 };
     const dentroRiq = (p: { x: number; y: number }) => ({ x: centroPosto.x + (p.x - centroZona.x) * scala, y: centroPosto.y + (p.y - centroZona.y) * scala });
-    const membri = g.map(p => ({ ...p, ...dentroRiq(p) }));
+    const pz0 = posto;
+    const siVede = (p: Punto) => {
+      const q = dentroRiq(p);
+      return q.x > pz0.x + 6 && q.x < pz0.x + pz0.w - 6 && q.y > pz0.y + 6 && q.y < pz0.y + pz0.h - 6;
+    };
+    const ospiti = punti.filter(p => !g.includes(p) && senzaNomeFuori.has(p.id) && !ospitati.has(p.id) && siVede(p));
+    const tutti = [...g, ...ospiti];
+    const membri = tutti.map(p => ({ ...p, ...dentroRiq(p) }));
     // dentro il riquadro, gli stessi nomi accanto (in coordinate del riquadro)
     const locali = membri.map(p => ({ ...p, x: p.x - posto!.x, y: p.y - posto!.y }));
-    const altreVisibili = punti.filter(p => !g.includes(p)).map(dentroRiq)
+    const altreVisibili = punti.filter(p => !tutti.includes(p)).map(dentroRiq)
       .filter(p => p.x > posto!.x && p.x < posto!.x + posto!.w && p.y > posto!.y && p.y < posto!.y + posto!.h)
       .map(p => ({ x: p.x - posto!.x, y: p.y - posto!.y }));
     // l'angolo del numero, in proporzione al carattere (schermo e stampa)
@@ -360,16 +373,30 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
     // un riquadro rimpicciolito per entrare, con tre stelle e nessun nome)
     if (interni.fatti.length + filiDentro.length < g.length / 2) { tornaFuori.push(...g); continue; }
     tornaFuori.push(...senzaNomeQui);
+    for (const p of ospiti) if (!senzaNomeQui.includes(p)) ospitati.add(p.id);
     occupatiRiquadri.push(posto);
+    // il tratteggio abbraccia anche gli ospiti accolti (la loro stella sulla
+    // mappa grande resta senza nome: si capisce che è dentro il riquadro)
+    const accolti = ospiti.filter(p => ospitati.has(p.id));
+    const zonaVista = accolti.length ? (() => {
+      const x0 = Math.min(zona.x, ...accolti.map(p => p.x - 8)), y0 = Math.min(zona.y, ...accolti.map(p => p.y - 8));
+      const x1 = Math.max(zona.x + zona.w, ...accolti.map(p => p.x + 8)), y1 = Math.max(zona.y + zona.h, ...accolti.map(p => p.y + 8));
+      return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    })() : zona;
     const sposta = <T extends Etichetta>(e: T): T => ({
       ...e, box: { ...e.box, x: e.box.x + pz.x, y: e.box.y + pz.y }, testo: { ...e.testo, x: e.testo.x + pz.x, y: e.testo.y + pz.y },
     });
-    const a = piuVicino(zona, centroPosto), b = piuVicino(pz, centroZona);
+    const a = piuVicino(zonaVista, centroPosto), b = piuVicino(pz, centroZona);
     riquadri.push({
-      numero: 0, ids: g.map(p => p.id), zona, posto: pz, numeroZona: zona, scala, centroZona, centroPosto,
+      numero: 0, ids: tutti.filter(p => !senzaNomeQui.includes(p) || g.includes(p)).map(p => p.id),
+      zona: zonaVista, posto: pz, numeroZona: zonaVista, scala, centroZona, centroPosto,
       filo: { x1: a.x, y1: a.y, x2: b.x, y2: b.y },
-      stelle: membri.map(p => ({ id: p.id, x: p.x, y: p.y })),
-      altre: altreVisibili.map(q => ({ x: q.x + pz.x, y: q.y + pz.y })),
+      stelle: membri.filter(p => !senzaNomeQui.some(q => q.id === p.id) || g.some(q => q.id === p.id)).map(p => ({ id: p.id, x: p.x, y: p.y })),
+      altre: [
+        ...altreVisibili.map(q => ({ x: q.x + pz.x, y: q.y + pz.y })),
+        // un ospite che dentro non ha trovato posto resta una stella spenta
+        ...membri.filter(p => !g.some(q => q.id === p.id) && !ospitati.has(p.id)).map(p => ({ x: p.x, y: p.y })),
+      ],
       nomi: interni.fatti.map(sposta),
       conFilo: filiDentro.map(e => ({ ...sposta(e), filo: { x1: e.filo.x1 + pz.x, y1: e.filo.y1 + pz.y, x2: e.filo.x2 + pz.x, y2: e.filo.y2 + pz.y } })),
     });
@@ -421,10 +448,21 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
   const conFilo: EtichettaConFilo[] = [];
   const senzaPosto: string[] = [];
   const stelleBox = stelle.map(s => ({ x: s.x - o.raggioStella - 1, y: s.y - o.raggioStella - 1, w: 2 * o.raggioStella + 2, h: 2 * o.raggioStella + 2 }));
-  for (const p of [...fuori.falliti, ...tornaFuori.filter(q => !fuori.fatti.some(e => e.id === q.id))]) {
+  for (const p of [...fuori.falliti.filter(q => !ospitati.has(q.id)), ...tornaFuori.filter(q => !fuori.fatti.some(e => e.id === q.id))]) {
     if (conFilo.some(e => e.id === p.id)) continue;
     const tw = o.misura(p.nome), th = o.altezza;
-    const libero = (sulTratteggio: boolean) => (r: Box) => dentro(r, o.w, o.h, o.margine)
+    // un filo che passa SOTTO un riquadro non si vede, e il nome sembra di
+    // nessuno: fuori dall'ultima spiaggia, il filo gira intorno ai riquadri
+    const filoSottoRiquadro = (r: Box) => {
+      const fine = piuVicino(r, p);
+      for (let k = 1; k < 20; k++) {
+        const x = p.x + ((fine.x - p.x) * k) / 20, y = p.y + ((fine.y - p.y) * k) / 20;
+        if (riquadri.some(q => x > q.posto.x - 2 && x < q.posto.x + q.posto.w + 2 && y > q.posto.y - 2 && y < q.posto.y + q.posto.h + 2)) return true;
+      }
+      return false;
+    };
+    const libero = (sulTratteggio: boolean, sottoRiquadri = false) => (r: Box) => dentro(r, o.w, o.h, o.margine)
+      && (sottoRiquadri || !filoSottoRiquadro(r))
       && !stelleBox.some(s => sovrapposti(r, s, 1))
       && !fuori.fatti.some(e => sovrapposti(r, e.box, 2))
       && !conFilo.some(e => sovrapposti(r, e.box, 2))
@@ -435,8 +473,11 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
     // ne sparivano (Chamonix sul telefono, Alberobello sul desktop; col
     // doppio di filoMax ancora San Benedetto, visto). La ricerca parte
     // comunque da vicino: il filo è lungo solo se serve.
+    // e un filo passa sotto un riquadro solo se non c'è proprio altra strada
+    // (Friburgo: era un filo lungo dell'ultima spiaggia, che sotto ci passava)
     const box = postoColFilo(p, tw, th, o.scostamento, o.filoMax ?? 90, libero(false))
-      ?? postoColFilo(p, tw, th, o.scostamento, Math.max(o.w, o.h), libero(true));
+      ?? postoColFilo(p, tw, th, o.scostamento, Math.max(o.w, o.h), libero(true))
+      ?? postoColFilo(p, tw, th, o.scostamento, Math.max(o.w, o.h), libero(true, true));
     if (!box) { senzaPosto.push(p.nome); continue; }
     conFilo.push(conIlFilo(p.id, p.nome, p, box, th));
   }
