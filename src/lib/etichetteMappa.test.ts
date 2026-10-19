@@ -427,6 +427,65 @@ describe("disponiEtichette", () => {
     }
   });
 
+  describe("riquadri regolati a mano (riquadriFissi)", () => {
+    const umbria = [p("Perugia", 300, 400), p("Assisi", 309, 403), p("Spello", 312, 409), p("Cortona", 293, 393), p("Montepulciano", 287, 401)];
+    const lago = [p("Como", 150, 150), p("Bellagio", 156, 152), p("Lecco", 160, 158), p("Varenna", 154, 147)];
+    const base = disponiEtichette([...umbria, ...lago], OPZ);
+    const rU = base.riquadri.find(r => r.ids.includes("Perugia"))!;
+
+    it("ogni riquadro ha la chiave del suo gruppo", () => {
+      expect(rU.chiave).toBe([...umbria.map(q => q.id)].sort().join(","));
+    });
+
+    it("sta dove l'hai messo, grande quanto l'hai fatto, e il contenuto non scivola", () => {
+      const posto = { x: 380, y: 520, w: rU.posto.w + 80, h: rU.posto.h + 40 };
+      // allargato verso destra e in basso: il centro della zona resta dov'era nel riquadro
+      const centro = { x: posto.x + (rU.centroPosto.x - rU.posto.x), y: posto.y + (rU.centroPosto.y - rU.posto.y) };
+      const d = disponiEtichette([...umbria, ...lago], { ...OPZ, riquadriFissi: { [rU.chiave]: { posto, centro } } });
+      const r = d.riquadri.find(q => q.chiave === rU.chiave)!;
+      expect(r.posto).toEqual(posto);
+      expect(r.centroPosto).toEqual(centro);
+      expect(r.scala).toBeCloseTo(rU.scala, 6);
+      for (const s of r.stelle) {
+        const q = umbria.find(u => u.id === s.id)!;
+        expect(s.x).toBeCloseTo(centro.x + (q.x - r.centroZona.x) * r.scala, 6);
+      }
+      expect([...r.nomi, ...r.conFilo].map(e => e.id).sort()).toEqual(umbria.map(q => q.id).sort());
+      // e gli altri riquadri non gli finiscono sopra
+      for (const altro of d.riquadri) if (altro !== r) expect(sovrapposti(altro.posto, r.posto)).toBe(false);
+    });
+
+    it("un nome della mappa grande che resta sotto un riquadro spostato va altrove, col filo", () => {
+      const sola = p("Sola", 500, 200);
+      const d0 = disponiEtichette([...umbria, sola], OPZ);
+      const r0 = d0.riquadri[0];
+      expect(d0.accanto.map(e => e.id)).toContain("Sola");
+      // il riquadro spostato proprio sopra il nome di «Sola»
+      const posto = { x: 470, y: 170, w: r0.posto.w, h: r0.posto.h };
+      const centro = { x: posto.x + posto.w / 2, y: posto.y + posto.h / 2 };
+      const d = disponiEtichette([...umbria, sola], { ...OPZ, riquadriFissi: { [r0.chiave]: { posto, centro } } });
+      const e = [...d.accanto, ...d.conFilo].find(x => x.id === "Sola")!;
+      expect(e).toBeDefined();
+      expect(sovrapposti(e.box, posto)).toBe(false);
+    });
+
+    it("un riquadro fisso nel posto che un altro sceglierebbe: l'altro va altrove", () => {
+      // il lago (piazzato DOPO l'Umbria, che è più grande) fissato dove l'Umbria andrebbe da sola
+      const rL = base.riquadri.find(r => r.ids.includes("Como"))!;
+      const posto = { ...rU.posto };
+      const centro = { x: posto.x + posto.w / 2, y: posto.y + posto.h / 2 };
+      const d = disponiEtichette([...umbria, ...lago], { ...OPZ, riquadriFissi: { [rL.chiave]: { posto, centro } } });
+      const u = d.riquadri.find(r => r.chiave === rU.chiave)!;
+      expect(u).toBeDefined();
+      expect(sovrapposti(u.posto, posto)).toBe(false);
+    });
+
+    it("una chiave che non corrisponde a nessun gruppo non cambia niente", () => {
+      const d = disponiEtichette([...umbria, ...lago], { ...OPZ, riquadriFissi: { "x,y": { posto: { x: 0, y: 0, w: 50, h: 50 }, centro: { x: 25, y: 25 } } } });
+      expect(d.riquadri.map(r => r.posto)).toEqual(base.riquadri.map(r => r.posto));
+    });
+  });
+
   it("nessun punto: nessuna scritta", () => {
     expect(disponiEtichette([], OPZ)).toEqual({ accanto: [], conFilo: [], riquadri: [], senzaPosto: [] });
   });

@@ -37,6 +37,8 @@ export interface EtichettaConFilo extends Etichetta {
 export interface Riquadro {
   numero: number;
   ids: string[];
+  /** Chi è il gruppo (le sue tappe, in ordine): la chiave per regolarlo a mano. */
+  chiave: string;
   /** La zona sulla mappa (il tratteggio). */
   zona: Box;
   /** Dove sta il riquadro. */
@@ -61,6 +63,11 @@ export interface Riquadro {
   /** Nomi che nel riquadro non stavano accanto: restano DENTRO, col filo. */
   conFilo: EtichettaConFilo[];
 }
+export interface RiquadroFisso { posto: Box; centro: { x: number; y: number } }
+
+/** La chiave di un gruppo di tappe: le loro id, ordinate. */
+export const chiaveGruppo = (ids: string[]) => [...ids].sort().join(",");
+
 export interface Disposizione {
   accanto: Etichetta[];
   conFilo: EtichettaConFilo[];
@@ -98,6 +105,12 @@ export interface Opzioni {
    *  gruppo, così dentro si vede più strada prima che esca dal bordo. La usa
    *  la stampa, dove lo spazio c'è (scelta di Stefano, 2026-10-19). */
   grandezzaRiquadri?: number;
+  /** Riquadri regolati A MANO (anteprima di stampa, scelta B di Stefano,
+   *  2026-10-19), per chiave del gruppo: dove sta (`posto`) e dove cade il
+   *  centro della sua zona (`centro`: allargandolo da un lato si scopre più
+   *  mappa da quel lato, il contenuto non scivola). Tutto il resto gli gira
+   *  intorno. */
+  riquadriFissi?: Record<string, RiquadroFisso>;
 }
 
 const sovrapposti = (a: Box, b: Box, m = 0) =>
@@ -304,8 +317,18 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
     fuori.falliti = ancora.falliti;
   }
 
+  // i riquadri regolati a mano stanno dove li ha messi chi li ha regolati: i
+  // nomi della mappa grande che ci finiscono sotto si rimettono col filo
+  const fissi = o.riquadriFissi ?? {};
+  const fissiQui = daIngrandire.map(g => fissi[chiaveGruppo(g.map(p => p.id))]).filter((x): x is RiquadroFisso => !!x);
+  if (fissiQui.length) {
+    const sotto = fuori.fatti.filter(e => fissiQui.some(fx => sovrapposti(e.box, fx.posto, 2)));
+    fuori.fatti = fuori.fatti.filter(e => !sotto.includes(e));
+    fuori.falliti.push(...sotto.map(e => punti.find(p => p.id === e.id)!));
+  }
+
   // 3. i riquadri: ingranditi quanto serve, nel vuoto più vicino
-  const occupatiRiquadri: Box[] = zone.map(z => ({ ...z }));
+  const occupatiRiquadri: Box[] = [...zone.map(z => ({ ...z })), ...fissiQui.map(fx => fx.posto)];
   const riquadri: Riquadro[] = [];
   const ordine = daIngrandire.map((g, i) => ({ g, i })).sort((a, b) => b.g.length - a.g.length);
   const tornaFuori: Punto[] = [];
@@ -317,6 +340,8 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
   const ospitati = new Set<string>();
   for (const { g, i } of ordine) {
     const zona = zone[i];
+    const chiave = chiaveGruppo(g.map(p => p.id));
+    const fisso = fissi[chiave];
     const { voluta, possibile, aria, zw, zh } = misureGruppo(g);
     let scala = Math.min(voluta, possibile);
     let w = Math.round(Math.max(110 * gR, zw * scala + aria.x)), h = Math.round(Math.max(76 * gR, zh * scala + aria.y));
@@ -334,14 +359,14 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
     // dentro senza nome: «Friburgo esce dal quadrato»
     const prova = (w0: number, h0: number, scala0: number) => {
     let w = w0, h = h0, scala = scala0;
-    let posto: Box | null = null;
+    let posto: Box | null = fisso ? { ...fisso.posto } : null;
     for (let tentativo = 0; tentativo < 3 && !posto; tentativo++) {
       posto = cercaPosto(centroZona, w, h, 30, Math.max(o.w, o.h) * 0.35, libero);
       if (!posto) { w = Math.round(w * 0.88); h = Math.round(h * 0.88); scala *= 0.88; }
     }
     posto = posto ?? cercaPosto(centroZona, w, h, 30, Math.max(o.w, o.h), libero);
     if (!posto) return null;
-    const centroPosto = { x: posto.x + posto.w / 2, y: posto.y + posto.h / 2 };
+    const centroPosto = fisso ? { ...fisso.centro } : { x: posto.x + posto.w / 2, y: posto.y + posto.h / 2 };
     const dentroRiq = (p: { x: number; y: number }) => ({ x: centroPosto.x + (p.x - centroZona.x) * scala, y: centroPosto.y + (p.y - centroZona.y) * scala });
     const pz0 = posto;
     const siVede = (p: Punto) => {
@@ -378,7 +403,8 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
     return { posto, pz, scala, centroPosto, membri, altreVisibili, ospiti, tutti, interni, filiDentro, senzaNomeQui };
     };
     let esito = prova(w, h, scala);
-    for (let allarga = 0; allarga < 3 && esito && esito.senzaNomeQui.length; allarga++) {
+    // (un riquadro regolato a mano non si allarga da sé: lo decide chi lo regola)
+    for (let allarga = 0; allarga < 3 && !fisso && esito && esito.senzaNomeQui.length; allarga++) {
       // più spazio quanto il nome più lungo rimasto fuori, in largo e in alto
       const manca = Math.max(...esito.senzaNomeQui.map(q => o.misura(q.nome)));
       w = Math.round(w + manca * 0.7 + o.scostamento * 2);
@@ -392,7 +418,7 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
     // un riquadro che non tiene dentro almeno metà dei suoi nomi non serve:
     // si scarta e le sue stelle tornano sulla mappa grande (visto sul telefono:
     // un riquadro rimpicciolito per entrare, con tre stelle e nessun nome)
-    if (interni.fatti.length + filiDentro.length < g.length / 2) { tornaFuori.push(...g); continue; }
+    if (!fisso && interni.fatti.length + filiDentro.length < g.length / 2) { tornaFuori.push(...g); continue; }
     tornaFuori.push(...senzaNomeQui);
     for (const p of ospiti) if (!senzaNomeQui.includes(p)) ospitati.add(p.id);
     occupatiRiquadri.push(posto);
@@ -409,7 +435,7 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
     });
     const a = piuVicino(zonaVista, centroPosto), b = piuVicino(pz, centroZona);
     riquadri.push({
-      numero: 0, ids: tutti.filter(p => !senzaNomeQui.includes(p) || g.includes(p)).map(p => p.id),
+      numero: 0, chiave, ids: tutti.filter(p => !senzaNomeQui.includes(p) || g.includes(p)).map(p => p.id),
       zona: zonaVista, posto: pz, numeroZona: zonaVista, scala, centroZona, centroPosto,
       filo: { x1: a.x, y1: a.y, x2: b.x, y2: b.y },
       // (chi dentro è rimasto senza nome ha la stella spenta: il suo nome è fuori)

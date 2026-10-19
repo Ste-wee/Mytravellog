@@ -13,7 +13,7 @@ import { unwrapNear } from "@/lib/lonWrap";
 import { codecCostruzione, formatoRegistrabile, kmContatiPerTratta, misureVideo, nomeFileVideo } from "@/lib/voloVideo";
 import { riquadriDelVolo } from "@/lib/riquadriVolo";
 import { copioneVolo, type Camera, type TempiCopione } from "@/lib/copioneVolo";
-import { disponiEtichette, type Disposizione, type Riquadro } from "@/lib/etichetteMappa";
+import { disponiEtichette, type Box, type Disposizione, type Riquadro, type RiquadroFisso } from "@/lib/etichetteMappa";
 import fixWebmDuration from "fix-webm-duration";
 import { compagniDeiViaggi, viaggiCon } from "@/lib/compagni";
 import { fetchMapStyle } from "@/components/WorldMap";
@@ -654,6 +654,20 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   fogliettoRef.current = anteprima;
   /** Il riquadro 4:3 della mappa dentro la scheda, in anteprima. */
   const [cornice, setCornice] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  /**
+   * I riquadri regolati A MANO in anteprima (scelta B di Stefano, 2026-10-19:
+   * «dammi la possibilità di regolare grandezza, altezza e larghezza dei
+   * quadrati»): per chiave del gruppo, in px di foglio. Valgono per QUESTA
+   * inquadratura: spostando o avvicinando la mappa si azzerano (i riquadri si
+   * rifanno per la vista nuova). Li usa anche la stampa.
+   */
+  const [fissi, setFissi] = useState<Record<string, RiquadroFisso>>({});
+  const fissiRef = useRef<Record<string, RiquadroFisso>>({});
+  fissiRef.current = fissi;
+  const fissiCameraRef = useRef<{ lng: number; lat: number; zoom: number } | null>(null);
+  /** Il riquadro scelto (le maniglie) e quello che si sta trascinando, dal vivo. */
+  const [scelto, setScelto] = useState<string | null>(null);
+  const [trascina, setTrascina] = useState<{ chiave: string; box: Box } | null>(null);
   /** Esc mentre si scrive: si esce senza salvare. */
   const annullaTitoloRef = useRef(false);
   /** Il compagno selezionato, o null per tutti. Filtra la costellazione. */
@@ -1536,7 +1550,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       setStampa(25);
       // la stessa disposizione dell'anteprima (stessa mappa, stessi conti)
       const scalaFoglio = Wm / STAMPA.w;
-      const { d, gTitolo } = disponiVita(m, STAMPA.w, STAMPA.h, { ...BORDI_STAMPA, fattore: 1 / scalaFoglio });
+      const { d, gTitolo } = disponiVita(m, STAMPA.w, STAMPA.h, { ...BORDI_STAMPA, fattore: 1 / scalaFoglio, fissi: fissiRef.current });
       const foto: Record<number, HTMLCanvasElement> = {};
       if (d.riquadri.length) {
         const riq = await nuovaMappa(200, 150);
@@ -2419,7 +2433,9 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         m.setLayoutProperty("flyover-stops", "icon-size", ["case", delRiquadro, stella, stella * ATTENUATE.misura]);
         m.setPaintProperty("flyover-stops", "icon-opacity", ["case", delRiquadro, 1, ATTENUATE.opacita]);
       }
-      const centro = map.unproject([r.centroZona.x * scalaFoglio, r.centroZona.y * scalaFoglio]);
+      const vx = r.centroZona.x + (r.posto.x + r.posto.w / 2 - r.centroPosto.x) / r.scala;
+      const vy = r.centroZona.y + (r.posto.y + r.posto.h / 2 - r.centroPosto.y) / r.scala;
+      const centro = map.unproject([vx * scalaFoglio, vy * scalaFoglio]);
       // il foglio è la mappa ingrandita di 1/scalaFoglio, il riquadro di r.scala in più
       m.jumpTo({ center: [centro.lng, centro.lat], zoom: map.getZoom() - Math.log2(scalaFoglio) + Math.log2(r.scala), pitch: 0, bearing: 0 });
       await mappaFerma(m, maxMs);
@@ -2443,7 +2459,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
    *  `map`: lo schermo e la stampa usano la STESSA disposizione, cambiano solo
    *  i margini (e la stampa non ha il selettore degli stili da scavalcare). */
   const disponiVita = (map: MapLibreMap, W: number, H: number,
-    bordo: { margine: number; firma: number; titolo?: BordiTitolo; corpo?: number; riquadri?: number; fattore?: number }) => {
+    bordo: { margine: number; firma: number; titolo?: BordiTitolo; corpo?: number; riquadri?: number; fattore?: number; fissi?: Record<string, RiquadroFisso> }) => {
     const corpo = bordo.corpo ?? FONT_NOMI.px;
     // fattore: pixel del foglio per pixel della mappa (anteprima di stampa: il
     // foglio è 1200 di larghezza, la mappa a schermo meno)
@@ -2466,6 +2482,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       // di andare in un riquadro (visto in stampa a 19 px: «Pisa» vicino a Trieste)
       w: W, h: H, misura, altezza: corpo + 2, raggioStella: 4, scostamento: Math.round(6 * corpo / FONT_NOMI.px),
       distanzaGrappolo: Math.round(15 * corpo / FONT_NOMI.px), margine: bordo.margine, linee, grandezzaRiquadri: bordo.riquadri,
+      riquadriFissi: bordo.fissi,
       // la firma «By 🐻» in basso a destra (drawBrandSignatureCanvas): copriva «La Spezia»
       vietate: [
         { x: W - bordo.firma - 66, y: H - bordo.firma - 38, w: bordo.firma + 66, h: bordo.firma + 38 },
@@ -2473,6 +2490,59 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       ],
     });
     return { d, gTitolo };
+  };
+
+  /**
+   * Trascinare un riquadro in anteprima: `modo` «sposta», o i lati/angoli da
+   * tirare (n, s, e, w e le coppie). Tirando un bordo il CONTENUTO resta
+   * fermo e si scopre più mappa da quel lato; spostandolo, il contenuto va
+   * con lui. Al rilascio il riquadro diventa «fisso» e tutto si ricalcola.
+   */
+  const iniziaTrascina = (r: Riquadro, modo: string, e: React.PointerEvent) => {
+    const sc = nomiRef.current?.scala;
+    if (!fogliettoRef.current || !sc) return;
+    e.preventDefault(); e.stopPropagation();
+    setScelto(r.chiave);
+    const x0 = e.clientX, y0 = e.clientY;
+    const b0 = { ...r.posto }, c0 = { ...r.centroPosto };
+    let box = b0;
+    const MIN = { w: 60, h: 40 };
+    const muovi = (ev: PointerEvent) => {
+      const dx = (ev.clientX - x0) / sc, dy = (ev.clientY - y0) / sc;
+      let { x, y, w, h } = b0;
+      if (modo === "sposta") { x += dx; y += dy; }
+      else {
+        if (modo.includes("e")) w = Math.max(MIN.w, b0.w + dx);
+        if (modo.includes("s")) h = Math.max(MIN.h, b0.h + dy);
+        if (modo.includes("w")) { w = Math.max(MIN.w, b0.w - dx); x = b0.x + b0.w - w; }
+        if (modo.includes("n")) { h = Math.max(MIN.h, b0.h - dy); y = b0.y + b0.h - h; }
+      }
+      // sempre dentro il foglio
+      w = Math.min(w, STAMPA.w); h = Math.min(h, STAMPA.h);
+      x = Math.max(0, Math.min(STAMPA.w - w, x)); y = Math.max(0, Math.min(STAMPA.h - h, y));
+      box = { x, y, w, h };
+      setTrascina({ chiave: r.chiave, box });
+    };
+    const fine = () => {
+      window.removeEventListener("pointermove", muovi);
+      window.removeEventListener("pointerup", fine);
+      setTrascina(null);
+      if (box === b0) return;   // solo un clic: il riquadro è scelto, niente di più
+      const centro = modo === "sposta" ? { x: c0.x + box.x - b0.x, y: c0.y + box.y - b0.y } : c0;
+      const m = mapRef.current;
+      if (m) { const c = m.getCenter(); fissiCameraRef.current = { lng: c.lng, lat: c.lat, zoom: m.getZoom() }; }
+      fissiRef.current = { ...fissiRef.current, [r.chiave]: { posto: box, centro } };
+      setFissi(fissiRef.current);
+      if (m) void calcolaNomi(m);
+    };
+    window.addEventListener("pointermove", muovi);
+    window.addEventListener("pointerup", fine);
+  };
+  const rimettiRiquadri = () => {
+    fissiRef.current = {}; fissiCameraRef.current = null;
+    setFissi({}); setScelto(null);
+    const m = mapRef.current;
+    if (m) void calcolaNomi(m);
   };
 
   /** Ricalcola nomi, fili e riquadri per la vista di adesso. */
@@ -2493,8 +2563,13 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     const scala = foglio ? W / STAMPA.w : 1;
     const Wf = foglio ? STAMPA.w : W, Hf = foglio ? STAMPA.h : H;
     const corpo = foglio ? STAMPA.corpoNomi : FONT_NOMI.px;
+    // spostata o avvicinata la mappa, i riquadri regolati a mano si rifanno
+    const cam = fissiCameraRef.current, c0 = map.getCenter();
+    if (cam && (Math.abs(cam.lng - c0.lng) > 1e-7 || Math.abs(cam.lat - c0.lat) > 1e-7 || Math.abs(cam.zoom - map.getZoom()) > 1e-6)) {
+      fissiCameraRef.current = null; fissiRef.current = {}; setFissi({}); setScelto(null);
+    }
     const { d } = foglio
-      ? disponiVita(map, Wf, Hf, { ...BORDI_STAMPA, fattore: 1 / scala })
+      ? disponiVita(map, Wf, Hf, { ...BORDI_STAMPA, fattore: 1 / scala, fissi: fissiRef.current })
       : disponiVita(map, W, H, { margine: 8, firma: 18 });
     const foto: Record<number, HTMLCanvasElement> = {};
     const url: Record<number, string> = {};
@@ -2525,7 +2600,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
 
   // Anteprima di stampa: il riquadro 4:3 più grande che sta nella scheda
   useEffect(() => {
-    if (!anteprima) { setCornice(null); return; }
+    if (!anteprima) { setCornice(null); setFissi({}); fissiRef.current = {}; fissiCameraRef.current = null; setScelto(null); return; }
     const misura = () => {
       const scheda = containerRef.current?.parentElement;
       if (!scheda) return;
@@ -2538,6 +2613,14 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     window.addEventListener("resize", misura);
     return () => window.removeEventListener("resize", misura);
   }, [anteprima]);
+  useEffect(() => {
+    if (!scelto) return;
+    const fuori = (e: PointerEvent) => {
+      if (!(e.target as HTMLElement | null)?.closest?.("[data-riquadro]")) setScelto(null);
+    };
+    window.addEventListener("pointerdown", fuori, true);
+    return () => window.removeEventListener("pointerdown", fuori, true);
+  }, [scelto]);
   // la mappa prende la misura della cornice (o torna a tutta la scheda): il suo
   // evento «resize» ricalcola nomi e riquadri, sul foglio giusto
   useEffect(() => { try { mapRef.current?.resize(); } catch { /* mappa non pronta */ } }, [cornice]);
@@ -2827,10 +2910,15 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
               ))}
             </svg>
             {nomi.d.riquadri.map(r => (
-              <div key={`r${r.numero}`} style={{
+              <div key={`r${r.numero}`} data-riquadro={anteprima ? "" : undefined}
+                onPointerDown={anteprima ? e => iniziaTrascina(r, "sposta", e) : undefined}
+                style={{
                 position: "absolute", left: r.posto.x, top: r.posto.y, width: r.posto.w, height: r.posto.h,
-                border: "1px solid rgba(255,255,255,0.8)", borderRadius: 6, overflow: "hidden",
+                borderStyle: "solid", borderWidth: r.chiave === scelto && anteprima ? 2 / nomi.scala : 1,
+                borderColor: r.chiave === scelto && anteprima ? "#60a5fa" : "rgba(255,255,255,0.8)",
+                borderRadius: 6, overflow: "hidden",
                 background: "#000", boxShadow: "0 6px 18px rgba(0,0,0,0.6)",
+                ...(anteprima ? { pointerEvents: "auto", cursor: "move", touchAction: "none" } : {}),
               }}>
                 {nomi.url[r.numero]
                   ? <img src={nomi.url[r.numero]} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
@@ -2870,6 +2958,29 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                 </g>
               ))}
             </svg>
+            {anteprima && nomi.d.riquadri.filter(r => r.chiave === scelto).map(r => {
+              const m = 10 / nomi.scala;   // ~10 px a schermo
+              const b = trascina?.chiave === r.chiave ? trascina.box : r.posto;
+              const maniglie: [string, number, number, string][] = [
+                ["nw", b.x, b.y, "nwse-resize"], ["n", b.x + b.w / 2, b.y, "ns-resize"], ["ne", b.x + b.w, b.y, "nesw-resize"],
+                ["w", b.x, b.y + b.h / 2, "ew-resize"], ["e", b.x + b.w, b.y + b.h / 2, "ew-resize"],
+                ["sw", b.x, b.y + b.h, "nesw-resize"], ["s", b.x + b.w / 2, b.y + b.h, "ns-resize"], ["se", b.x + b.w, b.y + b.h, "nwse-resize"],
+              ];
+              return maniglie.map(([modo, x, y, cursore]) => (
+                <div key={`m${r.chiave}${modo}`} data-riquadro="" onPointerDown={e => iniziaTrascina(r, modo, e)}
+                  style={{
+                    position: "absolute", left: x - m / 2, top: y - m / 2, width: m, height: m, borderRadius: m / 5,
+                    background: "#60a5fa", border: `${1 / nomi.scala}px solid #fff`, cursor: cursore,
+                    pointerEvents: "auto", touchAction: "none",
+                  }} />
+              ));
+            })}
+            {trascina && (
+              <div style={{
+                position: "absolute", left: trascina.box.x, top: trascina.box.y, width: trascina.box.w, height: trascina.box.h,
+                border: `${2 / nomi.scala}px dashed #60a5fa`, borderRadius: 6, background: "rgba(96,165,250,0.12)", pointerEvents: "none",
+              }} />
+            )}
             </div>
           </div>
         )}
@@ -3275,6 +3386,22 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
             )}
 
             <div style={{ position: "absolute", right: 16, bottom: 20, zIndex: 26, display: "flex", gap: 10, ...velo }}>
+              {lifeMap && anteprima && (
+                <span style={{ alignSelf: "center", fontSize: 11, color: "rgba(255,255,255,0.6)", textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>
+                  {t("Clicca un riquadro per spostarlo o tirarne i bordi")}
+                </span>
+              )}
+              {lifeMap && anteprima && Object.keys(fissi).length > 0 && (
+                <button onClick={rimettiRiquadri} disabled={stampa !== null}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600,
+                    cursor: stampa !== null ? "default" : "pointer",
+                    padding: "8px 16px", borderRadius: 999, background: "rgba(255,255,255,0.08)",
+                    border: "0.5px solid rgba(255,255,255,0.35)", color: "rgba(255,255,255,0.85)",
+                  }}>
+                  <RotateCcw className="w-3.5 h-3.5" /> {t("Rimetti com'era")}
+                </button>
+              )}
               {lifeMap && window.innerWidth >= 768 && anteprima && (
                 <button onClick={() => setAnteprima(false)} disabled={stampa !== null}
                   style={{

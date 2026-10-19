@@ -446,6 +446,8 @@ export const en = {
   "Stampa non riuscita: riprova": "Print failed: try again",
   "Scarica per la stampa": "Download for print",
   "Esci dall'anteprima": "Close preview",
+  "Rimetti com'era": "Reset",
+  "Clicca un riquadro per spostarlo o tirarne i bordi": "Click a box to move it or drag its edges",
   "Impossibile caricare la mappa.": "The map could not be loaded.",
   "Questo viaggio non ha punti sufficienti per la mappa 3D (manca la posizione di casa o della destinazione).": "This trip doesn't have enough points for the 3D map (the home or destination position is missing).",
   "Periodo": "Dates",
