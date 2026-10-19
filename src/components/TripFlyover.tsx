@@ -620,6 +620,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   /** «Per la stampa» in corso: la percentuale, o null. */
   const [stampa, setStampa] = useState<number | null>(null);
   const stampaRef = useRef(false);
+  /** La stampa non è riuscita: lo dice il bottone per qualche secondo. */
+  const [stampaFallita, setStampaFallita] = useState(false);
   /** Esc mentre si scrive: si esce senza salvare. */
   const annullaTitoloRef = useRef(false);
   /** Il compagno selezionato, o null per tutti. Filtra la costellazione. */
@@ -659,9 +661,12 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   }, [lifeMap]);
   /** Lo stile del riposo, spalmato su ogni blocco di comandi (vuoto fuori dalla
    *  Mappa della vita: gli altri poster tengono i comandi sempre accesi). */
+  // ⚠️ durante «Per la stampa» (fino a un minuto e più) restano ACCESI: a
+  // riposo sfumava anche la percentuale e sembrava ferma (visto dal vivo)
+  const comandiAccesi = comandiVisibili || stampa !== null;
   const velo = lifeMap ? {
-    opacity: comandiVisibili ? 1 : 0,
-    pointerEvents: (comandiVisibili ? "auto" : "none") as "auto" | "none",
+    opacity: comandiAccesi ? 1 : 0,
+    pointerEvents: (comandiAccesi ? "auto" : "none") as "auto" | "none",
     transition: "opacity 400ms ease",
   } : {};
   const [soloCon, setSoloCon] = useState<string | null>(null);
@@ -959,18 +964,26 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       }, sotto);
     }
   };
+  // si scaricano al PRIMO passaggio al Satellite: in Costellazione non servono
+  // (prima partivano a ogni apertura, anche sul telefono)
+  const costeInArrivoRef = useRef(false);
   useEffect(() => {
-    if (!lifeMap) return;
-    let vivo = true;
+    if (!lifeMap || styleMode !== "satellite" || costeRef.current || costeInArrivoRef.current) return;
+    costeInArrivoRef.current = true;
     loadCoste("50m").then(c => {
-      if (!vivo) return;
       costeRef.current = c;
+      if (!mountedRef.current || styleModeRef.current !== "satellite") return;
       const m = mapRef.current;
-      if (m && styleModeRef.current === "satellite") { try { aggiungiCoste(m, "satellite"); } catch { /* stile in cambio: le aggiunge addOverlayLayers */ } }
-    }).catch(() => { /* senza rete: il Satellite resta senza coste */ });
-    return () => { vivo = false; };
+      if (m) { try { aggiungiCoste(m, "satellite"); } catch { /* stile in cambio: le aggiunge addOverlayLayers */ } }
+      // anche alla mappa nascosta dei riquadri, e le foto si rifanno: senza,
+      // i riquadri restavano senza coste finché non si spostava la mappa
+      const riq = mappaRiqRef.current?.map;
+      if (riq) { try { aggiungiCoste(riq, "satellite"); } catch { /* non ancora pronta */ } }
+      if (m) void calcolaNomi(m);
+    }).catch(() => { /* senza rete: il Satellite resta senza coste */ })
+      .finally(() => { costeInArrivoRef.current = false; });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lifeMap]);
+  }, [lifeMap, styleMode]);
 
   const addOverlayLayers = (map: MapLibreMap, mode: MapStyleMode) => {
     const stops = stopsRef.current;
@@ -1104,6 +1117,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   };
 
   const selectStyle = (mode: MapStyleMode) => {
+    // a metà stampa si mescolerebbero due stili (foto satellitari con le stelle)
+    if (stampaRef.current) return;
     if (switchingRef.current || mode === styleMode) return;
     setStyleMode(mode);
     applyStyle(mode);
@@ -1435,7 +1450,14 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     stampaRef.current = true;
     setStampa(0);
     const nascoste: { m: MapLibreMap; div: HTMLDivElement }[] = [];
-    const satellite = styleModeRef.current === "satellite";
+    // non riuscita: lo dice il bottone per 5 secondi (prima: niente file e nessun avviso)
+    const fallita = () => {
+      if (!mountedRef.current) return;
+      setStampaFallita(true);
+      window.setTimeout(() => { if (mountedRef.current) setStampaFallita(false); }, 5000);
+    };
+    const modo = styleModeRef.current;   // fermo: anche se cambiasse, la stampa resta di questo stile
+    const satellite = modo === "satellite";
     // lo stesso stile, con le foto satellitari più dettagliate
     const st = JSON.parse(JSON.stringify(stile)) as StyleSpecification;
     for (const src of Object.values(st.sources)) if (src.type === "raster") src.tileSize = STAMPA.tileSize;
@@ -1452,7 +1474,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       // stelle e punti disegnati GRANDI: a 6,4× quelli dello schermo sarebbero sfocati
       if (satellite) m.addImage("flyover-dot", createDotImageData(STAMPA.scalaIcone), { pixelRatio: 2 * STAMPA.scalaIcone });
       else m.addImage("flyover-star", createStarImageData(stellaSecca ? "secca" : "soffusa", STAMPA.scalaIcone), { pixelRatio: 2 * STAMPA.scalaIcone });
-      addOverlayLayers(m, styleModeRef.current);
+      addOverlayLayers(m, modo);
       return { m, div };
     };
     try {
@@ -1460,6 +1482,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         document.fonts?.load(`italic ${FONT_NOMI.px}px "Noto Serif"`),
         document.fonts?.load(`${TITOLO_VITA.peso} ${TITOLO_VITA.px}px "Cormorant Garamond"`),
       ]).catch(() => undefined);
+      if (satellite && !costeRef.current) costeRef.current = await loadCoste("50m").catch(() => null);
       const { m } = await nuovaMappa(STAMPA.w, STAMPA.h);
       // l'inquadratura dello schermo, dentro il foglio 4:3 (che ne mostra un po' di più)
       const cam = m.cameraForBounds(map.getBounds(), { padding: STAMPA.margine });
@@ -1498,9 +1521,11 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       if (logo) drawBrandSignatureCanvas(ctx, c.width, c.height, k, logo, STAMPA.margine);
       setStampa(95);
       const blob = await new Promise<Blob | null>(res => c.toBlob(res, "image/jpeg", 0.92));
-      if (blob) downloadBlob(blob, `mappa-della-vita-stampa-${c.width}x${c.height}.jpg`);
+      if (!blob) { fallita(); return; }   // tela troppo grande per questo browser
+      downloadBlob(blob, `mappa-della-vita-stampa-${c.width}x${c.height}.jpg`);
     } catch (e) {
       console.error("Per la stampa:", e);
+      fallita();
     } finally {
       for (const { m, div } of nascoste) { try { m.remove(); } catch { /* già via */ } div.remove(); }
       stampaRef.current = false;
@@ -2942,7 +2967,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
             {([["satellite", "Satellite"], ["constellation", "Costellazione"]] as const).map(([mode, label]) => {
               const active = styleMode === mode;
               return (
-                <button key={mode} onClick={() => selectStyle(mode)} disabled={switching}
+                <button key={mode} onClick={() => selectStyle(mode)} disabled={switching || stampa !== null}
                   aria-pressed={active}
                   style={{
                     padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 600, border: "none",
@@ -3170,7 +3195,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                     border: "0.5px solid rgba(255,255,255,0.35)", color: "rgba(255,255,255,0.85)",
                   }}>
                   {stampa !== null ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
-                  {stampa !== null ? t("Preparo la stampa… {pct}%", { pct: stampa }) : t("Per la stampa")}
+                  {stampa !== null ? t("Preparo la stampa… {pct}%", { pct: stampa })
+                    : stampaFallita ? t("Stampa non riuscita: riprova") : t("Per la stampa")}
                 </button>
               )}
               {styleMode === "constellation" && (
