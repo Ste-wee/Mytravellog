@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { disponiEtichette, type Box, type Opzioni, type Punto } from "./etichetteMappa";
+import { LINEE_SOFY, PUNTI_SOFY } from "./etichetteMappa.scenaSofy";
 
 const OPZ: Opzioni = {
   w: 600, h: 800, misura: (n: string) => n.length * 6, altezza: 12, raggioStella: 3,
@@ -406,6 +407,24 @@ describe("disponiEtichette", () => {
       }
     }
     expect(fili).toBeGreaterThan(0);   // la prova ha visto dei fili
+  });
+
+  it("un nome del gruppo che dentro non entra allarga il riquadro, non finisce fuori (Friburgo, scena vera)", () => {
+    const larghezze = new Map(PUNTI_SOFY.map(([, nome, , , w]) => [nome, w]));
+    const d = disponiEtichette(PUNTI_SOFY.map(([id, nome, x, y]) => ({ id, nome, x, y })), {
+      w: 878, h: 598, misura: n => larghezze.get(n) ?? n.length * 6, altezza: 13, raggioStella: 4, scostamento: 6,
+      distanzaGrappolo: 15, margine: 8, linee: LINEE_SOFY.map(l => l.map(([x, y]) => ({ x, y }))),
+      vietate: [{ x: 878 - 84, y: 598 - 56, w: 84, h: 56 }],
+    });
+    const alsazia = d.riquadri.find(r => r.ids.includes("26"))!;   // 26 = Colmar
+    expect([...alsazia.nomi, ...alsazia.conFilo].map(e => e.nome)).toContain("Friburgo in Brisgovia");
+    expect(d.conFilo.map(e => e.nome)).not.toContain("Friburgo in Brisgovia");
+    expect(d.senzaPosto).toEqual([]);
+    // nessuna stella piena senza il suo nome dentro un riquadro
+    for (const r of d.riquadri) {
+      const nominati = new Set([...r.nomi, ...r.conFilo].map(e => e.id));
+      for (const s of r.stelle) expect(nominati.has(s.id), `riquadro ${r.numero}: stella ${s.id} senza nome`).toBe(true);
+    }
   });
 
   it("nessun punto: nessuna scritta", () => {

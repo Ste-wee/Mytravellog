@@ -327,13 +327,20 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
       && !fuori.fatti.some(e => sovrapposti(r, e.box, 4))
       && !occupatiRiquadri.some(b => sovrapposti(r, b, 6))
       && !vietate.some(b => sovrapposti(r, b, 4));
+    // un nome del gruppo che dentro non entra NON va fuori al primo colpo: il
+    // riquadro si allarga (stessa scala, più spazio intorno) e si riprova.
+    // ⚠️ coi viaggi veri «Friburgo in Brisgovia», nel riquadro dell'Alsazia
+    // largo 209 px, finiva sulla mappa grande col filo e la stella restava
+    // dentro senza nome: «Friburgo esce dal quadrato»
+    const prova = (w0: number, h0: number, scala0: number) => {
+    let w = w0, h = h0, scala = scala0;
     let posto: Box | null = null;
     for (let tentativo = 0; tentativo < 3 && !posto; tentativo++) {
       posto = cercaPosto(centroZona, w, h, 30, Math.max(o.w, o.h) * 0.35, libero);
       if (!posto) { w = Math.round(w * 0.88); h = Math.round(h * 0.88); scala *= 0.88; }
     }
     posto = posto ?? cercaPosto(centroZona, w, h, 30, Math.max(o.w, o.h), libero);
-    if (!posto) { tornaFuori.push(...g); continue; }
+    if (!posto) return null;
     const centroPosto = { x: posto.x + posto.w / 2, y: posto.y + posto.h / 2 };
     const dentroRiq = (p: { x: number; y: number }) => ({ x: centroPosto.x + (p.x - centroZona.x) * scala, y: centroPosto.y + (p.y - centroZona.y) * scala });
     const pz0 = posto;
@@ -368,6 +375,20 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
       if (box) filiDentro.push(conIlFilo(q.id, q.nome, q, box, o.altezza));
       else senzaNomeQui.push(punti.find(x => x.id === q.id)!);
     }
+    return { posto, pz, scala, centroPosto, membri, altreVisibili, ospiti, tutti, interni, filiDentro, senzaNomeQui };
+    };
+    let esito = prova(w, h, scala);
+    for (let allarga = 0; allarga < 3 && esito && esito.senzaNomeQui.length; allarga++) {
+      // più spazio quanto il nome più lungo rimasto fuori, in largo e in alto
+      const manca = Math.max(...esito.senzaNomeQui.map(q => o.misura(q.nome)));
+      w = Math.round(w + manca * 0.7 + o.scostamento * 2);
+      h = Math.round(h + (o.altezza + o.scostamento) * 1.5);
+      const piu = prova(w, h, scala);
+      if (piu && piu.senzaNomeQui.length < esito.senzaNomeQui.length) esito = piu;
+    }
+    if (!esito) { tornaFuori.push(...g); continue; }
+    const { posto, pz, centroPosto, membri, altreVisibili, ospiti, tutti, interni, filiDentro, senzaNomeQui } = esito;
+    scala = esito.scala;
     // un riquadro che non tiene dentro almeno metà dei suoi nomi non serve:
     // si scarta e le sue stelle tornano sulla mappa grande (visto sul telefono:
     // un riquadro rimpicciolito per entrare, con tre stelle e nessun nome)
@@ -391,11 +412,12 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
       numero: 0, ids: tutti.filter(p => !senzaNomeQui.includes(p) || g.includes(p)).map(p => p.id),
       zona: zonaVista, posto: pz, numeroZona: zonaVista, scala, centroZona, centroPosto,
       filo: { x1: a.x, y1: a.y, x2: b.x, y2: b.y },
-      stelle: membri.filter(p => !senzaNomeQui.some(q => q.id === p.id) || g.some(q => q.id === p.id)).map(p => ({ id: p.id, x: p.x, y: p.y })),
+      // (chi dentro è rimasto senza nome ha la stella spenta: il suo nome è fuori)
+      stelle: membri.filter(p => !senzaNomeQui.some(q => q.id === p.id)).map(p => ({ id: p.id, x: p.x, y: p.y })),
       altre: [
         ...altreVisibili.map(q => ({ x: q.x + pz.x, y: q.y + pz.y })),
         // un ospite che dentro non ha trovato posto resta una stella spenta
-        ...membri.filter(p => !g.some(q => q.id === p.id) && !ospitati.has(p.id)).map(p => ({ x: p.x, y: p.y })),
+        ...membri.filter(p => senzaNomeQui.some(q => q.id === p.id) || (!g.some(q => q.id === p.id) && !ospitati.has(p.id))).map(p => ({ x: p.x, y: p.y })),
       ],
       nomi: interni.fatti.map(sposta),
       conFilo: filiDentro.map(e => ({ ...sposta(e), filo: { x1: e.filo.x1 + pz.x, y1: e.filo.y1 + pz.y, x2: e.filo.x2 + pz.x, y2: e.filo.y2 + pz.y } })),

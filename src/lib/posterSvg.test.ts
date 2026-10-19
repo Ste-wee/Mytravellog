@@ -410,14 +410,20 @@ describe("buildPosterSvg — il filo di un nome (scelta D)", () => {
       stops: [
         { lon: 9.26, lat: 45.99, label: "Bellagio" }, { lon: 9.28, lat: 46.01, label: "Varenna" }, { lon: 9.24, lat: 46.02, label: "Menaggio" },
         { lon: 2.35, lat: 48.86, label: "Parigi" }, { lon: 4.83, lat: 45.76, label: "Lione" },
+        // due stelle quasi sovrapposte (in due non fanno riquadro): una delle due va per forza col filo
+        { lon: 2.36, lat: 48.865, label: "Saint-Denis" },
       ],
       title: "", nomiOvunque: true,
-      misuraTesto: t => t.length * 30,   // nomi larghissimi: qualcuno va per forza col filo
+      misuraTesto: t => t.length * 12,
     });
-    const nomi = s.slice(s.indexOf('<g id="nomi">'), s.indexOf('<g id="riquadri">'));
-    const fili = nomi.match(/<line [^>]*>/g) ?? [];
+    // i fili dei nomi possono stare sulla mappa grande o DENTRO i riquadri (che
+    // si allargano per tenerli): si contano su tutto il foglio, ognuno col suo puntino
+    const nomi = s.slice(s.indexOf('<g id="nomi">'));
+    const fili = nomi.match(/<line [^>]*stroke-dasharray="5 4"[^>]*>/g) ?? [];
     expect(fili.length).toBeGreaterThan(0);
-    for (const l of fili) expect(l).toContain('stroke-dasharray="5 4"');
     expect((nomi.match(/<circle [^>]*r="3.5"/g) ?? []).length).toBe(fili.length);
+    // e nessun filo di nome pieno sulla mappa grande
+    const grande = s.slice(s.indexOf('<g id="nomi">'), s.indexOf('<g id="riquadri">'));
+    for (const l of grande.match(/<line [^>]*>/g) ?? []) expect(l).toContain('stroke-dasharray="5 4"');
   });
 });
