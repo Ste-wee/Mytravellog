@@ -94,7 +94,15 @@ const COSTE_E1 = {
  * In Satellite le foto si chiedono 3 livelli più dettagliate (riquadri da 64
  * invece di 512): a 6,4× quelle dello schermo uscirebbero sgranate.
  */
-const STAMPA = { w: 1200, h: 900, k: 6.4, margine: 36, tileSize: 64, scalaIcone: 3, attesaMs: 90000 };
+const STAMPA = {
+  w: 1200, h: 900, k: 6.4, margine: 36, tileSize: 64, scalaIcone: 3, attesaMs: 90000,
+  // nomi e riquadri più grandi che a schermo (Stefano, 2026-10-19: «abbiamo un
+  // po' di spazio, così non tagliamo nemmeno le strade»; poi «i nomi a 1 cm, i
+  // riquadri al 42% più grandi»). Nomi a 16 px ≈ 8,5 mm, NON a 1 cm (19 px):
+  // misurato sulla stampa, a 19 px 7 nomi finivano lontani col filo (fino a
+  // 249 px: «Budapest» vicino a Reggio Calabria), a 16 px 4 con filo ≤ 77 px
+  corpoNomi: 16, riquadri: 1.42,
+};
 
 // Confini "a costellazione": tenui e sottili, per fare da
 // sfondo stellato senza rubare contrasto al tracciato/alle stelle. Pensata come
@@ -200,7 +208,7 @@ function createDotImageData(scala = 1): ImageData {
  * `coloreStelle` della vista: prima usciva un rettangolo nero coi soli nomi.
  */
 function disegnaNomiSuCanvas(ctx: CanvasRenderingContext2D,
-  n: { d: Disposizione; foto: Record<number, HTMLCanvasElement> }, k: number, coloreStelle: string) {
+  n: { d: Disposizione; foto: Record<number, HTMLCanvasElement> }, k: number, coloreStelle: string, corpo = FONT_NOMI.px) {
   const { d, foto } = n;
   ctx.save();
   ctx.scale(k, k);
@@ -223,7 +231,7 @@ function disegnaNomiSuCanvas(ctx: CanvasRenderingContext2D,
     ctx.strokeText(s, x, y);
     ctx.fillStyle = "#ffffff"; ctx.fillText(s, x, y);
   };
-  const fontNome = `italic ${FONT_NOMI.px}px ${FONT_NOMI.famiglia}`;
+  const fontNome = `italic ${corpo}px ${FONT_NOMI.famiglia}`;
   const bollino = (numero: number, cx: number, cy: number, raggio: number) => {
     ctx.setLineDash([]);
     ctx.beginPath(); ctx.arc(cx, cy, raggio, 0, Math.PI * 2);
@@ -1495,6 +1503,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       const { d, gTitolo } = disponiVita(m, STAMPA.w, STAMPA.h, {
         margine: STAMPA.margine, firma: STAMPA.margine,
         titolo: { destra: STAMPA.margine, alto: STAMPA.margine, selettore: false },
+        corpo: STAMPA.corpoNomi, riquadri: STAMPA.riquadri,
       });
       const foto: Record<number, HTMLCanvasElement> = {};
       if (d.riquadri.length) {
@@ -1515,7 +1524,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       const k = c.width / STAMPA.w;
       ctx.fillStyle = "#000"; ctx.fillRect(0, 0, c.width, c.height);
       ctx.drawImage(sfondo, 0, 0);
-      disegnaNomiSuCanvas(ctx, { d, foto }, k, satellite ? "#fbbf24" : "#ffffff");
+      disegnaNomiSuCanvas(ctx, { d, foto }, k, satellite ? "#fbbf24" : "#ffffff", STAMPA.corpoNomi);
       if (gTitolo) disegnaTitoloVitaSuCanvas(ctx, titoloVitaRef.current, gTitolo, k);
       const logo = await loadBrandLogo();
       if (logo) drawBrandSignatureCanvas(ctx, c.width, c.height, k, logo, STAMPA.margine);
@@ -2394,19 +2403,13 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     return c.measureText(testo).width;
   };
 
-  const misuraNome = (s: string) => {
-    if (!misuraRef.current) misuraRef.current = document.createElement("canvas").getContext("2d");
-    const c = misuraRef.current;
-    if (!c) return s.length * FONT_NOMI.px * 0.55;
-    c.font = `italic ${FONT_NOMI.px}px ${FONT_NOMI.famiglia}`;
-    return c.measureText(s).width;
-  };
-
-  /** Ricalcola nomi, fili e riquadri per la vista di adesso. */
   /** Nomi, fili e riquadri della Mappa della vita su un foglio W×H della mappa
    *  `map`: lo schermo e la stampa usano la STESSA disposizione, cambiano solo
    *  i margini (e la stampa non ha il selettore degli stili da scavalcare). */
-  const disponiVita = (map: MapLibreMap, W: number, H: number, bordo: { margine: number; firma: number; titolo?: BordiTitolo }) => {
+  const disponiVita = (map: MapLibreMap, W: number, H: number,
+    bordo: { margine: number; firma: number; titolo?: BordiTitolo; corpo?: number; riquadri?: number }) => {
+    const corpo = bordo.corpo ?? FONT_NOMI.px;
+    const misura = (t: string) => misuraTesto(t, `italic ${corpo}px ${FONT_NOMI.famiglia}`);
     // le longitudini vicino al centro della vista (antimeridiano: vedi lonWrap)
     const cLng = map.getCenter().lng;
     const punti = stopsRef.current
@@ -2419,8 +2422,11 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     // il titolo in alto a destra: nomi e riquadri gli girano intorno
     const gTitolo = geometriaTitoloVita(titoloVitaRef.current, W, misuraTesto, bordo.titolo);
     const d = disponiEtichette(punti, {
-      w: W, h: H, misura: misuraNome, altezza: FONT_NOMI.px + 2, raggioStella: 4, scostamento: 6,
-      distanzaGrappolo: 15, margine: bordo.margine, linee,
+      // tutto in proporzione al corpo: con nomi più grandi anche la distanza che fa
+      // «gruppo» cresce, sennò le zone fitte spargono nomi lontani col filo invece
+      // di andare in un riquadro (visto in stampa a 19 px: «Pisa» vicino a Trieste)
+      w: W, h: H, misura, altezza: corpo + 2, raggioStella: 4, scostamento: Math.round(6 * corpo / FONT_NOMI.px),
+      distanzaGrappolo: Math.round(15 * corpo / FONT_NOMI.px), margine: bordo.margine, linee, grandezzaRiquadri: bordo.riquadri,
       // la firma «By 🐻» in basso a destra (drawBrandSignatureCanvas): copriva «La Spezia»
       vietate: [
         { x: W - bordo.firma - 66, y: H - bordo.firma - 38, w: bordo.firma + 66, h: bordo.firma + 38 },
@@ -2430,6 +2436,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     return { d, gTitolo };
   };
 
+  /** Ricalcola nomi, fili e riquadri per la vista di adesso. */
   const calcolaNomi = async (map: MapLibreMap) => {
     const id = ++calcoloNomiRef.current;
     const el = map.getContainer();

@@ -94,6 +94,10 @@ export interface Opzioni {
    *  quando entro filoMax non c'è posto: allora meglio un filo lungo che
    *  un nome che manca. */
   filoMax?: number;
+  /** Riquadri più grandi (default 1): alza il tetto e il margine intorno al
+   *  gruppo, così dentro si vede più strada prima che esca dal bordo. La usa
+   *  la stampa, dove lo spazio c'è (scelta di Stefano, 2026-10-19). */
+  grandezzaRiquadri?: number;
 }
 
 const sovrapposti = (a: Box, b: Box, m = 0) =>
@@ -230,14 +234,15 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
   // proporzione allo schermo, su desktop un riquadro arrivava a mezzo poster
   // quasi vuoto — visto: Napoli–Cosenza)
   const serve = (o.altezza + o.scostamento) * 2 + 4;
-  const wMax = Math.min(o.w * 0.55, 300), hMax = Math.min(o.h * 0.42, 220);
+  const gR = o.grandezzaRiquadri ?? 1;
+  const wMax = Math.min(o.w * 0.55 * gR, 300 * gR), hMax = Math.min(o.h * 0.42 * gR, 220 * gR);
   const misureGruppo = (g: Punto[]) => {
     const xs = g.map(p => p.x), ys = g.map(p => p.y);
     const zw = Math.max(...xs) - Math.min(...xs), zh = Math.max(...ys) - Math.min(...ys);
     let minimo = Infinity;
     for (let a = 0; a < g.length; a++) for (let b = a + 1; b < g.length; b++) minimo = Math.min(minimo, Math.max(1, dist(g[a], g[b])));
     const voluta = Math.min(8, Math.max(2, serve / minimo));
-    const aria = { x: Math.max(...g.map(p => o.misura(p.nome))) + 24, y: (o.altezza + o.scostamento) * 2 + 18 };
+    const aria = { x: (Math.max(...g.map(p => o.misura(p.nome))) + 24) * gR, y: ((o.altezza + o.scostamento) * 2 + 18) * gR };
     const possibile = Math.min(Math.max(1.5, (wMax - aria.x) / Math.max(1, zw)), Math.max(1.5, (hMax - aria.y) / Math.max(1, zh)));
     return { voluta, possibile, aria, zw, zh };
   };
@@ -308,7 +313,7 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
     const zona = zone[i];
     const { voluta, possibile, aria, zw, zh } = misureGruppo(g);
     let scala = Math.min(voluta, possibile);
-    let w = Math.round(Math.max(110, zw * scala + aria.x)), h = Math.round(Math.max(76, zh * scala + aria.y));
+    let w = Math.round(Math.max(110 * gR, zw * scala + aria.x)), h = Math.round(Math.max(76 * gR, zh * scala + aria.y));
     const centroZona = { x: zona.x + zona.w / 2, y: zona.y + zona.h / 2 };
     const libero = (r: Box) => dentro(r, o.w, o.h, o.margine)
       && !stelle.some(s => s.x > r.x - 8 && s.x < r.x + r.w + 8 && s.y > r.y - 8 && s.y < r.y + r.h + 8)

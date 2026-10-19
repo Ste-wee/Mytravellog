@@ -350,6 +350,15 @@ describe("disponiEtichette", () => {
     expect(d.riquadri.some(r => r.altre.length > 0), "la prova ha davvero visto stelle altrui").toBe(true);
   });
 
+  it("grandezzaRiquadri (la stampa): stesso gruppo, riquadro più grande e con più margine", () => {
+    const umbria = [p("Perugia", 300, 400), p("Assisi", 309, 403), p("Spello", 312, 409), p("Cortona", 293, 393), p("Montepulciano", 287, 401)];
+    const base = disponiEtichette(umbria, OPZ).riquadri[0];
+    const grande = disponiEtichette(umbria, { ...OPZ, grandezzaRiquadri: 1.42 }).riquadri[0];
+    expect(grande.posto.w).toBeGreaterThan(base.posto.w * 1.1);   // cresce soprattutto il margine
+    expect(grande.posto.h).toBeGreaterThan(base.posto.h * 1.1);
+    expect([...grande.ids].sort()).toEqual([...base.ids].sort());
+  });
+
   it("nessun punto: nessuna scritta", () => {
     expect(disponiEtichette([], OPZ)).toEqual({ accanto: [], conFilo: [], riquadri: [], senzaPosto: [] });
   });
