@@ -88,20 +88,27 @@ const COSTE_E1 = {
 
 /**
  * «Per la stampa» (2026-10-19, per il puzzle-calendario puzzleYOU 64×48 cm):
- * un foglio 4:3 di 1200×900 px CSS disegnato a 6,4× = 7680×5760 (≈300 dpi a
- * 64 cm). I nomi restano grandi come a schermo (11 px su 1200 ≈ 6 mm), i
- * margini sono da stampa (36 px ≈ 2 cm: titolo e firma lontani dal taglio).
- * In Satellite le foto si chiedono 3 livelli più dettagliate (riquadri da 64
- * invece di 512): a 6,4× quelle dello schermo uscirebbero sgranate.
+ * un foglio 4:3 di 1200×900 «px di foglio», reso 6,4× = 7680×5760 (≈300 dpi a
+ * 64 cm), coi margini da stampa (36 ≈ 2 cm: titolo e firma lontani dal
+ * taglio). Si vede prima nell'ANTEPRIMA (la mappa in una cornice 4:3); la
+ * stampa ridisegna quella mappa con più pixel. In Satellite le foto si
+ * chiedono più dettagliate (tileSize sotto 512) in proporzione alla densità.
+ * tileSize qui = quella dei riquadri, disegnati a 6,4×.
  */
 const STAMPA = {
-  w: 1200, h: 900, k: 6.4, margine: 36, tileSize: 64, scalaIcone: 3, attesaMs: 90000,
+  w: 1200, h: 900, k: 6.4, margine: 36, tileSize: 64, attesaMs: 90000,
   // nomi e riquadri più grandi che a schermo (Stefano, 2026-10-19: «abbiamo un
   // po' di spazio, così non tagliamo nemmeno le strade»; poi «i nomi a 1 cm, i
   // riquadri al 42% più grandi»). Nomi a 16 px ≈ 8,5 mm, NON a 1 cm (19 px):
   // misurato sulla stampa, a 19 px 7 nomi finivano lontani col filo (fino a
   // 249 px: «Budapest» vicino a Reggio Calabria), a 16 px 4 con filo ≤ 77 px
   corpoNomi: 16, riquadri: 1.42,
+};
+/** I bordi del foglio di stampa, per disponiVita (nomi, riquadri, titolo, firma). */
+const BORDI_STAMPA = {
+  margine: STAMPA.margine, firma: STAMPA.margine,
+  titolo: { destra: STAMPA.margine, alto: STAMPA.margine, selettore: false },
+  corpo: STAMPA.corpoNomi, riquadri: STAMPA.riquadri,
 };
 
 // Confini "a costellazione": tenui e sottili, per fare da
@@ -605,7 +612,10 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   styleModeRef.current = styleMode;
   /** Mappa della vita: nomi, fili e riquadri della vista di adesso (vedi
    *  calcolaNomi), con le foto dei riquadri. Li ricopia l'immagine condivisa. */
-  type NomiMappa = { d: Disposizione; foto: Record<number, HTMLCanvasElement>; url: Record<number, string>; w: number; h: number };
+  /** w/h: il foglio su cui è calcolata la disposizione (lo schermo, o in
+   *  anteprima di stampa il foglio 1200×900); scala: quanto quel foglio è
+   *  rimpicciolito a schermo; corpo: il carattere dei nomi su quel foglio. */
+  type NomiMappa = { d: Disposizione; foto: Record<number, HTMLCanvasElement>; url: Record<number, string>; w: number; h: number; scala: number; corpo: number };
   const [nomi, setNomi] = useState<NomiMappa | null>(null);
   const nomiRef = useRef<NomiMappa | null>(null);
   /** False mentre la mappa si muove: i nomi spariscono e tornano a mappa ferma. */
@@ -630,6 +640,20 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   const stampaRef = useRef(false);
   /** La stampa non è riuscita: lo dice il bottone per qualche secondo. */
   const [stampaFallita, setStampaFallita] = useState(false);
+  /**
+   * ANTEPRIMA DI STAMPA (Stefano, 2026-10-19: «come mai la stampa viene
+   * diversa da quello che vedo?»). La stampa rifaceva la disposizione su un
+   * foglio 4:3 con nomi e riquadri più grandi, e i gruppi cambiavano. Ora
+   * «Per la stampa» apre un'anteprima: la mappa diventa un riquadro 4:3, nomi
+   * e riquadri si calcolano in misure di STAMPA (foglio 1200×900, mostrato
+   * rimpicciolito), e «Scarica» disegna QUELLA mappa con più pixel. Quello che
+   * vedi è quello che stampi.
+   */
+  const [anteprima, setAnteprima] = useState(false);
+  const fogliettoRef = useRef(false);
+  fogliettoRef.current = anteprima;
+  /** Il riquadro 4:3 della mappa dentro la scheda, in anteprima. */
+  const [cornice, setCornice] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   /** Esc mentre si scrive: si esce senza salvare. */
   const annullaTitoloRef = useRef(false);
   /** Il compagno selezionato, o null per tutti. Filtra la costellazione. */
@@ -1454,7 +1478,14 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
    */
   const handleStampa = async () => {
     const lib = libRef.current, map = mapRef.current, stile = stileRef.current;
-    if (!lib || !map || !stile || stampaRef.current) return;
+    if (!lib || !map || !stile || stampaRef.current || !fogliettoRef.current) return;
+    // la mappa dell'anteprima (il riquadro 4:3 a schermo): stessa inquadratura,
+    // stesse proporzioni di stelle e linee, solo più pixel
+    const Wm = map.getContainer().clientWidth, Hm = map.getContainer().clientHeight;
+    if (!Wm || !Hm) return;
+    const kMappa = (STAMPA.w * STAMPA.k) / Wm;
+    // foto satellitari abbastanza dettagliate per kMappa (a 512 sarebbero sgranate)
+    const tileMappa = 512 / 2 ** Math.ceil(Math.log2(kMappa));
     stampaRef.current = true;
     setStampa(0);
     const nascoste: { m: MapLibreMap; div: HTMLDivElement }[] = [];
@@ -1467,21 +1498,25 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     const modo = styleModeRef.current;   // fermo: anche se cambiasse, la stampa resta di questo stile
     const satellite = modo === "satellite";
     // lo stesso stile, con le foto satellitari più dettagliate
-    const st = JSON.parse(JSON.stringify(stile)) as StyleSpecification;
-    for (const src of Object.values(st.sources)) if (src.type === "raster") src.tileSize = STAMPA.tileSize;
-    const nuovaMappa = async (w: number, h: number) => {
+    const stileCon = (tile: number) => {
+      const st = JSON.parse(JSON.stringify(stile)) as StyleSpecification;
+      for (const src of Object.values(st.sources)) if (src.type === "raster") src.tileSize = tile;
+      return st;
+    };
+    const nuovaMappa = async (w: number, h: number, k = STAMPA.k, tile = STAMPA.tileSize) => {
       const div = document.createElement("div");
       div.style.cssText = `position:fixed;left:-20000px;top:0;width:${w}px;height:${h}px;pointer-events:none;`;
       document.body.appendChild(div);
       const m = new lib.Map({
-        container: div, style: JSON.parse(JSON.stringify(st)), interactive: false, attributionControl: false,
-        fadeDuration: 0, pixelRatio: STAMPA.k, maxCanvasSize: [8192, 8192],
+        container: div, style: stileCon(tile), interactive: false, attributionControl: false,
+        fadeDuration: 0, pixelRatio: k, maxCanvasSize: [8192, 8192],
       });
       nascoste.push({ m, div });
       await new Promise<void>(r => { m.once("load", () => r()); setTimeout(r, 20000); });
-      // stelle e punti disegnati GRANDI: a 6,4× quelli dello schermo sarebbero sfocati
-      if (satellite) m.addImage("flyover-dot", createDotImageData(STAMPA.scalaIcone), { pixelRatio: 2 * STAMPA.scalaIcone });
-      else m.addImage("flyover-star", createStarImageData(stellaSecca ? "secca" : "soffusa", STAMPA.scalaIcone), { pixelRatio: 2 * STAMPA.scalaIcone });
+      // stelle e punti disegnati GRANDI: a k× quelli dello schermo sarebbero sfocati
+      const sc = Math.ceil(k / 2);
+      if (satellite) m.addImage("flyover-dot", createDotImageData(sc), { pixelRatio: 2 * sc });
+      else m.addImage("flyover-star", createStarImageData(stellaSecca ? "secca" : "soffusa", sc), { pixelRatio: 2 * sc });
       addOverlayLayers(m, modo);
       return { m, div };
     };
@@ -1491,20 +1526,17 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         document.fonts?.load(`${TITOLO_VITA.peso} ${TITOLO_VITA.px}px "Cormorant Garamond"`),
       ]).catch(() => undefined);
       if (satellite && !costeRef.current) costeRef.current = await loadCoste("50m").catch(() => null);
-      const { m } = await nuovaMappa(STAMPA.w, STAMPA.h);
-      // l'inquadratura dello schermo, dentro il foglio 4:3 (che ne mostra un po' di più)
-      const cam = m.cameraForBounds(map.getBounds(), { padding: STAMPA.margine });
-      if (cam) m.jumpTo(cam);
+      const { m } = await nuovaMappa(Wm, Hm, kMappa, tileMappa);
+      // ESATTAMENTE l'inquadratura dell'anteprima
+      m.jumpTo({ center: map.getCenter(), zoom: map.getZoom(), pitch: 0, bearing: 0 });
       setStampa(5);
       await mappaFerma(m, STAMPA.attesaMs);
       if (!mountedRef.current) return;
       const sfondo = await copiaMappa(m);
       setStampa(25);
-      const { d, gTitolo } = disponiVita(m, STAMPA.w, STAMPA.h, {
-        margine: STAMPA.margine, firma: STAMPA.margine,
-        titolo: { destra: STAMPA.margine, alto: STAMPA.margine, selettore: false },
-        corpo: STAMPA.corpoNomi, riquadri: STAMPA.riquadri,
-      });
+      // la stessa disposizione dell'anteprima (stessa mappa, stessi conti)
+      const scalaFoglio = Wm / STAMPA.w;
+      const { d, gTitolo } = disponiVita(m, STAMPA.w, STAMPA.h, { ...BORDI_STAMPA, fattore: 1 / scalaFoglio });
       const foto: Record<number, HTMLCanvasElement> = {};
       if (d.riquadri.length) {
         const riq = await nuovaMappa(200, 150);
@@ -1512,18 +1544,20 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         const stella = typeof misura === "number" ? misura : 1;
         for (const [i, r] of d.riquadri.entries()) {
           if (!mountedRef.current) return;
-          const c = await fotografaRiquadro(m, riq.m, r, { div: riq.div, stella }, STAMPA.attesaMs);
+          const c = await fotografaRiquadro(m, riq.m, r, { div: riq.div, stella }, STAMPA.attesaMs, scalaFoglio);
           if (c) foto[r.numero] = c;
           setStampa(25 + Math.round((65 * (i + 1)) / d.riquadri.length));
         }
       }
       // il foglio: mappa, nomi e riquadri, titolo, firma — come «Condividi»
+      // esattamente 7680×5760: la cornice a schermo arrotonda al pixel (es. 797×598)
+      // e la mappa usciva 7679×5762; il ritocco è sotto lo 0,1%
       const c = document.createElement("canvas");
-      c.width = sfondo.width; c.height = sfondo.height;
+      c.width = STAMPA.w * STAMPA.k; c.height = STAMPA.h * STAMPA.k;
       const ctx = c.getContext("2d")!;
       const k = c.width / STAMPA.w;
       ctx.fillStyle = "#000"; ctx.fillRect(0, 0, c.width, c.height);
-      ctx.drawImage(sfondo, 0, 0);
+      ctx.drawImage(sfondo, 0, 0, c.width, c.height);
       disegnaNomiSuCanvas(ctx, { d, foto }, k, satellite ? "#fbbf24" : "#ffffff", STAMPA.corpoNomi);
       if (gTitolo) disegnaTitoloVitaSuCanvas(ctx, titoloVitaRef.current, gTitolo, k);
       const logo = await loadBrandLogo();
@@ -2372,7 +2406,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
    *  lì (il loro è sulla mappa grande) sembravano tappe dimenticate (scelta B,
    *  «Attenuate», 2026-10-15). */
   const fotografaRiquadro = async (map: MapLibreMap, m: MapLibreMap, r: Riquadro,
-    riq: { div: HTMLDivElement; stella: number } | null = mappaRiqRef.current, maxMs = 12000): Promise<HTMLCanvasElement | null> => {
+    riq: { div: HTMLDivElement; stella: number } | null = mappaRiqRef.current, maxMs = 12000,
+    /** pixel della mappa per pixel del foglio (anteprima di stampa: < 1) */ scalaFoglio = 1): Promise<HTMLCanvasElement | null> => {
     try {
       if (!riq) return null;
       const { div, stella } = riq;
@@ -2384,8 +2419,9 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         m.setLayoutProperty("flyover-stops", "icon-size", ["case", delRiquadro, stella, stella * ATTENUATE.misura]);
         m.setPaintProperty("flyover-stops", "icon-opacity", ["case", delRiquadro, 1, ATTENUATE.opacita]);
       }
-      const centro = map.unproject([r.centroZona.x, r.centroZona.y]);
-      m.jumpTo({ center: [centro.lng, centro.lat], zoom: map.getZoom() + Math.log2(r.scala), pitch: 0, bearing: 0 });
+      const centro = map.unproject([r.centroZona.x * scalaFoglio, r.centroZona.y * scalaFoglio]);
+      // il foglio è la mappa ingrandita di 1/scalaFoglio, il riquadro di r.scala in più
+      m.jumpTo({ center: [centro.lng, centro.lat], zoom: map.getZoom() - Math.log2(scalaFoglio) + Math.log2(r.scala), pitch: 0, bearing: 0 });
       await mappaFerma(m, maxMs);
       await visibile();
       return await copiaMappa(m);
@@ -2407,17 +2443,20 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
    *  `map`: lo schermo e la stampa usano la STESSA disposizione, cambiano solo
    *  i margini (e la stampa non ha il selettore degli stili da scavalcare). */
   const disponiVita = (map: MapLibreMap, W: number, H: number,
-    bordo: { margine: number; firma: number; titolo?: BordiTitolo; corpo?: number; riquadri?: number }) => {
+    bordo: { margine: number; firma: number; titolo?: BordiTitolo; corpo?: number; riquadri?: number; fattore?: number }) => {
     const corpo = bordo.corpo ?? FONT_NOMI.px;
+    // fattore: pixel del foglio per pixel della mappa (anteprima di stampa: il
+    // foglio è 1200 di larghezza, la mappa a schermo meno)
+    const fa = bordo.fattore ?? 1;
     const misura = (t: string) => misuraTesto(t, `italic ${corpo}px ${FONT_NOMI.famiglia}`);
     // le longitudini vicino al centro della vista (antimeridiano: vedi lonWrap)
     const cLng = map.getCenter().lng;
     const punti = stopsRef.current
-      .map((s, i) => { const p = map.project([unwrapNear(s.lon, cLng), s.lat]); return { id: String(i), nome: s.label, x: p.x, y: p.y }; })
+      .map((s, i) => { const p = map.project([unwrapNear(s.lon, cLng), s.lat]); return { id: String(i), nome: s.label, x: p.x * fa, y: p.y * fa }; })
       .filter(p => p.nome && p.x >= 0 && p.x <= W && p.y >= 0 && p.y <= H);
     const linee = routeSegsRef.current.filter(s => s.length > 1).map(seg => {
       const off = unwrapNear(seg[0][0], cLng) - seg[0][0];
-      return seg.map(([lon, lat]) => { const p = map.project([lon + off, lat]); return { x: p.x, y: p.y }; });
+      return seg.map(([lon, lat]) => { const p = map.project([lon + off, lat]); return { x: p.x * fa, y: p.y * fa }; });
     });
     // il titolo in alto a destra: nomi e riquadri gli girano intorno
     const gTitolo = geometriaTitoloVita(titoloVitaRef.current, W, misuraTesto, bordo.titolo);
@@ -2449,13 +2488,20 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       ]);
     } catch { /* si misura col ripiego */ }
     if (calcoloNomiRef.current !== id) return;
-    const { d } = disponiVita(map, W, H, { margine: 8, firma: 18 });
+    // in anteprima di stampa: il foglio 1200×900 coi bordi e le misure della stampa
+    const foglio = fogliettoRef.current;
+    const scala = foglio ? W / STAMPA.w : 1;
+    const Wf = foglio ? STAMPA.w : W, Hf = foglio ? STAMPA.h : H;
+    const corpo = foglio ? STAMPA.corpoNomi : FONT_NOMI.px;
+    const { d } = foglio
+      ? disponiVita(map, Wf, Hf, { ...BORDI_STAMPA, fattore: 1 / scala })
+      : disponiVita(map, W, H, { margine: 8, firma: 18 });
     const foto: Record<number, HTMLCanvasElement> = {};
     const url: Record<number, string> = {};
     // i nomi tornano SUBITO; le foto dei riquadri arrivano una alla volta
     // (ciascuna aspetta i suoi riquadri della mappa, anche qualche secondo)
     const mostra = () => {
-      nomiRef.current = { d, foto: { ...foto }, url: { ...url }, w: W, h: H };
+      nomiRef.current = { d, foto: { ...foto }, url: { ...url }, w: Wf, h: Hf, scala, corpo };
       setNomi(nomiRef.current);
     };
     mostra();
@@ -2466,7 +2512,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
       const m = await mappaPerRiquadri(stile);
       for (const r of d.riquadri) {
         if (calcoloNomiRef.current !== id || !mountedRef.current || !m) return;
-        const c = await fotografaRiquadro(map, m, r);
+        const c = await fotografaRiquadro(map, m, r, mappaRiqRef.current, 12000, scala);
         if (calcoloNomiRef.current !== id || !mountedRef.current) return;
         if (c) { foto[r.numero] = c; url[r.numero] = c.toDataURL("image/png"); mostra(); }
       }
@@ -2476,6 +2522,25 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     await p;
     if (fotoInCorsoRef.current === p) fotoInCorsoRef.current = null;
   };
+
+  // Anteprima di stampa: il riquadro 4:3 più grande che sta nella scheda
+  useEffect(() => {
+    if (!anteprima) { setCornice(null); return; }
+    const misura = () => {
+      const scheda = containerRef.current?.parentElement;
+      if (!scheda) return;
+      const W = scheda.clientWidth, H = scheda.clientHeight;
+      let h = H, w = Math.round((H * STAMPA.w) / STAMPA.h);
+      if (w > W) { w = W; h = Math.round((W * STAMPA.h) / STAMPA.w); }
+      setCornice({ x: Math.round((W - w) / 2), y: Math.round((H - h) / 2), w, h });
+    };
+    misura();
+    window.addEventListener("resize", misura);
+    return () => window.removeEventListener("resize", misura);
+  }, [anteprima]);
+  // la mappa prende la misura della cornice (o torna a tutta la scheda): il suo
+  // evento «resize» ricalcola nomi e riquadri, sul foglio giusto
+  useEffect(() => { try { mapRef.current?.resize(); } catch { /* mappa non pronta */ } }, [cornice]);
 
   // Il titolo cambia: nomi e riquadri gli rigirano intorno (al primo giro no,
   // ci pensa l'inquadratura iniziale col suo moveend).
@@ -2723,16 +2788,22 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
           overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
           animation: "flyoverModalIn 0.28s cubic-bezier(0.22,1,0.36,1) both",
         }}>
-        <div style={{ position: "absolute", inset: 0 }} ref={containerRef} />
+        <div ref={containerRef} style={anteprima && cornice
+          ? { position: "absolute", left: cornice.x, top: cornice.y, width: cornice.w, height: cornice.h, outline: "1px dashed rgba(251,191,36,0.7)" }
+          : { position: "absolute", inset: 0 }} />
 
         {/* Mappa della vita: nomi, fili e riquadri (lib/etichetteMappa).
             Sopra la mappa e sotto i comandi; spariscono mentre la mappa si
             muove (la disposizione vale per una vista ferma). */}
         {lifeMap && poster && nomi && (
           <div aria-hidden style={{
-            position: "absolute", inset: 0, zIndex: 20, pointerEvents: "none",
+            position: "absolute", zIndex: 20, pointerEvents: "none",
+            ...(anteprima && cornice ? { left: cornice.x, top: cornice.y } : { left: 0, top: 0 }),
             opacity: nomiFermi ? 1 : 0, transition: nomiFermi ? "opacity 200ms ease" : "none",
           }}>
+            {/* il foglio su cui è fatta la disposizione: lo schermo (scala 1) o, in
+                anteprima di stampa, il foglio 1200×900 rimpicciolito nella cornice */}
+            <div style={{ position: "relative", width: nomi.w, height: nomi.h, transform: `scale(${nomi.scala})`, transformOrigin: "0 0" }}>
             <svg width={nomi.w} height={nomi.h} style={{ position: "absolute", left: 0, top: 0, overflow: "visible" }}>
               {nomi.d.riquadri.map(r => (
                 <g key={`z${r.numero}`}>
@@ -2752,7 +2823,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
               ))}
               {[...nomi.d.accanto, ...nomi.d.conFilo].map(e => (
                 <text key={`n${e.id}`} x={e.testo.x} y={e.testo.y} textAnchor={e.testo.allinea} style={ALONE_NOMI}
-                  fill="#fff" fontSize={FONT_NOMI.px} fontStyle="italic" fontFamily={FONT_NOMI.famiglia}>{e.nome}</text>
+                  fill="#fff" fontSize={nomi.corpo} fontStyle="italic" fontFamily={FONT_NOMI.famiglia}>{e.nome}</text>
               ))}
             </svg>
             {nomi.d.riquadri.map(r => (
@@ -2794,11 +2865,12 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                   ))}
                   {[...r.nomi, ...r.conFilo].map(e => (
                     <text key={e.id} x={e.testo.x} y={e.testo.y} textAnchor={e.testo.allinea} style={ALONE_NOMI}
-                      fill="#fff" fontSize={FONT_NOMI.px} fontStyle="italic" fontFamily={FONT_NOMI.famiglia}>{e.nome}</text>
+                      fill="#fff" fontSize={nomi.corpo} fontStyle="italic" fontFamily={FONT_NOMI.famiglia}>{e.nome}</text>
                   ))}
                 </g>
               ))}
             </svg>
+            </div>
           </div>
         )}
 
@@ -2808,11 +2880,15 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
             bottoni (scelte di Stefano, 2026-10-16). Le stesse misure
             dell'immagine condivisa: a riposo lo schermo È il poster. */}
         {lifeMap && phase === "ready" && (() => {
-          const Wc = nomi?.w ?? containerRef.current?.clientWidth ?? 0;
-          const Hc = nomi?.h ?? containerRef.current?.clientHeight ?? 0;
-          const g = scriviTitolo ? null : geometriaTitoloVita(titoloVita, Wc, misuraTesto);
+          // in anteprima di stampa: il foglio 1200×900, rimpicciolito nella cornice
+          const fo = anteprima && cornice ? cornice : null;
+          const Wc = fo ? STAMPA.w : (nomi?.w ?? containerRef.current?.clientWidth ?? 0);
+          const Hc = fo ? STAMPA.h : (nomi?.h ?? containerRef.current?.clientHeight ?? 0);
+          const g = scriviTitolo ? null : geometriaTitoloVita(titoloVita, Wc, misuraTesto, fo ? BORDI_STAMPA.titolo : undefined);
           // la casella e il «+» stanno dove andrebbe un titolo di media lunghezza
-          const alto = Wc / 2 - TITOLO_VITA.selettoreMezzo - TITOLO_VITA.destra >= 170 ? TITOLO_VITA.alto : TITOLO_VITA.altoSotto;
+          const alto = fo ? STAMPA.margine : Wc / 2 - TITOLO_VITA.selettoreMezzo - TITOLO_VITA.destra >= 170 ? TITOLO_VITA.alto : TITOLO_VITA.altoSotto;
+          const destra = fo ? STAMPA.margine : TITOLO_VITA.destra;
+          const bordoFirma = fo ? STAMPA.margine : 18;
           const fine = (valore: string) => {
             if (!annullaTitoloRef.current) {
               const v = valore.trim().slice(0, TITOLO_VITA.lettere);
@@ -2822,7 +2898,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
             annullaTitoloRef.current = false;
             setScriviTitolo(false);
           };
-          return (
+          const contenuto = (
             <>
               {g && (
                 <svg width={Wc} height={Hc} style={{ position: "absolute", left: 0, top: 0, zIndex: 25, overflow: "visible", pointerEvents: "none" }}>
@@ -2839,7 +2915,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
               {!g && !scriviTitolo && (
                 <button onClick={() => setScriviTitolo(true)}
                   style={{
-                    position: "absolute", right: TITOLO_VITA.destra, top: alto, zIndex: 30,
+                    position: "absolute", right: destra, top: alto, zIndex: 30,
                     padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: "pointer",
                     background: "rgba(10,22,40,0.8)", border: "0.5px dashed #60a5fa", color: "#60a5fa",
                     ...velo,
@@ -2856,15 +2932,15 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                   }}
                   onBlur={e => fine(e.currentTarget.value)}
                   style={{
-                    position: "absolute", right: TITOLO_VITA.destra, top: alto - 4, zIndex: 30,
-                    width: Math.min(Wc - 2 * TITOLO_VITA.destra, 380), textAlign: "right",
+                    position: "absolute", right: destra, top: alto - 4, zIndex: 30, pointerEvents: "auto",
+                    width: Math.min(Wc - 2 * destra, 380), textAlign: "right",
                     fontFamily: TITOLO_VITA.famiglia, fontSize: TITOLO_VITA.px, fontWeight: TITOLO_VITA.peso, color: "#fff",
                     background: "rgba(10,22,40,0.7)", border: "1px dashed #60a5fa", borderRadius: 6,
                     padding: "2px 8px", outline: "none",
                   }} />
               )}
               <div aria-hidden style={{
-                position: "absolute", right: 18, bottom: 18, zIndex: 25, display: "flex", alignItems: "center", gap: 7,
+                position: "absolute", right: bordoFirma, bottom: bordoFirma, zIndex: 25, display: "flex", alignItems: "center", gap: 7,
                 opacity: comandiVisibili ? 0 : 0.9, transition: "opacity 400ms ease", pointerEvents: "none",
                 filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.85))",
               }}>
@@ -2873,6 +2949,12 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
               </div>
             </>
           );
+          return fo ? (
+            <div style={{
+              position: "absolute", left: fo.x, top: fo.y, width: STAMPA.w, height: STAMPA.h, zIndex: 25,
+              transform: `scale(${fo.w / STAMPA.w})`, transformOrigin: "0 0", pointerEvents: "none",
+            }}>{contenuto}</div>
+          ) : contenuto;
         })()}
 
         {/* Chiudi in alto a sinistra (la card dati sta in alto a destra). */}
@@ -3193,8 +3275,19 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
             )}
 
             <div style={{ position: "absolute", right: 16, bottom: 20, zIndex: 26, display: "flex", gap: 10, ...velo }}>
+              {lifeMap && window.innerWidth >= 768 && anteprima && (
+                <button onClick={() => setAnteprima(false)} disabled={stampa !== null}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600,
+                    cursor: stampa !== null ? "default" : "pointer",
+                    padding: "8px 16px", borderRadius: 999, background: "rgba(255,255,255,0.08)",
+                    border: "0.5px solid rgba(255,255,255,0.35)", color: "rgba(255,255,255,0.85)",
+                  }}>
+                  <X className="w-3.5 h-3.5" /> {t("Esci dall'anteprima")}
+                </button>
+              )}
               {lifeMap && window.innerWidth >= 768 && (
-                <button onClick={handleStampa} disabled={stampa !== null}
+                <button onClick={() => { if (anteprima) void handleStampa(); else setAnteprima(true); }} disabled={stampa !== null}
                   style={{
                     display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600,
                     cursor: stampa !== null ? "default" : "pointer",
@@ -3203,10 +3296,11 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                   }}>
                   {stampa !== null ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
                   {stampa !== null ? t("Preparo la stampa… {pct}%", { pct: stampa })
-                    : stampaFallita ? t("Stampa non riuscita: riprova") : t("Per la stampa")}
+                    : stampaFallita ? t("Stampa non riuscita: riprova")
+                    : anteprima ? t("Scarica per la stampa") : t("Per la stampa")}
                 </button>
               )}
-              {styleMode === "constellation" && (
+              {styleMode === "constellation" && !anteprima && (
                 <button onClick={handleExportSvg} disabled={exportingSvg}
                   style={{
                     display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600,
@@ -3227,7 +3321,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                   {savingRelief ? t("Salvo…") : t("Salva")}
                 </button>
               )}
-              <button onClick={handleSharePoster}
+              {!anteprima && <button onClick={handleSharePoster}
                 style={{
                   display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
                   padding: "8px 16px", borderRadius: 999,
@@ -3236,7 +3330,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                   color: (tripsCount === 1 && !lifeMap) ? "rgba(255,255,255,0.8)" : "#60a5fa",
                 }}>
                 <Share2 className="w-3.5 h-3.5" /> {t("Condividi")}
-              </button>
+              </button>}
             </div>
           </>
         )}

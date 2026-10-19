@@ -444,6 +444,8 @@ export const en = {
   "Per la stampa": "For print",
   "Preparo la stampa… {pct}%": "Preparing the print… {pct}%",
   "Stampa non riuscita: riprova": "Print failed: try again",
+  "Scarica per la stampa": "Download for print",
+  "Esci dall'anteprima": "Close preview",
   "Impossibile caricare la mappa.": "The map could not be loaded.",
   "Questo viaggio non ha punti sufficienti per la mappa 3D (manca la posizione di casa o della destinazione).": "This trip doesn't have enough points for the 3D map (the home or destination position is missing).",
   "Periodo": "Dates",
