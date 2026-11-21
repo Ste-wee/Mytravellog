@@ -29,6 +29,7 @@ import { CreazioneVideo } from "./flyover/CreazioneVideo";
 import { SchedaPoster } from "./flyover/SchedaPoster";
 import { ChipCompagni } from "./flyover/ChipCompagni";
 import { BarraAzioni } from "./flyover/BarraAzioni";
+import { stampaMappaVita } from "./flyover/stampa";
 import { TitoloFirmaVita } from "./flyover/TitoloFirmaVita";
 import { inquadraturaVera, lineaFatta, preparaTracciatoFatto, tagliaTraccia, attendiMappaPronta, chiudiTracciatoFatto, gesti, modoDi, visibile, copiaMappa, mappaFerma } from "./flyover/mapOps";
 import { X, Loader2, RotateCcw, Film, Home } from "lucide-react";
@@ -868,115 +869,18 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     await shareOrDownload(file, lifeMap ? (titoloVita.trim() || posterTitle) : (tripsCount > 1 ? "Il mio viaggio in 3D" : viaggi[0].title));
   };
 
+  /** «Per la stampa» (flyover/stampa.ts): il file dell'anteprima, 7680×5760. */
+  const handleStampa = () => stampaMappaVita({
+    lib: libRef.current, map: mapRef.current, stile: stileRef.current,
+    modo: styleModeRef.current, stellaSecca, inCorso: stampaRef,
+    anteprima: () => fogliettoRef.current, vivo: () => mountedRef.current,
+    fissi: () => fissiRef.current, titolo: () => titoloVitaRef.current,
+    costeRef, setStampa, setStampaFallita, addOverlayLayers, disponiVita, fotografaRiquadro, loadBrandLogo,
+  });
+
   // "Esporta SVG" (solo Costellazione): master VETTORIALE a livelli per la stampa
   // (resina + LED). Confini dal world-atlas ritagliati sul riquadro; tracciato e
   // stelle da dati nostri (precisi); nodi-stella marcati come punti-LED.
-  /**
-   * «Per la stampa»: la Mappa della vita com'è a schermo (stile, inquadratura,
-   * nomi, riquadri, titolo, firma) in un JPEG 4:3 grande, disegnato da una
-   * mappa NASCOSTA ad alta densità di pixel. Pensata per il computer: su
-   * iPhone una tela così grande non si può fare (Safari si ferma a 16,7 Mpx).
-   */
-  const handleStampa = async () => {
-    const lib = libRef.current, map = mapRef.current, stile = stileRef.current;
-    if (!lib || !map || !stile || stampaRef.current || !fogliettoRef.current) return;
-    // la mappa dell'anteprima (il riquadro 4:3 a schermo): stessa inquadratura,
-    // stesse proporzioni di stelle e linee, solo più pixel
-    const Wm = map.getContainer().clientWidth, Hm = map.getContainer().clientHeight;
-    if (!Wm || !Hm) return;
-    const kMappa = (STAMPA.w * STAMPA.k) / Wm;
-    // foto satellitari abbastanza dettagliate per kMappa (a 512 sarebbero sgranate)
-    const tileMappa = 512 / 2 ** Math.ceil(Math.log2(kMappa));
-    stampaRef.current = true;
-    setStampa(0);
-    const nascoste: { m: MapLibreMap; div: HTMLDivElement }[] = [];
-    // non riuscita: lo dice il bottone per 5 secondi (prima: niente file e nessun avviso)
-    const fallita = () => {
-      if (!mountedRef.current) return;
-      setStampaFallita(true);
-      window.setTimeout(() => { if (mountedRef.current) setStampaFallita(false); }, 5000);
-    };
-    const modo = styleModeRef.current;   // fermo: anche se cambiasse, la stampa resta di questo stile
-    const satellite = modo === "satellite";
-    // lo stesso stile, con le foto satellitari più dettagliate
-    const stileCon = (tile: number) => {
-      const st = JSON.parse(JSON.stringify(stile)) as StyleSpecification;
-      for (const src of Object.values(st.sources)) if (src.type === "raster") src.tileSize = tile;
-      return st;
-    };
-    const nuovaMappa = async (w: number, h: number, k = STAMPA.k, tile = STAMPA.tileSize) => {
-      const div = document.createElement("div");
-      div.style.cssText = `position:fixed;left:-20000px;top:0;width:${w}px;height:${h}px;pointer-events:none;`;
-      document.body.appendChild(div);
-      const m = new lib.Map({
-        container: div, style: stileCon(tile), interactive: false, attributionControl: false,
-        fadeDuration: 0, pixelRatio: k, maxCanvasSize: [8192, 8192],
-      });
-      nascoste.push({ m, div });
-      await new Promise<void>(r => { m.once("load", () => r()); setTimeout(r, 20000); });
-      // stelle e punti disegnati GRANDI: a k× quelli dello schermo sarebbero sfocati
-      const sc = Math.ceil(k / 2);
-      if (satellite) m.addImage("flyover-dot", createDotImageData(sc), { pixelRatio: 2 * sc });
-      else m.addImage("flyover-star", createStarImageData(stellaSecca ? "secca" : "soffusa", sc), { pixelRatio: 2 * sc });
-      addOverlayLayers(m, modo);
-      return { m, div };
-    };
-    try {
-      await Promise.all([
-        document.fonts?.load(`italic ${FONT_NOMI.px}px "Noto Serif"`),
-        document.fonts?.load(`${TITOLO_VITA.peso} ${TITOLO_VITA.px}px "Cormorant Garamond"`),
-      ]).catch(() => undefined);
-      if (satellite && !costeRef.current) costeRef.current = await loadCoste("50m").catch(() => null);
-      const { m } = await nuovaMappa(Wm, Hm, kMappa, tileMappa);
-      // ESATTAMENTE l'inquadratura dell'anteprima
-      m.jumpTo({ center: map.getCenter(), zoom: map.getZoom(), pitch: 0, bearing: 0 });
-      setStampa(5);
-      await mappaFerma(m, STAMPA.attesaMs);
-      if (!mountedRef.current) return;
-      const sfondo = await copiaMappa(m);
-      setStampa(25);
-      // la stessa disposizione dell'anteprima (stessa mappa, stessi conti)
-      const scalaFoglio = Wm / STAMPA.w;
-      const { d, gTitolo } = disponiVita(m, STAMPA.w, STAMPA.h, { ...BORDI_STAMPA, fattore: 1 / scalaFoglio, fissi: fissiRef.current });
-      const foto: Record<number, HTMLCanvasElement> = {};
-      if (d.riquadri.length) {
-        const riq = await nuovaMappa(200, 150);
-        const misura = riq.m.getLayer("flyover-stops") ? riq.m.getLayoutProperty("flyover-stops", "icon-size") : 1;
-        const stella = typeof misura === "number" ? misura : 1;
-        for (const [i, r] of d.riquadri.entries()) {
-          if (!mountedRef.current) return;
-          const c = await fotografaRiquadro(m, riq.m, r, { div: riq.div, stella }, STAMPA.attesaMs, scalaFoglio);
-          if (c) foto[r.numero] = c;
-          setStampa(25 + Math.round((65 * (i + 1)) / d.riquadri.length));
-        }
-      }
-      // il foglio: mappa, nomi e riquadri, titolo, firma — come «Condividi»
-      // esattamente 7680×5760: la cornice a schermo arrotonda al pixel (es. 797×598)
-      // e la mappa usciva 7679×5762; il ritocco è sotto lo 0,1%
-      const c = document.createElement("canvas");
-      c.width = STAMPA.w * STAMPA.k; c.height = STAMPA.h * STAMPA.k;
-      const ctx = c.getContext("2d")!;
-      const k = c.width / STAMPA.w;
-      ctx.fillStyle = "#000"; ctx.fillRect(0, 0, c.width, c.height);
-      ctx.drawImage(sfondo, 0, 0, c.width, c.height);
-      disegnaNomiSuCanvas(ctx, { d, foto }, k, satellite ? "#fbbf24" : "#ffffff", STAMPA.corpoNomi);
-      if (gTitolo) disegnaTitoloVitaSuCanvas(ctx, titoloVitaRef.current, gTitolo, k);
-      const logo = await loadBrandLogo();
-      if (logo) drawBrandSignatureCanvas(ctx, c.width, c.height, k, logo, STAMPA.margine);
-      setStampa(95);
-      const blob = await new Promise<Blob | null>(res => c.toBlob(res, "image/jpeg", 0.92));
-      if (!blob) { fallita(); return; }   // tela troppo grande per questo browser
-      downloadBlob(blob, `mappa-della-vita-stampa-${c.width}x${c.height}.jpg`);
-    } catch (e) {
-      console.error("Per la stampa:", e);
-      fallita();
-    } finally {
-      for (const { m, div } of nascoste) { try { m.remove(); } catch { /* già via */ } div.remove(); }
-      stampaRef.current = false;
-      if (mountedRef.current) setStampa(null);
-    }
-  };
-
   const handleExportSvg = async () => {
     if (exportingSvg) return;
     setExportingSvg(true);
