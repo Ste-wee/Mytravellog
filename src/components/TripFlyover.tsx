@@ -11,13 +11,13 @@ import { unwrapNear } from "@/lib/lonWrap";
 import { codecCostruzione, formatoRegistrabile, kmContatiPerTratta, misureVideo, nomeFileVideo } from "@/lib/voloVideo";
 import { riquadriDelVolo } from "@/lib/riquadriVolo";
 import { copioneVolo, type Camera } from "@/lib/copioneVolo";
-import { disponiEtichette, type Box, type Riquadro, type RiquadroFisso } from "@/lib/etichetteMappa";
+import type { Box, Riquadro, RiquadroFisso } from "@/lib/etichetteMappa";
 import fixWebmDuration from "fix-webm-duration";
 import { compagniDeiViaggi, viaggiCon } from "@/lib/compagni";
 import { saveReliefImage } from "@/lib/photoStorage";
 import { buildPosterSvg, loadCountryRings, routeBounds, unwrapSegments } from "@/lib/posterSvg";
 import { loadCoste } from "@/lib/worldAtlas";
-import { STAMPA, BORDI_STAMPA, FINALE_PADDING, FINALE_PADDING_STELLE, SCHEDA_POSTER, VELOCITA_MARKER, DECOLLO_MS, FINALE_VIDEO_MS, TITOLO_MS, ATTESA_DECOLLO_MS, ATTESA_TAPPA_MS, AVVICINAMENTO_ZOOM, FONT_NOMI, ATTENUATE, FPS_VIDEO, ATTESA_FOTOGRAMMA_MS, TEMPI_VIDEO, stileBottoneVolo } from "./flyover/constants";
+import { STAMPA, BORDI_STAMPA, FINALE_PADDING, FINALE_PADDING_STELLE, SCHEDA_POSTER, VELOCITA_MARKER, DECOLLO_MS, FINALE_VIDEO_MS, TITOLO_MS, ATTESA_DECOLLO_MS, ATTESA_TAPPA_MS, AVVICINAMENTO_ZOOM, FONT_NOMI, FPS_VIDEO, ATTESA_FOTOGRAMMA_MS, TEMPI_VIDEO, stileBottoneVolo } from "./flyover/constants";
 import { buildSatelliteStyle, buildSatelliteStylePiatto, COSTE_E1, buildConstellationStyle, type MapStyleMode } from "./flyover/mapStyles";
 import { TRANSPORT_MAP, loadModeIcon, createStarImageData, createDotImageData, createPinImageData, createFinalPinImageData } from "./flyover/mapImages";
 import { drawBrandSignatureCanvas, disegnaIcona, disegnaContatore, disegnaTitolo } from "./flyover/canvasDraw";
@@ -31,11 +31,12 @@ import { ChipCompagni } from "./flyover/ChipCompagni";
 import { BarraAzioni } from "./flyover/BarraAzioni";
 import { stampaMappaVita } from "./flyover/stampa";
 import { componiPoster } from "./flyover/poster";
+import { disponiNomiVita, fotografaRiquadro, type BordoNomi } from "./flyover/nomiVita";
 import { TitoloFirmaVita } from "./flyover/TitoloFirmaVita";
-import { inquadraturaVera, lineaFatta, preparaTracciatoFatto, tagliaTraccia, attendiMappaPronta, chiudiTracciatoFatto, gesti, modoDi, visibile, copiaMappa, mappaFerma } from "./flyover/mapOps";
+import { inquadraturaVera, lineaFatta, preparaTracciatoFatto, tagliaTraccia, attendiMappaPronta, chiudiTracciatoFatto, gesti, modoDi, visibile } from "./flyover/mapOps";
 import { X, Loader2, RotateCcw, Film, Home } from "lucide-react";
 import { canShareFile, downloadBlob, shareOrDownload } from "@/lib/share";
-import { geometriaTitoloVita, leggiTitoloVita, salvaTitoloVita, TITOLO_VITA, type BordiTitolo } from "@/lib/titoloVita";
+import { leggiTitoloVita, salvaTitoloVita, TITOLO_VITA } from "@/lib/titoloVita";
 
 interface Props {
   trips: Trip[];
@@ -685,7 +686,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     modo: styleModeRef.current, stellaSecca, inCorso: stampaRef,
     anteprima: () => fogliettoRef.current, vivo: () => mountedRef.current,
     fissi: () => fissiRef.current, titolo: () => titoloVitaRef.current,
-    costeRef, setStampa, setStampaFallita, addOverlayLayers, disponiVita, fotografaRiquadro, loadBrandLogo,
+    costeRef, setStampa, setStampaFallita, addOverlayLayers, disponiVita, loadBrandLogo,
   });
 
   // "Esporta SVG" (solo Costellazione): master VETTORIALE a livelli per la stampa
@@ -1398,38 +1399,6 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     return p;
   };
 
-  /** Un riquadro fotografato: la stessa mappa, centrata sulla zona e ingrandita
-   *  della sua scala (in Mercatore ingrandire è proprio moltiplicare i pixel).
-   *  Le stelle che NON sono del riquadro escono piccole e spente: senza nome
-   *  lì (il loro è sulla mappa grande) sembravano tappe dimenticate (scelta B,
-   *  «Attenuate», 2026-10-15). */
-  const fotografaRiquadro = async (map: MapLibreMap, m: MapLibreMap, r: Riquadro,
-    riq: { div: HTMLDivElement; stella: number } | null = mappaRiqRef.current, maxMs = 12000,
-    /** pixel della mappa per pixel del foglio (anteprima di stampa: < 1) */ scalaFoglio = 1): Promise<HTMLCanvasElement | null> => {
-    try {
-      if (!riq) return null;
-      const { div, stella } = riq;
-      div.style.width = `${Math.round(r.posto.w)}px`;
-      div.style.height = `${Math.round(r.posto.h)}px`;
-      m.resize();
-      if (m.getLayer("flyover-stops")) {
-        const delRiquadro = ["in", ["get", "i"], ["literal", r.ids.map(Number)]];
-        m.setLayoutProperty("flyover-stops", "icon-size", ["case", delRiquadro, stella, stella * ATTENUATE.misura]);
-        m.setPaintProperty("flyover-stops", "icon-opacity", ["case", delRiquadro, 1, ATTENUATE.opacita]);
-      }
-      const vx = r.centroZona.x + (r.posto.x + r.posto.w / 2 - r.centroPosto.x) / r.scala;
-      const vy = r.centroZona.y + (r.posto.y + r.posto.h / 2 - r.centroPosto.y) / r.scala;
-      const centro = map.unproject([vx * scalaFoglio, vy * scalaFoglio]);
-      // il foglio è la mappa ingrandita di 1/scalaFoglio, il riquadro di r.scala in più
-      m.jumpTo({ center: [centro.lng, centro.lat], zoom: map.getZoom() - Math.log2(scalaFoglio) + Math.log2(r.scala), pitch: 0, bearing: 0 });
-      await mappaFerma(m, maxMs);
-      await visibile();
-      return await copiaMappa(m);
-    } catch {
-      return null;
-    }
-  };
-
   /** Larghezza di un testo in un font (canvas fuori schermo, riusato). */
   const misuraTesto = (testo: string, font: string) => {
     if (!misuraRef.current) misuraRef.current = document.createElement("canvas").getContext("2d");
@@ -1439,42 +1408,10 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     return c.measureText(testo).width;
   };
 
-  /** Nomi, fili e riquadri della Mappa della vita su un foglio W×H della mappa
-   *  `map`: lo schermo e la stampa usano la STESSA disposizione, cambiano solo
-   *  i margini (e la stampa non ha il selettore degli stili da scavalcare). */
-  const disponiVita = (map: MapLibreMap, W: number, H: number,
-    bordo: { margine: number; firma: number; titolo?: BordiTitolo; corpo?: number; riquadri?: number; fattore?: number; fissi?: Record<string, RiquadroFisso> }) => {
-    const corpo = bordo.corpo ?? FONT_NOMI.px;
-    // fattore: pixel del foglio per pixel della mappa (anteprima di stampa: il
-    // foglio è 1200 di larghezza, la mappa a schermo meno)
-    const fa = bordo.fattore ?? 1;
-    const misura = (t: string) => misuraTesto(t, `italic ${corpo}px ${FONT_NOMI.famiglia}`);
-    // le longitudini vicino al centro della vista (antimeridiano: vedi lonWrap)
-    const cLng = map.getCenter().lng;
-    const punti = stopsRef.current
-      .map((s, i) => { const p = map.project([unwrapNear(s.lon, cLng), s.lat]); return { id: String(i), nome: s.label, x: p.x * fa, y: p.y * fa }; })
-      .filter(p => p.nome && p.x >= 0 && p.x <= W && p.y >= 0 && p.y <= H);
-    const linee = routeSegsRef.current.filter(s => s.length > 1).map(seg => {
-      const off = unwrapNear(seg[0][0], cLng) - seg[0][0];
-      return seg.map(([lon, lat]) => { const p = map.project([lon + off, lat]); return { x: p.x * fa, y: p.y * fa }; });
-    });
-    // il titolo in alto a destra: nomi e riquadri gli girano intorno
-    const gTitolo = geometriaTitoloVita(titoloVitaRef.current, W, misuraTesto, bordo.titolo);
-    const d = disponiEtichette(punti, {
-      // tutto in proporzione al corpo: con nomi più grandi anche la distanza che fa
-      // «gruppo» cresce, sennò le zone fitte spargono nomi lontani col filo invece
-      // di andare in un riquadro (visto in stampa a 19 px: «Pisa» vicino a Trieste)
-      w: W, h: H, misura, altezza: corpo + 2, raggioStella: 4, scostamento: Math.round(6 * corpo / FONT_NOMI.px),
-      distanzaGrappolo: Math.round(15 * corpo / FONT_NOMI.px), margine: bordo.margine, linee, grandezzaRiquadri: bordo.riquadri,
-      riquadriFissi: bordo.fissi,
-      // la firma «By 🐻» in basso a destra (drawBrandSignatureCanvas): copriva «La Spezia»
-      vietate: [
-        { x: W - bordo.firma - 66, y: H - bordo.firma - 38, w: bordo.firma + 66, h: bordo.firma + 38 },
-        ...(gTitolo ? [gTitolo.ingombro] : []),
-      ],
-    });
-    return { d, gTitolo };
-  };
+  /** Nomi, fili e riquadri della Mappa della vita (flyover/nomiVita.ts), coi
+   *  dati di adesso: le tappe, le linee, il titolo. */
+  const disponiVita = (map: MapLibreMap, W: number, H: number, bordo: BordoNomi) =>
+    disponiNomiVita({ stops: stopsRef.current, segmenti: routeSegsRef.current, titolo: titoloVitaRef.current, misuraTesto }, map, W, H, bordo);
 
   /**
    * Trascinare un riquadro in anteprima: `modo` «sposta», o i lati/angoli da
