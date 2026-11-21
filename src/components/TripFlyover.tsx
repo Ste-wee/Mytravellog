@@ -11,17 +11,20 @@ import { unwrapNear } from "@/lib/lonWrap";
 import { codecCostruzione, formatoRegistrabile, kmContatiPerTratta, misureVideo, nomeFileVideo } from "@/lib/voloVideo";
 import { riquadriDelVolo } from "@/lib/riquadriVolo";
 import { copioneVolo, type Camera } from "@/lib/copioneVolo";
-import { disponiEtichette, type Box, type Disposizione, type Riquadro, type RiquadroFisso } from "@/lib/etichetteMappa";
+import { disponiEtichette, type Box, type Riquadro, type RiquadroFisso } from "@/lib/etichetteMappa";
 import fixWebmDuration from "fix-webm-duration";
 import { compagniDeiViaggi, viaggiCon } from "@/lib/compagni";
 import { saveReliefImage } from "@/lib/photoStorage";
 import { buildPosterSvg, loadCountryRings, routeBounds, unwrapSegments } from "@/lib/posterSvg";
 import { loadCoste } from "@/lib/worldAtlas";
-import { STAMPA, BORDI_STAMPA, FINALE_PADDING, FINALE_PADDING_STELLE, SCHEDA_POSTER, VELOCITA_MARKER, DECOLLO_MS, FINALE_VIDEO_MS, TITOLO_MS, ATTESA_DECOLLO_MS, ATTESA_TAPPA_MS, AVVICINAMENTO_ZOOM, FONT_NOMI, ALONE_NOMI, ATTENUATE, FILO_NOME, BOLLINO, FPS_VIDEO, ATTESA_FOTOGRAMMA_MS, TEMPI_VIDEO, stileBottoneVolo } from "./flyover/constants";
+import { STAMPA, BORDI_STAMPA, FINALE_PADDING, FINALE_PADDING_STELLE, SCHEDA_POSTER, VELOCITA_MARKER, DECOLLO_MS, FINALE_VIDEO_MS, TITOLO_MS, ATTESA_DECOLLO_MS, ATTESA_TAPPA_MS, AVVICINAMENTO_ZOOM, FONT_NOMI, ATTENUATE, FPS_VIDEO, ATTESA_FOTOGRAMMA_MS, TEMPI_VIDEO, stileBottoneVolo } from "./flyover/constants";
 import { buildSatelliteStyle, buildSatelliteStylePiatto, COSTE_E1, buildConstellationStyle, type MapStyleMode } from "./flyover/mapStyles";
 import { TRANSPORT_MAP, loadModeIcon, createStarImageData, createDotImageData, createPinImageData, createFinalPinImageData } from "./flyover/mapImages";
 import { roundRectPath, drawImageCover, drawBrandSignatureCanvas, disegnaNomiSuCanvas, disegnaTitoloVitaSuCanvas, disegnaIcona, disegnaContatore, disegnaTitolo } from "./flyover/canvasDraw";
 import { buildFlyoverRouteCoords, formatKm, attesa } from "./flyover/util";
+import type { NomiMappa } from "./flyover/tipi";
+import { OverlayNomi } from "./flyover/OverlayNomi";
+import { TitoloFirmaVita } from "./flyover/TitoloFirmaVita";
 import { inquadraturaVera, lineaFatta, preparaTracciatoFatto, tagliaTraccia, attendiMappaPronta, chiudiTracciatoFatto, gesti, modoDi, visibile, copiaMappa, mappaFerma } from "./flyover/mapOps";
 import { X, Share2, Loader2, Download, Pause, Play, SkipForward, RotateCcw, Film, Home, Printer } from "lucide-react";
 import { canShareFile, downloadBlob, shareOrDownload } from "@/lib/share";
@@ -81,10 +84,6 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   styleModeRef.current = styleMode;
   /** Mappa della vita: nomi, fili e riquadri della vista di adesso (vedi
    *  calcolaNomi), con le foto dei riquadri. Li ricopia l'immagine condivisa. */
-  /** w/h: il foglio su cui è calcolata la disposizione (lo schermo, o in
-   *  anteprima di stampa il foglio 1200×900); scala: quanto quel foglio è
-   *  rimpicciolito a schermo; corpo: il carattere dei nomi su quel foglio. */
-  type NomiMappa = { d: Disposizione; foto: Record<number, HTMLCanvasElement>; url: Record<number, string>; w: number; h: number; scala: number; corpo: number };
   const [nomi, setNomi] = useState<NomiMappa | null>(null);
   const nomiRef = useRef<NomiMappa | null>(null);
   /** False mentre la mappa si muove: i nomi spariscono e tornano a mappa ferma. */
@@ -137,8 +136,6 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   /** Il riquadro scelto (le maniglie) e quello che si sta trascinando, dal vivo. */
   const [scelto, setScelto] = useState<string | null>(null);
   const [trascina, setTrascina] = useState<{ chiave: string; box: Box } | null>(null);
-  /** Esc mentre si scrive: si esce senza salvare. */
-  const annullaTitoloRef = useRef(false);
   /** Il compagno selezionato, o null per tutti. Filtra la costellazione. */
   /**
    * ⚠️ BANCO DI PROVA (2026-08-27, da smontare quando Stefano sceglie): le due
@@ -2147,110 +2144,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
             Sopra la mappa e sotto i comandi; spariscono mentre la mappa si
             muove (la disposizione vale per una vista ferma). */}
         {lifeMap && poster && nomi && (
-          <div aria-hidden style={{
-            position: "absolute", zIndex: 20, pointerEvents: "none",
-            ...(anteprima && cornice ? { left: cornice.x, top: cornice.y } : { left: 0, top: 0 }),
-            opacity: nomiFermi ? 1 : 0, transition: nomiFermi ? "opacity 200ms ease" : "none",
-          }}>
-            {/* il foglio su cui è fatta la disposizione: lo schermo (scala 1) o, in
-                anteprima di stampa, il foglio 1200×900 rimpicciolito nella cornice */}
-            <div style={{ position: "relative", width: nomi.w, height: nomi.h, transform: `scale(${nomi.scala})`, transformOrigin: "0 0" }}>
-            <svg width={nomi.w} height={nomi.h} style={{ position: "absolute", left: 0, top: 0, overflow: "visible" }}>
-              {nomi.d.riquadri.map(r => (
-                <g key={`z${r.numero}`}>
-                  <rect x={r.zona.x} y={r.zona.y} width={r.zona.w} height={r.zona.h} rx={3}
-                    fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth={1} strokeDasharray="3 3" />
-                  <line x1={r.filo.x1} y1={r.filo.y1} x2={r.filo.x2} y2={r.filo.y2} stroke="rgba(255,255,255,0.5)" strokeWidth={0.9} />
-                  <circle cx={r.numeroZona.x + r.numeroZona.w / 2} cy={r.numeroZona.y + r.numeroZona.h / 2} r={r.numeroZona.w / 2} fill={BOLLINO.fondo} stroke="#fff" strokeWidth={1} />
-                  <text x={r.numeroZona.x + r.numeroZona.w / 2} y={r.numeroZona.y + r.numeroZona.h / 2} dy="0.35em" textAnchor="middle" fill="#fff" fontSize={BOLLINO.font} fontFamily="Georgia, serif">{r.numero}</text>
-                </g>
-              ))}
-              {nomi.d.conFilo.map(e => (
-                <g key={`f${e.id}`}>
-                  <line x1={e.filo.x1} y1={e.filo.y1} x2={e.filo.x2} y2={e.filo.y2} stroke={FILO_NOME.colore} strokeWidth={FILO_NOME.spessore}
-                    strokeDasharray={FILO_NOME.tratteggio.join(" ")} strokeLinecap="round" />
-                  <circle cx={e.filo.x2} cy={e.filo.y2} r={FILO_NOME.puntino} fill="#fff" />
-                </g>
-              ))}
-              {[...nomi.d.accanto, ...nomi.d.conFilo].map(e => (
-                <text key={`n${e.id}`} x={e.testo.x} y={e.testo.y} textAnchor={e.testo.allinea} style={ALONE_NOMI}
-                  fill="#fff" fontSize={nomi.corpo} fontStyle="italic" fontFamily={FONT_NOMI.famiglia}>{e.nome}</text>
-              ))}
-            </svg>
-            {nomi.d.riquadri.map(r => (
-              <div key={`r${r.numero}`} data-riquadro={anteprima ? "" : undefined}
-                onPointerDown={anteprima ? e => iniziaTrascina(r, "sposta", e) : undefined}
-                style={{
-                position: "absolute", left: r.posto.x, top: r.posto.y, width: r.posto.w, height: r.posto.h,
-                borderStyle: "solid", borderWidth: r.chiave === scelto && anteprima ? 2 / nomi.scala : 1,
-                borderColor: r.chiave === scelto && anteprima ? "#60a5fa" : "rgba(255,255,255,0.8)",
-                borderRadius: 6, overflow: "hidden",
-                background: "#000", boxShadow: "0 6px 18px rgba(0,0,0,0.6)",
-                ...(anteprima ? { pointerEvents: "auto", cursor: "move", touchAction: "none" } : {}),
-              }}>
-                {nomi.url[r.numero]
-                  ? <img src={nomi.url[r.numero]} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
-                  // la foto non è ancora arrivata (in Satellite anche qualche
-                  // secondo): intanto le stelle, come nell'immagine condivisa,
-                  // invece di un rettangolo nero coi soli nomi
-                  : <svg width={r.posto.w} height={r.posto.h} style={{ display: "block" }}>
-                      {r.altre.map((s, i) => (
-                        <circle key={`a${i}`} cx={s.x - r.posto.x} cy={s.y - r.posto.y} r={3 * ATTENUATE.misura}
-                          fill={styleMode === "satellite" ? "#fbbf24" : "#fff"} fillOpacity={ATTENUATE.opacita} />
-                      ))}
-                      {r.stelle.map(s => (
-                        <g key={s.id} fill={styleMode === "satellite" ? "#fbbf24" : "#fff"}>
-                          <circle cx={s.x - r.posto.x} cy={s.y - r.posto.y} r={6} fillOpacity={0.25} />
-                          <circle cx={s.x - r.posto.x} cy={s.y - r.posto.y} r={2.5} />
-                        </g>
-                      ))}
-                    </svg>}
-              </div>
-            ))}
-            <svg width={nomi.w} height={nomi.h} style={{ position: "absolute", left: 0, top: 0, overflow: "visible" }}>
-              {nomi.d.riquadri.map(r => (
-                <g key={r.numero}>
-                  <circle cx={r.posto.x + BOLLINO.angolo} cy={r.posto.y + BOLLINO.angolo} r={BOLLINO.raggio} fill={BOLLINO.fondo} stroke="#fff" strokeWidth={1} />
-                  <text x={r.posto.x + BOLLINO.angolo} y={r.posto.y + BOLLINO.angolo} dy="0.35em" textAnchor="middle" fill="#fff" fontSize={BOLLINO.font} fontFamily="Georgia, serif">{r.numero}</text>
-                  {r.conFilo.map(e => (
-                    <g key={`f${e.id}`}>
-                  <line x1={e.filo.x1} y1={e.filo.y1} x2={e.filo.x2} y2={e.filo.y2} stroke={FILO_NOME.colore} strokeWidth={FILO_NOME.spessore}
-                    strokeDasharray={FILO_NOME.tratteggio.join(" ")} strokeLinecap="round" />
-                  <circle cx={e.filo.x2} cy={e.filo.y2} r={FILO_NOME.puntino} fill="#fff" />
-                </g>
-                  ))}
-                  {[...r.nomi, ...r.conFilo].map(e => (
-                    <text key={e.id} x={e.testo.x} y={e.testo.y} textAnchor={e.testo.allinea} style={ALONE_NOMI}
-                      fill="#fff" fontSize={nomi.corpo} fontStyle="italic" fontFamily={FONT_NOMI.famiglia}>{e.nome}</text>
-                  ))}
-                </g>
-              ))}
-            </svg>
-            {anteprima && nomi.d.riquadri.filter(r => r.chiave === scelto).map(r => {
-              const m = 10 / nomi.scala;   // ~10 px a schermo
-              const b = trascina?.chiave === r.chiave ? trascina.box : r.posto;
-              const maniglie: [string, number, number, string][] = [
-                ["nw", b.x, b.y, "nwse-resize"], ["n", b.x + b.w / 2, b.y, "ns-resize"], ["ne", b.x + b.w, b.y, "nesw-resize"],
-                ["w", b.x, b.y + b.h / 2, "ew-resize"], ["e", b.x + b.w, b.y + b.h / 2, "ew-resize"],
-                ["sw", b.x, b.y + b.h, "nesw-resize"], ["s", b.x + b.w / 2, b.y + b.h, "ns-resize"], ["se", b.x + b.w, b.y + b.h, "nwse-resize"],
-              ];
-              return maniglie.map(([modo, x, y, cursore]) => (
-                <div key={`m${r.chiave}${modo}`} data-riquadro="" onPointerDown={e => iniziaTrascina(r, modo, e)}
-                  style={{
-                    position: "absolute", left: x - m / 2, top: y - m / 2, width: m, height: m, borderRadius: m / 5,
-                    background: "#60a5fa", border: `${1 / nomi.scala}px solid #fff`, cursor: cursore,
-                    pointerEvents: "auto", touchAction: "none",
-                  }} />
-              ));
-            })}
-            {trascina && (
-              <div style={{
-                position: "absolute", left: trascina.box.x, top: trascina.box.y, width: trascina.box.w, height: trascina.box.h,
-                border: `${2 / nomi.scala}px dashed #60a5fa`, borderRadius: 6, background: "rgba(96,165,250,0.12)", pointerEvents: "none",
-              }} />
-            )}
-            </div>
-          </div>
+          <OverlayNomi nomi={nomi} anteprima={anteprima} cornice={cornice} nomiFermi={nomiFermi}
+            styleMode={styleMode} scelto={scelto} trascina={trascina} onTrascina={iniziaTrascina} />
         )}
 
         {/* Mappa della vita: il TITOLO in alto a destra (lib/titoloVita), che
@@ -2258,83 +2153,15 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
             «By 🐻» in basso a destra, che coi comandi accesi lascia il posto ai
             bottoni (scelte di Stefano, 2026-10-16). Le stesse misure
             dell'immagine condivisa: a riposo lo schermo È il poster. */}
-        {lifeMap && phase === "ready" && (() => {
-          // in anteprima di stampa: il foglio 1200×900, rimpicciolito nella cornice
-          const fo = anteprima && cornice ? cornice : null;
-          const Wc = fo ? STAMPA.w : (nomi?.w ?? containerRef.current?.clientWidth ?? 0);
-          const Hc = fo ? STAMPA.h : (nomi?.h ?? containerRef.current?.clientHeight ?? 0);
-          const g = scriviTitolo ? null : geometriaTitoloVita(titoloVita, Wc, misuraTesto, fo ? BORDI_STAMPA.titolo : undefined);
-          // la casella e il «+» stanno dove andrebbe un titolo di media lunghezza
-          const alto = fo ? STAMPA.margine : Wc / 2 - TITOLO_VITA.selettoreMezzo - TITOLO_VITA.destra >= 170 ? TITOLO_VITA.alto : TITOLO_VITA.altoSotto;
-          const destra = fo ? STAMPA.margine : TITOLO_VITA.destra;
-          const bordoFirma = fo ? STAMPA.margine : 18;
-          const fine = (valore: string) => {
-            if (!annullaTitoloRef.current) {
-              const v = valore.trim().slice(0, TITOLO_VITA.lettere);
-              salvaTitoloVita(v);
-              setTitoloVita(v);
-            }
-            annullaTitoloRef.current = false;
-            setScriviTitolo(false);
-          };
-          const contenuto = (
-            <>
-              {g && (
-                <svg width={Wc} height={Hc} style={{ position: "absolute", left: 0, top: 0, zIndex: 25, overflow: "visible", pointerEvents: "none" }}>
-                  <text x={g.x} y={g.y} textAnchor="end"
-                    transform={`rotate(${TITOLO_VITA.inclinazione} ${g.perno.x} ${g.perno.y})`}
-                    fill="#fff" fontFamily={TITOLO_VITA.famiglia} fontSize={g.px} fontWeight={TITOLO_VITA.peso}
-                    onClick={() => setScriviTitolo(true)}
-                    style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.9))", cursor: "text", pointerEvents: comandiVisibili ? "auto" : "none" }}>
-                    <title>{t("Modifica il titolo")}</title>
-                    {titoloVita.trim()}
-                  </text>
-                </svg>
-              )}
-              {!g && !scriviTitolo && (
-                <button onClick={() => setScriviTitolo(true)}
-                  style={{
-                    position: "absolute", right: destra, top: alto, zIndex: 30,
-                    padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: "pointer",
-                    background: "rgba(10,22,40,0.8)", border: "0.5px dashed #60a5fa", color: "#60a5fa",
-                    ...velo,
-                  }}>
-                  ＋ {t("Aggiungi un titolo")}
-                </button>
-              )}
-              {scriviTitolo && (
-                <input autoFocus defaultValue={titoloVita} maxLength={TITOLO_VITA.lettere}
-                  placeholder={t("Titolo della mappa")} aria-label={t("Titolo della mappa")}
-                  onKeyDown={e => {
-                    if (e.key === "Enter") e.currentTarget.blur();
-                    if (e.key === "Escape") { annullaTitoloRef.current = true; e.currentTarget.blur(); }
-                  }}
-                  onBlur={e => fine(e.currentTarget.value)}
-                  style={{
-                    position: "absolute", right: destra, top: alto - 4, zIndex: 30, pointerEvents: "auto",
-                    width: Math.min(Wc - 2 * destra, 380), textAlign: "right",
-                    fontFamily: TITOLO_VITA.famiglia, fontSize: TITOLO_VITA.px, fontWeight: TITOLO_VITA.peso, color: "#fff",
-                    background: "rgba(10,22,40,0.7)", border: "1px dashed #60a5fa", borderRadius: 6,
-                    padding: "2px 8px", outline: "none",
-                  }} />
-              )}
-              <div aria-hidden style={{
-                position: "absolute", right: bordoFirma, bottom: bordoFirma, zIndex: 25, display: "flex", alignItems: "center", gap: 7,
-                opacity: comandiVisibili ? 0 : 0.9, transition: "opacity 400ms ease", pointerEvents: "none",
-                filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.85))",
-              }}>
-                <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontStyle: "italic", fontSize: 16, color: "#fff" }}>By</span>
-                <img src={`${import.meta.env.BASE_URL}logo-orsi.png`} alt="" width={34} height={34} style={{ display: "block" }} />
-              </div>
-            </>
-          );
-          return fo ? (
-            <div style={{
-              position: "absolute", left: fo.x, top: fo.y, width: STAMPA.w, height: STAMPA.h, zIndex: 25,
-              transform: `scale(${fo.w / STAMPA.w})`, transformOrigin: "0 0", pointerEvents: "none",
-            }}>{contenuto}</div>
-          ) : contenuto;
-        })()}
+        {lifeMap && phase === "ready" && (
+          <TitoloFirmaVita titoloVita={titoloVita}
+            onTitolo={v => { salvaTitoloVita(v); setTitoloVita(v); }}
+            scriviTitolo={scriviTitolo} setScriviTitolo={setScriviTitolo}
+            cornice={anteprima && cornice ? cornice : null}
+            larghezza={nomi?.w ?? containerRef.current?.clientWidth ?? 0}
+            altezza={nomi?.h ?? containerRef.current?.clientHeight ?? 0}
+            comandiVisibili={comandiVisibili} velo={velo} misuraTesto={misuraTesto} />
+        )}
 
         {/* Chiudi in alto a sinistra (la card dati sta in alto a destra). */}
         <button onClick={onClose} aria-label={t("Chiudi")}
