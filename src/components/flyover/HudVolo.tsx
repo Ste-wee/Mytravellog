@@ -6,6 +6,7 @@ import type { RefObject } from "react";
 import { Pause, Play, SkipForward } from "lucide-react";
 import { useT } from "@/lib/settings";
 import { stileBottoneVolo } from "./constants";
+import type { StatoVolo } from "./tipi";
 
 interface Props {
   contatoreRef: RefObject<HTMLSpanElement>;
@@ -14,7 +15,7 @@ interface Props {
   titoloVisibile: boolean;
   posterTitle: string;
   dateRangeLabel: string | null;
-  volo: string;
+  volo: StatoVolo;
   onPausa: () => void;
   onRiprendi: () => void;
   onSalta: () => void;
@@ -49,7 +50,7 @@ export function HudVolo({ contatoreRef, contatore, titoloVisibile, posterTitle, 
         </div>
       </div>
       <div style={{ position: "absolute", left: 0, right: 0, bottom: 20, zIndex: 30, display: "flex", justifyContent: "center", gap: 10 }}>
-        {volo === "onPausa" ? (
+        {volo === "pausa" ? (
           <button type="button" onClick={onRiprendi} style={stileBottoneVolo}>
             <Play className="w-3.5 h-3.5" /> {t("Riprendi")}
           </button>
