@@ -7,9 +7,7 @@ import { loadMapLibre } from "@/lib/maplibre";
 import { createPortal } from "react-dom";
 import { Trip, formatTripDate } from "@/lib/storage";
 import { buildFlightPath, buildFlightLegs, tripTotalKm, buildPerTripRouteCoords, easeInOutCubic, pointAlongPath, tracciatoProgressivo, FlightLeg } from "@/lib/flyover";
-import { unwrapNear } from "@/lib/lonWrap";
 import { codecCostruzione, formatoRegistrabile, kmContatiPerTratta, misureVideo, nomeFileVideo } from "@/lib/voloVideo";
-import { riquadriDelVolo } from "@/lib/riquadriVolo";
 import type { Camera } from "@/lib/copioneVolo";
 import type { Box, Riquadro, RiquadroFisso } from "@/lib/etichetteMappa";
 import fixWebmDuration from "fix-webm-duration";
@@ -35,6 +33,7 @@ import { disponiNomiVita, fotografaRiquadro, type BordoNomi } from "./flyover/no
 import { creaVideo } from "./flyover/creaVideo";
 import { aggiungiCosteVita, aggiungiStrati, type DatiStrati } from "./flyover/stratiMappa";
 import { cameraPoster as cameraPosterDi, flyToOverview as voloPanoramica } from "./flyover/camera";
+import { animaCamera as pilotaCamera, avviaPrecarico as precaricaRiquadri } from "./flyover/voloCamera";
 import { TitoloFirmaVita } from "./flyover/TitoloFirmaVita";
 import { lineaFatta, preparaTracciatoFatto, tagliaTraccia, attendiMappaPronta, chiudiTracciatoFatto, gesti, modoDi, visibile } from "./flyover/mapOps";
 import { X, Loader2, RotateCcw, Film, Home } from "lucide-react";
@@ -571,55 +570,8 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     precaricoRef.current = null;
   };
 
-  /**
-   * Scarica in anticipo i riquadri satellite che la camera vedrà, sezione per
-   * sezione (0 = decollo, poi una per tratta), così quando ci arriva la mappa
-   * è già nitida. Li consegna la cache del browser (o del service worker) alla
-   * richiesta di MapLibre. `pronta(i)` si risolve quando le sezioni 0..i sono
-   * scaricate; chi la usa mette sempre un tetto all'attesa.
-   */
-  const avviaPrecarico = (map: MapLibreMap, tratte: FlightLeg[]) => {
-    const src = map.getSource("satellite") as { tiles?: string[] } | undefined;
-    const modello = src?.tiles?.[0];
-    if (!modello) return null;
-    const c = map.getCenter();
-    const sezioni = [
-      { da: { lon: c.lng, lat: c.lat, zoom: map.getZoom() },
-        a: { lon: tratte[0].from.lon, lat: tratte[0].from.lat, zoom: tratte[0].camera.zoom } },
-      ...tratte.map((tr, i) => ({
-        da: { lon: tr.from.lon, lat: tr.from.lat, zoom: (i === 0 ? tr : tratte[i - 1]).camera.zoom },
-        a: { lon: tr.to.lon, lat: tr.to.lat, zoom: tr.camera.zoom },
-      })),
-    ];
-    const el = map.getContainer();
-    const liste = riquadriDelVolo(sezioni, { w: el.clientWidth, h: el.clientHeight });
-    const ctrl = new AbortController();
-    precaricoRef.current = ctrl;
-    const coda = liste.flatMap((l, s) => l.map(k => ({ k, s })));
-    const mancanti = liste.map(l => l.length);
-    const attese: (() => void)[][] = liste.map(() => []);
-    const pronte = (i: number) => mancanti.slice(0, i + 1).every(n => n === 0);
-    const avvisa = () => attese.forEach((a, i) => { if (pronte(i)) { a.forEach(f => f()); a.length = 0; } });
-    let prossimo = 0;
-    const lavora = async () => {
-      while (prossimo < coda.length && !ctrl.signal.aborted) {
-        const { k, s } = coda[prossimo++];
-        const [z, x, y] = k.split("/");
-        try {
-          const r = await fetch(modello.replace("{z}", z).replace("{x}", x).replace("{y}", y), { signal: ctrl.signal });
-          await r.blob();
-        } catch { /* un riquadro perso: lo chiederà MapLibre */ }
-        mancanti[s]--;
-        avvisa();
-      }
-    };
-    for (let i = 0; i < 6; i++) void lavora();
-    return {
-      pronta: (i: number) => new Promise<void>(res => {
-        if (pronte(Math.min(i, liste.length - 1))) res(); else attese[Math.min(i, liste.length - 1)].push(res);
-      }),
-    };
-  };
+  /** I riquadri del volo scaricati in anticipo (flyover/voloCamera.ts). */
+  const avviaPrecarico = (map: MapLibreMap, tratte: FlightLeg[]) => precaricaRiquadri(map, tratte, precaricoRef);
 
   const testoContatore = () => `${formatKm(kmFattiRef.current)} / ${formatKm(totalKmRef.current)} km`;
   const aggiornaContatore = () => { if (contatoreRef.current) contatoreRef.current.textContent = testoContatore(); };
@@ -637,49 +589,12 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     markerVesteRef.current = { color, img: icona };
   };
 
-  /**
-   * Muove la camera verso un punto pilotandola A MANO, frame per frame (jumpTo):
-   * il flyTo nativo non avanza in modo geograficamente lineare e il marker
-   * resterebbe indietro (misurato a suo tempo: camera al 97% del tragitto,
-   * marker al 50% — vedi tag). Camera e marker leggono lo STESSO `t`.
-   *
-   * ⚠️ La PAUSA ferma il tempo invece di interrompere: il loop resta vivo senza
-   * avanzare e alla ripresa riparte da dov'era. Nel tag la tratta ricominciava
-   * da capo e l'icona saltava indietro.
-   */
+  /** Il pilotaggio a mano della camera (flyover/voloCamera.ts) sulle ref di questo volo. */
   const animaCamera = (
     map: MapLibreMap, id: number,
     verso: { lon: number; lat: number; zoom: number; pitch: number; bearing: number },
     durataMs: number, suFrame?: (t: number, rawT: number) => void,
-  ): Promise<boolean> => new Promise(resolve => {
-    const c0 = map.getCenter(), z0 = map.getZoom(), p0 = map.getPitch(), b0 = map.getBearing();
-    // la strada CORTA anche oltre l'antimeridiano (Tokyo → Los Angeles sul Pacifico)
-    const lon1 = unwrapNear(verso.lon, c0.lng);
-    let inizio = performance.now();
-    let pausaDa: number | null = null;
-    const tick = () => {
-      if (!mountedRef.current || voloIdRef.current !== id) { resolve(false); return; }
-      const ora = performance.now();
-      if (inPausaRef.current) {
-        if (pausaDa == null) pausaDa = ora;
-        rafVoloRef.current = requestAnimationFrame(tick);
-        return;
-      }
-      if (pausaDa != null) { inizio += ora - pausaDa; pausaDa = null; }
-      const rawT = Math.min(1, (ora - inizio) / Math.max(1, durataMs));
-      const t = easeInOutCubic(rawT);
-      map.jumpTo({
-        center: [c0.lng + (lon1 - c0.lng) * t, c0.lat + (verso.lat - c0.lat) * t],
-        zoom: z0 + (verso.zoom - z0) * t,
-        pitch: p0 + (verso.pitch - p0) * t,
-        bearing: b0 + (verso.bearing - b0) * t,
-      });
-      suFrame?.(t, rawT);
-      if (rawT < 1) rafVoloRef.current = requestAnimationFrame(tick);
-      else { rafVoloRef.current = null; resolve(true); }
-    };
-    rafVoloRef.current = requestAnimationFrame(tick);
-  });
+  ) => pilotaCamera({ vivo: mountedRef, voloId: voloIdRef, inPausa: inPausaRef, raf: rafVoloRef }, map, id, verso, durataMs, suFrame);
 
   /**
    * La registrazione. Il canvas WebGL non conserva il buffer, quindi una copia
