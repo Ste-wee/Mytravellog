@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildConstellationStyle } from "./TripFlyover";
+import { buildConstellationStyle } from "./mapStyles";
 
 describe("buildConstellationStyle — vista costellazione (master di stampa)", () => {
   const style = buildConstellationStyle();
