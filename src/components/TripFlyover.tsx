@@ -24,9 +24,14 @@ import { roundRectPath, drawImageCover, drawBrandSignatureCanvas, disegnaNomiSuC
 import { buildFlyoverRouteCoords, formatKm, attesa } from "./flyover/util";
 import type { NomiMappa } from "./flyover/tipi";
 import { OverlayNomi } from "./flyover/OverlayNomi";
+import { HudVolo } from "./flyover/HudVolo";
+import { CreazioneVideo } from "./flyover/CreazioneVideo";
+import { SchedaPoster } from "./flyover/SchedaPoster";
+import { ChipCompagni } from "./flyover/ChipCompagni";
+import { BarraAzioni } from "./flyover/BarraAzioni";
 import { TitoloFirmaVita } from "./flyover/TitoloFirmaVita";
 import { inquadraturaVera, lineaFatta, preparaTracciatoFatto, tagliaTraccia, attendiMappaPronta, chiudiTracciatoFatto, gesti, modoDi, visibile, copiaMappa, mappaFerma } from "./flyover/mapOps";
-import { X, Share2, Loader2, Download, Pause, Play, SkipForward, RotateCcw, Film, Home, Printer } from "lucide-react";
+import { X, Loader2, RotateCcw, Film, Home } from "lucide-react";
 import { canShareFile, downloadBlob, shareOrDownload } from "@/lib/share";
 import { geometriaTitoloVita, leggiTitoloVita, salvaTitoloVita, TITOLO_VITA, type BordiTitolo } from "@/lib/titoloVita";
 
@@ -2205,46 +2210,9 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
             Il contatore si aggiorna dal loop via ref (60 volte al secondo:
             niente stato React, che ridisegnerebbe tutto il componente). */}
         {phase === "ready" && inVolo && (
-          <>
-            <div style={{
-              position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 30,
-              background: "rgba(10,22,40,0.85)", borderRadius: 999, padding: "6px 14px",
-              fontFamily: "ui-monospace, Menlo, monospace", fontSize: 13, fontWeight: 600, color: "#fff",
-              whiteSpace: "nowrap", pointerEvents: "none",
-            }}>
-              <span ref={contatoreRef}>{testoContatore()}</span>
-            </div>
-            {/* Il titolo d'apertura: nome del viaggio e date sul decollo, poi
-                sfuma (lo stesso riquadro è disegnato nel video). */}
-            <div style={{
-              position: "absolute", left: 16, right: 16, bottom: 76, zIndex: 29, display: "flex", justifyContent: "center",
-              pointerEvents: "none", opacity: titoloVisibile ? 1 : 0, transition: "opacity 500ms ease",
-            }}>
-              <div style={{
-                background: "rgba(10,22,40,0.88)", border: "0.5px solid #1a2d4a", borderRadius: 14,
-                padding: "9px 16px", textAlign: "center", maxWidth: "100%",
-              }}>
-                <div className="font-display" style={{ fontSize: 20, fontWeight: 700, color: "#f0f4ff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {posterTitle}
-                </div>
-                {dateRangeLabel && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>{dateRangeLabel}</div>}
-              </div>
-            </div>
-            <div style={{ position: "absolute", left: 0, right: 0, bottom: 20, zIndex: 30, display: "flex", justifyContent: "center", gap: 10 }}>
-              {volo === "pausa" ? (
-                <button type="button" onClick={riprendi} style={stileBottoneVolo}>
-                  <Play className="w-3.5 h-3.5" /> {t("Riprendi")}
-                </button>
-              ) : (
-                <button type="button" onClick={pausa} style={stileBottoneVolo}>
-                  <Pause className="w-3.5 h-3.5" /> {t("Pausa")}
-                </button>
-              )}
-              <button type="button" onClick={salta} style={stileBottoneVolo}>
-                {t("Salta")} <SkipForward className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </>
+          <HudVolo contatoreRef={contatoreRef} contatore={testoContatore()} titoloVisibile={titoloVisibile}
+            posterTitle={posterTitle} dateRangeLabel={dateRangeLabel} volo={volo}
+            onPausa={pausa} onRiprendi={riprendi} onSalta={salta} />
         )}
 
         {/* Toggle vista: satellite · costellazione (master di stampa). Anche
@@ -2299,23 +2267,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         {/* «Crea video» al lavoro: sotto la mappa salta da un fotogramma
             all'altro, quindi la si copre; si vede invece il video che nasce. */}
         {creazione !== null && (
-          <div style={{
-            position: "absolute", inset: 0, zIndex: 40, background: "#060e1e",
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 24,
-          }}>
-            <canvas ref={anteprimaRef} width={180} height={320}
-              style={{ width: 180, maxWidth: "60%", aspectRatio: "9 / 16", borderRadius: 12, border: "0.5px solid #1a2d4a", background: "#060e1e" }} />
-            <div style={{ width: 200, maxWidth: "70%", height: 4, borderRadius: 2, background: "rgba(255,255,255,0.12)", overflow: "hidden" }}>
-              <div style={{ width: `${creazione}%`, height: "100%", background: "#fbbf24", transition: "width 0.2s linear" }} />
-            </div>
-            <div style={{ color: "#f0f4ff", fontSize: 14, fontWeight: 600 }}>{t("Creo il video… {pct}%", { pct: creazione })}</div>
-            <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 12, textAlign: "center", maxWidth: 260 }}>
-              {t("Il video si crea fotogramma per fotogramma: tieni l'app aperta.")}
-            </div>
-            <button type="button" onClick={() => { annullaVideoRef.current = true; }} style={stileBottoneVolo}>
-              <X className="w-3.5 h-3.5" /> {t("Annulla")}
-            </button>
-          </div>
+          <CreazioneVideo creazione={creazione} anteprimaRef={anteprimaRef} onAnnulla={() => { annullaVideoRef.current = true; }} />
         )}
 
         {poster && (
@@ -2326,89 +2278,10 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                   (Cormorant) monocromatica, come la caption di una stampa celeste.
                 Sulla "Mappa della vita" NON si mostra alcuna caption (mappa nuda,
                 scelta utente): titolo/bandiere/date/stat tutti omessi. */}
-            {!lifeMap && (styleMode === "constellation" ? (
-              <div style={{
-                position: "absolute", top: 20, right: 20, zIndex: 25, maxWidth: "72%",
-                textAlign: "right", textShadow: "0 1px 5px rgba(0,0,0,0.9)",
-                animation: "flyoverCardIn 0.35s cubic-bezier(0.22,1,0.36,1) both",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 9 }}>
-                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 25, color: "#fff", lineHeight: 1, letterSpacing: 0.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {posterTitle}
-                  </div>
-                  {flagCodes.length > 0 && (
-                    <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
-                      {flagCodes.map((c, i) => (
-                        <img key={c + i} src={"https://flagcdn.com/w40/" + c + ".png"} alt="" width="22" height="15"
-                          style={{ borderRadius: 2, objectFit: "cover", border: "1px solid rgba(255,255,255,0.9)", boxShadow: "0 1px 4px rgba(0,0,0,0.45)", marginLeft: i === 0 ? 0 : -6, position: "relative", zIndex: i }}
-                          onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {dateRangeLabel && (
-                  <div style={{ fontFamily: "'Noto Serif', serif", fontStyle: "italic", fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 6 }}>{dateRangeLabel}</div>
-                )}
-                {statMetrics().length > 0 && (
-                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 15, color: "rgba(255,255,255,0.9)", marginTop: 8, letterSpacing: 0.5 }}>
-                    {statMetrics().map((m, i) => (
-                      <span key={m.l}>{i > 0 && <>&nbsp;·&nbsp;</>}<b style={{ fontWeight: 600 }}>{m.v}</b> {m.l}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-            <div style={{
-              position: "absolute", top: 16, right: 16, zIndex: 25, maxWidth: "70%",
-              background: "rgba(10,22,40,0.92)",
-              border: "0.5px solid #1a2d4a", borderRadius: 14,
-              padding: "12px 14px", boxShadow: "0 8px 24px rgba(0,0,0,0.45)", backdropFilter: "blur(2px)",
-              animation: "flyoverCardIn 0.35s cubic-bezier(0.22,1,0.36,1) both",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {flagCodes.length > 0 && (
-                  <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
-                    {flagCodes.map((c, i) => (
-                      <img key={c + i} src={"https://flagcdn.com/w40/" + c + ".png"} alt="" width="24" height="17"
-                        style={{
-                          borderRadius: 3, objectFit: "cover",
-                          border: "1.5px solid rgba(255,255,255,0.9)", boxShadow: "0 1px 4px rgba(0,0,0,0.45)",
-                          marginLeft: i === 0 ? 0 : -9,
-                          transform: `rotate(${(i - (flagCodes.length - 1) / 2) * 7}deg)`,
-                          transformOrigin: "bottom center", position: "relative", zIndex: i,
-                        }}
-                        onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                    ))}
-                  </div>
-                )}
-                <div className="font-display" style={{
-                  fontSize: 15, fontWeight: 700, color: "#f0f4ff",
-                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                }}>
-                  {posterTitle}
-                </div>
-              </div>
-              {dateRangeLabel && (
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 3 }}>{dateRangeLabel}</div>
-              )}
-              {statMetrics().length > 0 && (
-              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                {statMetrics().map(s => (
-                  <div key={s.l} style={{
-                    background: "rgba(255,255,255,0.06)",
-                    border: "0.5px solid #1a2d4a",
-                    borderRadius: 10, padding: "5px 12px", textAlign: "center",
-                  }}>
-                    <div className="font-mono" style={{
-                      fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.1,
-                    }}>{s.v}</div>
-                    <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: 0.6, marginTop: 2 }}>{s.l}</div>
-                  </div>
-                ))}
-              </div>
-              )}
-            </div>
-            ))}
+            {!lifeMap && (
+              <SchedaPoster styleMode={styleMode} posterTitle={posterTitle} flagCodes={flagCodes}
+                dateRangeLabel={dateRangeLabel} metriche={statMetrics()} />
+            )}
 
             {/* Azioni: Salva (solo single-trip, → biglietto) + Condividi (immagine)
                 + Esporta SVG (solo Costellazione: master vettoriale per stampa). */}
@@ -2421,40 +2294,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
                 La riga scorre di lato: con dieci persone non deve mangiare la
                 mappa su un telefono. */}
             {lifeMap && compagni.length > 0 && (
-              // ⚠️ Riga PROPRIA sopra le azioni, non in basso a sinistra: a
-              // 390px i chip finivano SOTTO «Esporta SVG / Ritaglia / Condividi»
-              // — illeggibili e non toccabili (il collaudo dal vivo è andato in
-              // timeout proprio su questo). Visto solo guardando lo screenshot
-              // mobile: a 900px sembrava a posto.
-              <div style={{ position: "absolute", left: 16, right: 16, bottom: 66, zIndex: 26,
-                display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2, ...velo }}>
-                <button type="button" onClick={() => setSoloCon(null)} aria-pressed={soloCon === null}
-                  style={{
-                    flexShrink: 0, fontSize: 11, fontWeight: soloCon === null ? 700 : 500, cursor: "pointer",
-                    padding: "6px 12px", borderRadius: 999, fontFamily: "inherit",
-                    background: soloCon === null ? "rgba(96,165,250,0.18)" : "rgba(255,255,255,0.06)",
-                    border: soloCon === null ? "1px solid #60a5fa" : "0.5px solid rgba(255,255,255,0.25)",
-                    color: soloCon === null ? "#93c5fd" : "rgba(255,255,255,0.6)",
-                  }}>
-                  {t("Tutti")} {trips.length}
-                </button>
-                {compagni.map(c => {
-                  const attivo = soloCon?.toLowerCase() === c.nome.toLowerCase();
-                  return (
-                    <button key={c.nome} type="button" aria-pressed={attivo}
-                      onClick={() => setSoloCon(attivo ? null : c.nome)}
-                      style={{
-                        flexShrink: 0, fontSize: 11, fontWeight: attivo ? 700 : 500, cursor: "pointer",
-                        padding: "6px 12px", borderRadius: 999, fontFamily: "inherit",
-                        background: attivo ? "rgba(96,165,250,0.18)" : "rgba(255,255,255,0.06)",
-                        border: attivo ? "1px solid #60a5fa" : "0.5px solid rgba(255,255,255,0.25)",
-                        color: attivo ? "#93c5fd" : "rgba(255,255,255,0.6)",
-                      }}>
-                      {c.nome} {c.quanti}
-                    </button>
-                  );
-                })}
-              </div>
+              <ChipCompagni compagni={compagni} soloCon={soloCon} setSoloCon={setSoloCon} totale={trips.length} velo={velo} />
             )}
 
             {/* Il volo appena fatto: il video (se questo browser sa registrarlo)
@@ -2480,80 +2320,11 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
               </div>
             )}
 
-            <div style={{ position: "absolute", right: 16, bottom: 20, zIndex: 26, display: "flex", gap: 10, ...velo }}>
-              {lifeMap && anteprima && (
-                <span style={{ alignSelf: "center", fontSize: 11, color: "rgba(255,255,255,0.6)", textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>
-                  {t("Clicca un riquadro per spostarlo o tirarne i bordi")}
-                </span>
-              )}
-              {lifeMap && anteprima && Object.keys(fissi).length > 0 && (
-                <button onClick={rimettiRiquadri} disabled={stampa !== null}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600,
-                    cursor: stampa !== null ? "default" : "pointer",
-                    padding: "8px 16px", borderRadius: 999, background: "rgba(255,255,255,0.08)",
-                    border: "0.5px solid rgba(255,255,255,0.35)", color: "rgba(255,255,255,0.85)",
-                  }}>
-                  <RotateCcw className="w-3.5 h-3.5" /> {t("Rimetti com'era")}
-                </button>
-              )}
-              {lifeMap && window.innerWidth >= 768 && anteprima && (
-                <button onClick={() => setAnteprima(false)} disabled={stampa !== null}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600,
-                    cursor: stampa !== null ? "default" : "pointer",
-                    padding: "8px 16px", borderRadius: 999, background: "rgba(255,255,255,0.08)",
-                    border: "0.5px solid rgba(255,255,255,0.35)", color: "rgba(255,255,255,0.85)",
-                  }}>
-                  <X className="w-3.5 h-3.5" /> {t("Esci dall'anteprima")}
-                </button>
-              )}
-              {lifeMap && window.innerWidth >= 768 && (
-                <button onClick={() => { if (anteprima) void handleStampa(); else setAnteprima(true); }} disabled={stampa !== null}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600,
-                    cursor: stampa !== null ? "default" : "pointer",
-                    padding: "8px 16px", borderRadius: 999, background: "rgba(255,255,255,0.08)",
-                    border: "0.5px solid rgba(255,255,255,0.35)", color: "rgba(255,255,255,0.85)",
-                  }}>
-                  {stampa !== null ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
-                  {stampa !== null ? t("Preparo la stampa… {pct}%", { pct: stampa })
-                    : stampaFallita ? t("Stampa non riuscita: riprova")
-                    : anteprima ? t("Scarica per la stampa") : t("Per la stampa")}
-                </button>
-              )}
-              {styleMode === "constellation" && !anteprima && (
-                <button onClick={handleExportSvg} disabled={exportingSvg}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600,
-                    cursor: exportingSvg ? "default" : "pointer",
-                    padding: "8px 16px", borderRadius: 999, background: "rgba(255,255,255,0.08)",
-                    border: "0.5px solid rgba(255,255,255,0.35)", color: "rgba(255,255,255,0.85)",
-                  }}>
-                  <Download className="w-3.5 h-3.5" /> {exportingSvg ? t("Esporto…") : t("Esporta SVG")}
-                </button>
-              )}
-              {tripsCount === 1 && !lifeMap && (
-                <button onClick={handleSaveRelief} disabled={savingRelief}
-                  style={{
-                    padding: "8px 16px", borderRadius: 999, background: "rgba(96,165,250,0.15)",
-                    border: "1px solid #60a5fa", color: "#60a5fa", fontSize: 12, fontWeight: 600,
-                    cursor: savingRelief ? "default" : "pointer",
-                  }}>
-                  {savingRelief ? t("Salvo…") : t("Salva")}
-                </button>
-              )}
-              {!anteprima && <button onClick={handleSharePoster}
-                style={{
-                  display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
-                  padding: "8px 16px", borderRadius: 999,
-                  background: (tripsCount === 1 && !lifeMap) ? "rgba(10,22,40,0.85)" : "rgba(96,165,250,0.15)",
-                  border: (tripsCount === 1 && !lifeMap) ? "0.5px solid #1a2d4a" : "1px solid #60a5fa",
-                  color: (tripsCount === 1 && !lifeMap) ? "rgba(255,255,255,0.8)" : "#60a5fa",
-                }}>
-                <Share2 className="w-3.5 h-3.5" /> {t("Condividi")}
-              </button>}
-            </div>
+            <BarraAzioni lifeMap={lifeMap} tripsCount={tripsCount} styleMode={styleMode} velo={velo}
+              anteprima={anteprima} setAnteprima={setAnteprima} regolati={Object.keys(fissi).length > 0} onRimetti={rimettiRiquadri}
+              stampa={stampa} stampaFallita={stampaFallita} onStampa={handleStampa}
+              exportingSvg={exportingSvg} onEsportaSvg={handleExportSvg}
+              savingRelief={savingRelief} onSalva={handleSaveRelief} onCondividi={handleSharePoster} />
           </>
         )}
       </div>
