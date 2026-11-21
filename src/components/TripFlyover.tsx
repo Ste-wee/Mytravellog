@@ -10,14 +10,14 @@ import { buildFlightPath, buildFlightLegs, tripTotalKm, buildPerTripRouteCoords,
 import { unwrapNear } from "@/lib/lonWrap";
 import { codecCostruzione, formatoRegistrabile, kmContatiPerTratta, misureVideo, nomeFileVideo } from "@/lib/voloVideo";
 import { riquadriDelVolo } from "@/lib/riquadriVolo";
-import { copioneVolo, type Camera } from "@/lib/copioneVolo";
+import type { Camera } from "@/lib/copioneVolo";
 import type { Box, Riquadro, RiquadroFisso } from "@/lib/etichetteMappa";
 import fixWebmDuration from "fix-webm-duration";
 import { compagniDeiViaggi, viaggiCon } from "@/lib/compagni";
 import { saveReliefImage } from "@/lib/photoStorage";
 import { buildPosterSvg, loadCountryRings, routeBounds, unwrapSegments } from "@/lib/posterSvg";
 import { loadCoste } from "@/lib/worldAtlas";
-import { STAMPA, BORDI_STAMPA, FINALE_PADDING, FINALE_PADDING_STELLE, SCHEDA_POSTER, VELOCITA_MARKER, DECOLLO_MS, FINALE_VIDEO_MS, TITOLO_MS, ATTESA_DECOLLO_MS, ATTESA_TAPPA_MS, AVVICINAMENTO_ZOOM, FONT_NOMI, FPS_VIDEO, ATTESA_FOTOGRAMMA_MS, TEMPI_VIDEO, stileBottoneVolo } from "./flyover/constants";
+import { STAMPA, BORDI_STAMPA, FINALE_PADDING, FINALE_PADDING_STELLE, SCHEDA_POSTER, VELOCITA_MARKER, DECOLLO_MS, FINALE_VIDEO_MS, TITOLO_MS, ATTESA_DECOLLO_MS, ATTESA_TAPPA_MS, AVVICINAMENTO_ZOOM, FONT_NOMI, stileBottoneVolo } from "./flyover/constants";
 import { buildSatelliteStyle, buildSatelliteStylePiatto, COSTE_E1, buildConstellationStyle, type MapStyleMode } from "./flyover/mapStyles";
 import { TRANSPORT_MAP, loadModeIcon, createStarImageData, createDotImageData, createPinImageData, createFinalPinImageData } from "./flyover/mapImages";
 import { drawBrandSignatureCanvas, disegnaIcona, disegnaContatore, disegnaTitolo } from "./flyover/canvasDraw";
@@ -32,6 +32,7 @@ import { BarraAzioni } from "./flyover/BarraAzioni";
 import { stampaMappaVita } from "./flyover/stampa";
 import { componiPoster } from "./flyover/poster";
 import { disponiNomiVita, fotografaRiquadro, type BordoNomi } from "./flyover/nomiVita";
+import { creaVideo } from "./flyover/creaVideo";
 import { TitoloFirmaVita } from "./flyover/TitoloFirmaVita";
 import { inquadraturaVera, lineaFatta, preparaTracciatoFatto, tagliaTraccia, attendiMappaPronta, chiudiTracciatoFatto, gesti, modoDi, visibile } from "./flyover/mapOps";
 import { X, Loader2, RotateCcw, Film, Home } from "lucide-react";
@@ -1182,185 +1183,13 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     await shareOrDownload(file, tripsCount > 1 ? "Il mio viaggio in 3D" : posterTitle);
   };
 
-  /** Il colore e il simbolo dell'icona per un mezzo (come vestiMarker, senza DOM). */
-  const vesteDi = (modo: string) => ({
-    color: modo === "casa" ? "#64748b" : (TRANSPORT_MAP[modo]?.color ?? "#60a5fa"),
-    img: iconeModiRef.current[modo] ?? null,
+  /** «Crea video» (flyover/creaVideo.ts): il volo fotogramma per fotogramma, in mp4. */
+  const costruisciVideo = () => creaVideo({
+    map: mapRef.current, tratte: legsRef.current, formato, posterTitle, dateRangeLabel,
+    kmTotali: () => totalKmRef.current, vivo: () => mountedRef.current, anteprima: () => anteprimaRef.current,
+    inCorso: creazioneRef, annulla: annullaVideoRef, iconeModi: iconeModiRef, videoUrlRef,
+    avviaVolo, buttaVideo, setCreazione, cameraPoster, loadFlagImages, loadBrandLogo, catturaCanvasMappa, composePoster, setVideo,
   });
-
-  /** Aspetta che la mappa abbia i riquadri della vista, con un tetto. Dopo un
-   *  jumpTo i riquadri si chiedono solo al render successivo: si fa girare. */
-  const mappaNitida = (map: MapLibreMap, maxMs: number) => new Promise<void>(res => {
-    const t0 = performance.now();
-    let giri = 0;
-    const prova = () => {
-      giri++;
-      let pronta = true;
-      try { pronta = map.areTilesLoaded(); } catch { /* mappa sparita: si va avanti */ }
-      if ((pronta && giri > 1) || performance.now() - t0 > maxMs || !mountedRef.current) { res(); return; }
-      requestAnimationFrame(prova);
-    };
-    map.triggerRepaint();
-    requestAnimationFrame(prova);
-  });
-
-  /**
-   * «Crea video»: il volo ricostruito FOTOGRAMMA PER FOTOGRAMMA (lib/copioneVolo)
-   * e codificato in mp4 (WebCodecs + mp4-muxer). Per ogni fotogramma: la mappa
-   * va dove dice il copione, si aspetta che sia nitida, la si copia, sopra si
-   * disegnano icona, contatore e titolo, e si codifica con il SUO istante
-   * (n/30 s) — così il video è sempre a 30 fps pieni, anche se ogni fotogramma
-   * ha richiesto un secondo. Dove il browser non sa farlo, si ripiega sul volo
-   * registrato dal vivo.
-   */
-  const costruisciVideo = async () => {
-    const map = mapRef.current;
-    const tratte = legsRef.current;
-    if (!map || !tratte.length || creazioneRef.current) return;
-    // ⚠️ il segnale si accende PRIMA dell'attesa sul codice: con due tocchi
-    // rapidi partivano due creazioni sulla stessa mappa
-    creazioneRef.current = true;
-    const mc = map.getCanvas();
-    const { w, h } = misureVideo(mc.width, mc.height);
-    const codec = await codecCostruzione(w, h);
-    if (!codec) {
-      creazioneRef.current = false;
-      if (formato && mountedRef.current) avviaVolo(map, true);   // il ripiego: registrazione dal vivo
-      return;
-    }
-    annullaVideoRef.current = false;
-    buttaVideo();
-    setCreazione(0);
-    gesti(map, false);
-    const camPoster = cameraPoster(map, 45);
-    let encoder: VideoEncoder | null = null;
-    try {
-      const { Muxer, ArrayBufferTarget } = await import("mp4-muxer");
-      // le icone dei mezzi, come nel volo dal vivo
-      const modi = new Set(tratte.map(modoDi));
-      await Promise.all([...modi].filter(m => !iconeModiRef.current[m]).map(async m => {
-        const Icon = m === "casa" ? Home : TRANSPORT_MAP[m]?.Icon;
-        if (!Icon) return;
-        try { iconeModiRef.current[m] = await loadModeIcon(Icon, "#ffffff"); } catch { /* solo il colore */ }
-      }));
-      if (!camPoster) return;               // niente da inquadrare: il finally rimette a posto
-
-      const tela = document.createElement("canvas");
-      tela.width = w; tela.height = h;
-      const ctx = tela.getContext("2d")!;
-      const ultimoVolo = document.createElement("canvas");
-      ultimoVolo.width = w; ultimoVolo.height = h;
-      const ctxUltimo = ultimoVolo.getContext("2d")!;
-      const k = w / (mc.clientWidth || w);
-      const SFONDO = "#060e1e";
-
-      // Il poster del finale: la stessa composizione dell'immagine condivisa.
-      // (il percorso intero si riaccende con una dissolvenza in tempo vero:
-      // senza l'attesa il poster del video poteva uscire con la linea a metà)
-      chiudiTracciatoFatto(map);
-      map.jumpTo({ center: [camPoster.lon, camPoster.lat], zoom: camPoster.zoom, pitch: camPoster.pitch, bearing: camPoster.bearing });
-      await Promise.all([mappaNitida(map, 4000), attesa(450)]);
-      await visibile();
-      const [flagImgs, logoImg] = await Promise.all([loadFlagImages(), loadBrandLogo()]);
-      const snap = await catturaCanvasMappa();
-      const finale = snap ? composePoster(snap, flagImgs, logoImg, mc.width / (mc.clientWidth || mc.width)) : null;
-
-      // La linea che si scopre, come nel volo dal vivo.
-      preparaTracciatoFatto(map);
-      const traccia = tracciatoProgressivo(tratte.map(tr => tr.pathCoords));
-      (map.getSource("flyover-traccia") as GeoJSONSource | undefined)?.setData(lineaFatta(traccia.percorso));
-      // ⚠️ la mappa spegne il percorso intero con una dissolvenza di 300 ms in
-      // tempo VERO: il primo fotogramma del video, che arriva prima, lo
-      // mostrava ancora tutto (visto nel video dell'anno). Si aspetta che sparisca.
-      await attesa(450);
-
-      const copione = copioneVolo(tratte, camPoster, kmContatiPerTratta(tratte), TEMPI_VIDEO);
-      const passo = 1000 / FPS_VIDEO;
-      const n = Math.ceil(copione.durataMs / passo);
-
-      const target = new ArrayBufferTarget();
-      const muxer = new Muxer({ target, video: { codec: "avc", width: w, height: h, frameRate: FPS_VIDEO }, fastStart: "in-memory" });
-      let errore: unknown = null;
-      encoder = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: e => { errore = e; } });
-      // 4 Mbit/s: a 6 un volo di 22 s pesava 16,7 MB (un anno sarebbe passato i 40)
-      encoder.configure({ codec, width: w, height: h, bitrate: 4_000_000, framerate: FPS_VIDEO });
-
-      for (let i = 0; i <= n; i++) {
-        if (annullaVideoRef.current || !mountedRef.current) break;
-        if (errore) throw errore;
-        const s = copione.statoAl(i * passo);
-        ctx.fillStyle = SFONDO;
-        ctx.fillRect(0, 0, w, h);
-        if (s.fase !== "finale") {
-          map.jumpTo({ center: [s.camera.lon, s.camera.lat], zoom: s.camera.zoom, pitch: s.camera.pitch, bearing: s.camera.bearing });
-          tagliaTraccia(map, s.tratta >= 0 ? traccia.progresso(s.tratta, s.tm) : 0);
-          await mappaNitida(map, ATTESA_FOTOGRAMMA_MS);
-          await visibile();
-          const img = await catturaCanvasMappa();
-          if (img) ctx.drawImage(img, 0, 0, w, h);
-          if (s.icona) {
-            const p = map.project(s.icona);
-            // solo se il punto si vede: `project` dà un pixel anche a un punto
-            // DIETRO il globo (Milano, all'inizio di Milano → Tokyo → Honolulu)
-            const q = map.unproject(p);
-            const visto = Math.abs(q.lat - s.icona[1]) < 0.5 && Math.abs(((q.lng - s.icona[0]) % 360 + 540) % 360 - 180) < 0.5;
-            if (visto) disegnaIcona(ctx, p.x * k, p.y * k, k, vesteDi(modoDi(tratte[Math.max(0, s.tratta)])));
-          }
-          disegnaContatore(ctx, `${formatKm(s.km)} / ${formatKm(totalKmRef.current)} km`, w, k);
-          if (s.titolo > 0) disegnaTitolo(ctx, s.titolo, posterTitle, dateRangeLabel, w, h, k);
-          ctxUltimo.drawImage(tela, 0, 0);
-        } else {
-          // il poster entra in dissolvenza sull'ultimo fotogramma del volo e si
-          // avvicina piano (un fermo-immagine fa impigrire il codificatore)
-          if (finale) {
-            const z = 1 + 0.03 * s.k;
-            ctx.drawImage(finale, -(z - 1) * w / 2, -(z - 1) * h / 2, w * z, h * z);
-          }
-          if (s.inFase < 700) {
-            ctx.globalAlpha = 1 - s.inFase / 700;
-            ctx.drawImage(ultimoVolo, 0, 0);
-            ctx.globalAlpha = 1;
-          }
-        }
-        const fotogramma = new VideoFrame(tela, { timestamp: Math.round(i * 1e6 / FPS_VIDEO), duration: Math.round(1e6 / FPS_VIDEO) });
-        encoder.encode(fotogramma, { keyFrame: i % (FPS_VIDEO * 2) === 0 });
-        fotogramma.close();
-        while (encoder.encodeQueueSize > 4) await attesa(4);
-        if (i % 6 === 0) {
-          setCreazione(Math.round((i / n) * 100));
-          const a = anteprimaRef.current;
-          if (a) {
-            // le proporzioni del video vero (verticale sul telefono, larga su desktop)
-            const ah = Math.round(180 * h / w);
-            if (a.height !== ah) { a.width = 180; a.height = ah; a.style.aspectRatio = `${w} / ${h}`; }
-            a.getContext("2d")?.drawImage(tela, 0, 0, a.width, a.height);
-          }
-        }
-      }
-      if (annullaVideoRef.current || !mountedRef.current) return;
-      await encoder.flush();
-      if (errore) throw errore;
-      muxer.finalize();
-      const blob = new Blob([target.buffer], { type: "video/mp4" });
-      if (!mountedRef.current) return;
-      const url = URL.createObjectURL(blob);
-      videoUrlRef.current = url;
-      setVideo({ url, blob });
-    } catch {
-      // il video non è venuto: il poster resta com'era, si può riprovare
-    } finally {
-      try { if (encoder && encoder.state !== "closed") encoder.close(); } catch { /* già chiuso */ }
-      creazioneRef.current = false;
-      if (mountedRef.current) {
-        try {
-          chiudiTracciatoFatto(map);
-          if (camPoster) map.jumpTo({ center: [camPoster.lon, camPoster.lat], zoom: camPoster.zoom, pitch: camPoster.pitch, bearing: camPoster.bearing });
-          gesti(map, true);
-        } catch { /* mappa sparita */ }
-        setCreazione(null);
-      }
-    }
-  };
 
   /** La mappa NASCOSTA che fotografa i riquadri: una sola, riusata per tutti
    *  (un contesto WebGL in più, non uno per riquadro), rifatta se cambia stile. */
