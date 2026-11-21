@@ -1,0 +1,56 @@
+# I controlli su ogni PR verso main: si mergia (e quindi si pubblica) solo se
+# sono verdi. Le dipendenze si installano come nel deploy (bun install), così
+# si prova lo stesso codice che andrà online; i controlli girano con Node.
+#
+# Le prove dal vivo sulla mappa (npm run collaudo / lingua, Playwright con la
+# scheda grafica) NON girano qui: senza GPU la mappa non arriva a disegnarsi.
+# Restano da lanciare in locale prima di aprire la PR.
+name: Controlli
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: controlli-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  controlli:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Dipendenze
+        run: bun install
+
+      - name: Typecheck (app + service worker)
+        run: npm run typecheck
+
+      - name: Lint
+        run: npx eslint src scripts e2e
+
+      - name: Test
+        run: npx vitest run
+
+      - name: Lingua — la rete sa ancora trovare le scritte (autoprova)
+        run: npm run lingua:statico -- --autoprova
+
+      - name: Lingua — nessuna scritta senza traduzione
+        run: npm run lingua:statico
+
+      - name: Build
+        run: npm run build
