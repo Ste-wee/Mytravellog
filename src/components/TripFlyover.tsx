@@ -7,10 +7,8 @@ import { loadMapLibre } from "@/lib/maplibre";
 import { createPortal } from "react-dom";
 import { Trip, formatTripDate } from "@/lib/storage";
 import { buildFlightPath, buildFlightLegs, tripTotalKm, buildPerTripRouteCoords, easeInOutCubic, pointAlongPath, tracciatoProgressivo, FlightLeg } from "@/lib/flyover";
-import { codecCostruzione, formatoRegistrabile, kmContatiPerTratta, misureVideo, nomeFileVideo } from "@/lib/voloVideo";
-import type { Camera } from "@/lib/copioneVolo";
+import { codecCostruzione, formatoRegistrabile, kmContatiPerTratta, nomeFileVideo } from "@/lib/voloVideo";
 import type { Box, Riquadro, RiquadroFisso } from "@/lib/etichetteMappa";
-import fixWebmDuration from "fix-webm-duration";
 import { compagniDeiViaggi, viaggiCon } from "@/lib/compagni";
 import { saveReliefImage } from "@/lib/photoStorage";
 import { buildPosterSvg, loadCountryRings, routeBounds, unwrapSegments } from "@/lib/posterSvg";
@@ -18,7 +16,6 @@ import { loadCoste } from "@/lib/worldAtlas";
 import { STAMPA, BORDI_STAMPA, VELOCITA_MARKER, DECOLLO_MS, FINALE_VIDEO_MS, TITOLO_MS, ATTESA_DECOLLO_MS, ATTESA_TAPPA_MS, AVVICINAMENTO_ZOOM, FONT_NOMI, stileBottoneVolo } from "./flyover/constants";
 import { buildSatelliteStyle, buildSatelliteStylePiatto, buildConstellationStyle, type MapStyleMode } from "./flyover/mapStyles";
 import { TRANSPORT_MAP, loadModeIcon, createFinalPinImageData } from "./flyover/mapImages";
-import { drawBrandSignatureCanvas, disegnaIcona, disegnaContatore, disegnaTitolo } from "./flyover/canvasDraw";
 import { buildFlyoverRouteCoords, formatKm, attesa } from "./flyover/util";
 import type { NomiMappa, StatoVolo } from "./flyover/tipi";
 import { OverlayNomi } from "./flyover/OverlayNomi";
@@ -34,10 +31,11 @@ import { creaVideo } from "./flyover/creaVideo";
 import { aggiungiCosteVita, aggiungiStrati, type DatiStrati } from "./flyover/stratiMappa";
 import { cameraPoster as cameraPosterDi, flyToOverview as voloPanoramica } from "./flyover/camera";
 import { animaCamera as pilotaCamera, avviaPrecarico as precaricaRiquadri } from "./flyover/voloCamera";
+import { avviaRegistrazione as avviaRegistrazioneDi, fermaRegistrazione as fermaRegistrazioneDi, type RefRegistrazione } from "./flyover/registrazione";
 import { TitoloFirmaVita } from "./flyover/TitoloFirmaVita";
 import { lineaFatta, preparaTracciatoFatto, tagliaTraccia, attendiMappaPronta, chiudiTracciatoFatto, gesti, modoDi, visibile } from "./flyover/mapOps";
 import { X, Loader2, RotateCcw, Film, Home } from "lucide-react";
-import { canShareFile, downloadBlob, shareOrDownload } from "@/lib/share";
+import { downloadBlob, shareOrDownload } from "@/lib/share";
 import { leggiTitoloVita, salvaTitoloVita, TITOLO_VITA } from "@/lib/titoloVita";
 
 interface Props {
@@ -596,142 +594,15 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     durataMs: number, suFrame?: (t: number, rawT: number) => void,
   ) => pilotaCamera({ vivo: mountedRef, voloId: voloIdRef, inPausa: inPausaRef, raf: rafVoloRef }, map, id, verso, durataMs, suFrame);
 
-  /**
-   * La registrazione. Il canvas WebGL non conserva il buffer, quindi una copia
-   * si prende DENTRO ogni evento "render" (come lo snapshot del poster); un loop
-   * a parte la ricompone sul canvas del video insieme a marker e contatore, che
-   * sono elementi HTML e non finirebbero mai nel canvas della mappa.
-   */
-  const avviaRegistrazione = (map: MapLibreMap) => {
-    if (!formato) return;
-    try {
-      const mapCanvas = map.getCanvas();
-      const { w, h } = misureVideo(mapCanvas.width, mapCanvas.height);
-      const video = document.createElement("canvas");
-      video.width = w; video.height = h;
-      const ultimo = document.createElement("canvas");
-      ultimo.width = w; ultimo.height = h;
-      const ctxUltimo = ultimo.getContext("2d")!;
-      // ⚠️ SFONDO PIENO prima di ogni copia. Il canvas della mappa ha zone
-      // TRASPARENTI — riquadri satellite ancora in caricamento quando la camera
-      // si allarga, scritte in dissolvenza, lo spazio attorno al globo — e
-      // copiato sopra il fotogramma prima lasciava SCIE: puntine impilate in
-      // fila, «Slovenia Slovenia», linee doppie (viste nel file video, mai a
-      // schermo, dove sotto c'è lo sfondo del riquadro). È la stessa famiglia
-      // del difetto che rendeva il video di LUGLIO una mappa congelata piena di
-      // icone ripetute (rifatto girare dal tag per confrontarlo).
-      const SFONDO = "#060e1e";
-      congelaVideoRef.current = false;
-      markerFissoRef.current = null;
-      const copia = () => {
-        // All'atterraggio il video resta sull'ultimo fotogramma del volo mentre la
-        // mappa si allarga e carica (vedi `congelaVideoRef`).
-        if (congelaVideoRef.current) return;
-        try {
-          ctxUltimo.fillStyle = SFONDO;
-          ctxUltimo.fillRect(0, 0, w, h);
-          ctxUltimo.drawImage(mapCanvas, 0, 0, w, h);
-        } catch { /* frame perso */ }
-      };
-      map.on("render", copia);
-      staccaRenderRef.current = () => map.off("render", copia);
-      finaleVideoRef.current = null;
-      const ctx = video.getContext("2d")!;
-      const k = w / (mapCanvas.clientWidth || w);     // px del video per px CSS
-      const titoloVideo = posterTitle;
-      const dateVideo = dateRangeLabel;
-      const disegna = () => {
-        rafVideoRef.current = requestAnimationFrame(disegna);
-        // anche qui: il poster del finale ha lo spazio attorno al globo trasparente
-        ctx.fillStyle = SFONDO;
-        ctx.fillRect(0, 0, w, h);
-        const finale = finaleVideoRef.current;
-        if (finale) {
-          // ⚠️ Il finale NON dev'essere un fermo-immagine. Con una scena immobile
-          // il codificatore di Chrome smette di aggiornare alcuni blocchi e si
-          // trascina pezzi del fotogramma prima (visto: un «863» del contatore
-          // incollato accanto alla scheda per tutto il finale, in riproduzione
-          // normale — la composizione del finale era pulita). Quindi: dissolvenza
-          // dall'ultimo fotogramma del volo, poi un avvicinamento lentissimo
-          // (3% in tutto il finale) che fa cambiare ogni fotogramma.
-          const dt = performance.now() - finaleT0Ref.current;
-          const s = 1 + 0.03 * Math.min(1, dt / FINALE_VIDEO_MS);
-          ctx.drawImage(finale, -(s - 1) * w / 2, -(s - 1) * h / 2, w * s, h * s);
-          if (dt < 700) {
-            ctx.globalAlpha = 1 - dt / 700;
-            ctx.drawImage(ultimo, 0, 0);
-            ctx.globalAlpha = 1;
-          }
-          return;
-        }
-        const fisso = congelaVideoRef.current ? markerFissoRef.current : null;
-        if (fisso) {
-          // L'ARRIVO: il fotogramma fermo si avvicina piano verso la meta, così
-          // è un momento voluto e non un video che si è bloccato.
-          const s = 1 + 0.05 * Math.min(1, (performance.now() - fisso.t0) / 3000);
-          ctx.save();
-          ctx.translate(fisso.x * k, fisso.y * k);
-          ctx.scale(s, s);
-          ctx.translate(-fisso.x * k, -fisso.y * k);
-          ctx.drawImage(ultimo, 0, 0);
-          ctx.restore();
-        } else {
-          ctx.drawImage(ultimo, 0, 0);
-        }
-        const m = markerRef.current;
-        if (fisso || m) {
-          const p = fisso ?? map.project(m!.getLngLat());
-          disegnaIcona(ctx, p.x * k, p.y * k, k, fisso ?? markerVesteRef.current);
-        }
-        disegnaContatore(ctx, testoContatore(), w, k);
-        // Il titolo d'apertura (lo stesso riquadro che c'è a schermo), che sfuma.
-        const restoTitolo = titoloFinoRef.current - performance.now();
-        if (restoTitolo > 0) disegnaTitolo(ctx, Math.min(1, restoTitolo / 500), titoloVideo, dateVideo, w, h, k);
-      };
-      disegna();
-      const rec = new MediaRecorder(video.captureStream(30), { mimeType: formato.mime, videoBitsPerSecond: 4_000_000 });
-      pezziRef.current = [];
-      rec.ondataavailable = e => { if (e.data.size > 0) pezziRef.current.push(e.data); };
-      rec.start(1000);
-      registratoreRef.current = rec;
-      regInizioRef.current = performance.now();
-      regPausaDaRef.current = null;
-      regPausaTotRef.current = 0;
-    } catch {
-      // niente registrazione su questo dispositivo: il volo si vede lo stesso
-      fermaRegistrazione(false);
-    }
-  };
-
-  /** Chiude la registrazione: `tieni` decide se ne nasce un video (Salta lo butta). */
-  const fermaRegistrazione = (tieni: boolean) => {
-    if (rafVideoRef.current != null) { cancelAnimationFrame(rafVideoRef.current); rafVideoRef.current = null; }
-    staccaRenderRef.current?.();
-    staccaRenderRef.current = null;
-    const rec = registratoreRef.current;
-    registratoreRef.current = null;
-    if (!rec) return;
-    const ora = performance.now();
-    const inPausa = regPausaDaRef.current != null ? ora - regPausaDaRef.current : 0;
-    const durataMs = ora - regInizioRef.current - regPausaTotRef.current - inPausa;
-    rec.onstop = async () => {
-      if (!tieni || !mountedRef.current || !formato) return;
-      let blob = new Blob(pezziRef.current, { type: formato.mime.split(";")[0] });
-      if (blob.size === 0) return;
-      // ⚠️ I .webm di Chrome escono SENZA durata nell'intestazione: lettori e
-      // gallerie li mostrano a 0:00 e non lasciano scorrere avanti e indietro
-      // (misurato sul primo video: `duration` = Infinity). Si riscrive la
-      // durata dopo la registrazione. L'mp4 di Safari non ne ha bisogno.
-      if (formato.estensione === "webm") {
-        try { blob = await fixWebmDuration(blob, durataMs, { logger: false }); } catch { /* resta senza durata */ }
-      }
-      if (!mountedRef.current) return;
-      const url = URL.createObjectURL(blob);
-      videoUrlRef.current = url;
-      setVideo({ url, blob });
-    };
-    try { if (rec.state !== "inactive") rec.stop(); } catch { /* già fermo */ }
-  };
+  /** La registrazione dal vivo (flyover/registrazione.ts) sulle ref di questo volo. */
+  const refRegistrazione = (): RefRegistrazione => ({
+    formato, mountedRef, congelaVideoRef, markerFissoRef, staccaRenderRef, finaleVideoRef, finaleT0Ref,
+    rafVideoRef, markerRef, markerVesteRef, titoloFinoRef, pezziRef, registratoreRef, regInizioRef,
+    regPausaDaRef, regPausaTotRef, videoUrlRef, setVideo,
+  });
+  const avviaRegistrazione = (map: MapLibreMap) =>
+    avviaRegistrazioneDi({ ...refRegistrazione(), posterTitle, dateRangeLabel, testoContatore }, map);
+  const fermaRegistrazione = (tieni: boolean) => fermaRegistrazioneDi(refRegistrazione(), tieni);
 
   /** Butta il video del volo precedente (prima di un nuovo volo, o chiudendo). */
   const buttaVideo = () => {
