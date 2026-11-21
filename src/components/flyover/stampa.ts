@@ -10,7 +10,7 @@
 import type { MutableRefObject } from "react";
 import type { Map as MapLibreMap, StyleSpecification } from "maplibre-gl";
 import type { loadMapLibre } from "@/lib/maplibre";
-import type { Disposizione, Riquadro, RiquadroFisso } from "@/lib/etichetteMappa";
+import type { Disposizione, RiquadroFisso } from "@/lib/etichetteMappa";
 import { TITOLO_VITA, type GeometriaTitolo } from "@/lib/titoloVita";
 import { loadCoste } from "@/lib/worldAtlas";
 import { downloadBlob } from "@/lib/share";
@@ -19,6 +19,7 @@ import type { MapStyleMode } from "./mapStyles";
 import { createDotImageData, createStarImageData } from "./mapImages";
 import { disegnaNomiSuCanvas, disegnaTitoloVitaSuCanvas, drawBrandSignatureCanvas } from "./canvasDraw";
 import { copiaMappa, mappaFerma } from "./mapOps";
+import { fotografaRiquadro } from "./nomiVita";
 
 export interface DipendenzeStampa {
   lib: Awaited<ReturnType<typeof loadMapLibre>> | null;
@@ -41,8 +42,6 @@ export interface DipendenzeStampa {
   addOverlayLayers: (m: MapLibreMap, modo: MapStyleMode) => void;
   disponiVita: (m: MapLibreMap, W: number, H: number,
     bordo: typeof BORDI_STAMPA & { fattore: number; fissi: Record<string, RiquadroFisso> }) => { d: Disposizione; gTitolo: GeometriaTitolo | null };
-  fotografaRiquadro: (map: MapLibreMap, m: MapLibreMap, r: Riquadro,
-    riq: { div: HTMLDivElement; stella: number } | null, maxMs: number, scalaFoglio: number) => Promise<HTMLCanvasElement | null>;
   loadBrandLogo: () => Promise<HTMLImageElement | null>;
 }
 
@@ -114,7 +113,7 @@ export async function stampaMappaVita(dip: DipendenzeStampa): Promise<void> {
       const stella = typeof misura === "number" ? misura : 1;
       for (const [i, r] of d.riquadri.entries()) {
         if (!dip.vivo()) return;
-        const c = await dip.fotografaRiquadro(m, riq.m, r, { div: riq.div, stella }, STAMPA.attesaMs, scalaFoglio);
+        const c = await fotografaRiquadro(m, riq.m, r, { div: riq.div, stella }, STAMPA.attesaMs, scalaFoglio);
         if (c) foto[r.numero] = c;
         dip.setStampa(25 + Math.round((65 * (i + 1)) / d.riquadri.length));
       }
