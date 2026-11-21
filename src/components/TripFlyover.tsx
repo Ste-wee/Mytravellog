@@ -22,7 +22,7 @@ import { buildSatelliteStyle, buildSatelliteStylePiatto, buildConstellationStyle
 import { TRANSPORT_MAP, loadModeIcon, createFinalPinImageData } from "./flyover/mapImages";
 import { drawBrandSignatureCanvas, disegnaIcona, disegnaContatore, disegnaTitolo } from "./flyover/canvasDraw";
 import { buildFlyoverRouteCoords, formatKm, attesa } from "./flyover/util";
-import type { NomiMappa } from "./flyover/tipi";
+import type { NomiMappa, StatoVolo } from "./flyover/tipi";
 import { OverlayNomi } from "./flyover/OverlayNomi";
 import { HudVolo } from "./flyover/HudVolo";
 import { CreazioneVideo } from "./flyover/CreazioneVideo";
@@ -215,7 +215,6 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
 
   // ── Lo stato del VOLO (solo fuori dalla Mappa della vita) ──────────────────
   const animato = !lifeMap;
-  type StatoVolo = "spento" | "inVolo" | "pausa" | "finito";
   const [volo, setVolo] = useState<StatoVolo>("spento");
   const inVolo = volo === "inVolo" || volo === "pausa";
   /** Ogni volo ha il suo numero: cambiarlo ferma i loop del volo precedente. */

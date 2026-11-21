@@ -18,3 +18,8 @@ export type Cornice = Box;
 
 /** Un riquadro che si sta trascinando, col suo contorno dal vivo (px di foglio). */
 export type Trascinamento = { chiave: string; box: Box };
+
+/** Il volo dal vivo: fermo, in volo, in pausa, atterrato sul poster. Tipo
+ *  stretto apposta: un confronto con un nome che non esiste (come il
+ *  `volo === "onPausa"` che per qualche ora ha tolto Riprendi) non compila. */
+export type StatoVolo = "spento" | "inVolo" | "pausa" | "finito";
