@@ -17,8 +17,8 @@ import { ISO_NUMERICO_A2, ISO_A2_NUMERICO } from "@/lib/isoPaesi";
  * Non è un errore geografico: la Scozia non è uno stato sovrano, e per l'ONU
  * il paese è il Regno Unito. Ma un diario di viaggio racconta dove sei stato,
  * e Scozia, Inghilterra, Galles e Irlanda del Nord hanno identità, bandiera e
- * confini propri — le app di viaggio le contano separate, e Stefano se lo
- * aspettava ("la Scozia dovrebbe essere a parte").
+ * confini propri — le app di viaggio le contano separate, ed è quello che ci si
+ * aspetta ("la Scozia dovrebbe essere a parte").
  *
  * Il riconoscimento passa dal codice ISO 3166-2 che salviamo già in
  * `region_details` (Nominatim dà GB-SCT, GB-WLS...), col nome come rete di
@@ -72,8 +72,8 @@ export function paeseVisibileDiViaggio(t: {
 
 /**
  * Il paese visibile di una TAPPA. Le tappe non hanno una regione salvata: da
- * sole, dentro il Regno Unito, resterebbero "Regno Unito" — e il viaggio in
- * Scozia di Stefano (Pitlochry, con tappe Edimburgo e Fort Augustus) avrebbe
+ * sole, dentro il Regno Unito, resterebbero "Regno Unito" — e un viaggio in
+ * Scozia con tappe scozzesi salvate senza regione avrebbe
  * contato DUE paesi, Scozia più Regno Unito, gonfiando il totale.
  * Una tappa britannica di un viaggio scozzese sta in Scozia: eredita.
  */
@@ -177,7 +177,7 @@ export function areaPoligonoCheContiene(lon: number, lat: number, polygons: numb
  * mondo dà falsi positivi — Kiruna e Abisko, in Svezia, risultavano dentro la
  * Russia. Fermandosi al primo match vinceva la Russia solo perché nel
  * world-atlas è la 18ª feature e la Svezia la 110ª: la mappa mostrava la
- * Russia visitata per un viaggio in Lapponia (segnalato da Stefano).
+ * Russia visitata per un viaggio in Lapponia (segnalato in uso).
  * Il poligono svedese è minuscolo rispetto a quello russo: il più piccolo è
  * sempre il più specifico.
  *
@@ -237,7 +237,7 @@ export function caricaPaesi(): Promise<PaeseMondo[]> {
     // tutti i micro-stati** — Vaticano, San Marino, Monaco, Liechtenstein,
     // Andorra, Malta, Singapore. Un viaggio a Città del Vaticano finiva
     // attribuito all'Italia, e il globo coloriva un paese in meno di quanti
-    // ne conta la Home (7 contro 6: segnalato da Stefano, "è un bug!").
+    // ne conta la Home (7 contro 6: segnalato in uso, "è un bug!").
     // Il 50m ne conosce 241 e li ha tutti. Costa 739 KB invece di 105, ma si
     // scarica una volta sola e il service worker lo tiene offline.
     cachePaesi = Promise.all([loadWorldAtlasCountries("50m"), caricaNazioniUK()]).then(([geo, nazioniUK]) => {

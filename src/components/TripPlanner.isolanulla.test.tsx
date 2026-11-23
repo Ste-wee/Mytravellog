@@ -17,10 +17,10 @@ import { SettingsProvider } from "@/lib/settings";
  */
 
 const piano = (waypoints: Trip["waypoints"]) => addPlan({
-  title: "Bulgaria", country: "Bulgaria", city: "Plovdiv", country_code: "BG",
+  title: "Portogallo", country: "Portogallo", city: "Évora", country_code: "PT",
   trip_date: "2099-07-01", date_end: "2099-07-05", rating: null, notes: null,
   transport_mode: "car", waypoints,
-  latitude: 42.1354, longitude: 24.7453,
+  latitude: 38.5714, longitude: -7.9135,
   home_latitude: 45.4642, home_longitude: 9.19, home_label: "Milano, Italia",
   altitude_m: null, distance_from_home_km: null,
   max_distance_from_home_km: null, max_distance_city: null,
@@ -53,8 +53,8 @@ describe("pannello dei piani: (0,0) non entra nei dati", () => {
 
   it("una tappa senza coordinate resta senza, non diventa (0,0)", () => {
     const p = piano([
-      { id: "w1", city: "Ignota", country: "Bulgaria", country_code: "BG", transport_mode: "car" },
-      { id: "w2", city: "Rila", country: "Bulgaria", country_code: "BG", transport_mode: "car", lat: 42.1333, lon: 23.34 },
+      { id: "w1", city: "Ignota", country: "Portogallo", country_code: "PT", transport_mode: "car" },
+      { id: "w2", city: "Sintra", country: "Portogallo", country_code: "PT", transport_mode: "car", lat: 38.8029, lon: -9.3817 },
     ]);
     apriEChiudi(p);
     const dopo = loadPlans()[0];
@@ -68,19 +68,19 @@ describe("pannello dei piani: (0,0) non entra nei dati", () => {
 
   it("le coordinate vere passano intatte", () => {
     const p = piano([
-      { id: "w1", city: "Sofia", country: "Bulgaria", country_code: "BG", transport_mode: "car", lat: 42.6977, lon: 23.3219 },
-      { id: "w2", city: "Rila", country: "Bulgaria", country_code: "BG", transport_mode: "car", lat: 42.1333, lon: 23.34 },
+      { id: "w1", city: "Lisbona", country: "Portogallo", country_code: "PT", transport_mode: "car", lat: 38.7223, lon: -9.1393 },
+      { id: "w2", city: "Sintra", country: "Portogallo", country_code: "PT", transport_mode: "car", lat: 38.8029, lon: -9.3817 },
     ]);
     apriEChiudi(p);
-    const sofia = loadPlans()[0].waypoints.find(w => w.city === "Sofia");
-    expect(sofia?.lat).toBeCloseTo(42.6977, 4);
-    expect(sofia?.lon).toBeCloseTo(23.3219, 4);
+    const lisbona = loadPlans()[0].waypoints.find(w => w.city === "Lisbona");
+    expect(lisbona?.lat).toBeCloseTo(38.7223, 4);
+    expect(lisbona?.lon).toBeCloseTo(-9.1393, 4);
   });
 
   it("e uno ZERO VERO non viene confuso con il nulla (Greenwich, l'equatore)", () => {
     const p = piano([
       { id: "w1", city: "Accra", country: "Ghana", country_code: "GH", transport_mode: "plane", lat: 5.6, lon: 0 },
-      { id: "w2", city: "Rila", country: "Bulgaria", country_code: "BG", transport_mode: "car", lat: 42.1333, lon: 23.34 },
+      { id: "w2", city: "Sintra", country: "Portogallo", country_code: "PT", transport_mode: "car", lat: 38.8029, lon: -9.3817 },
     ]);
     apriEChiudi(p);
     const accra = loadPlans()[0].waypoints.find(w => w.city === "Accra");

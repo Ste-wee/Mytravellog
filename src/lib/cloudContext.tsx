@@ -99,7 +99,7 @@ export function CloudProvider({ children }: { children: ReactNode }) {
    * Serve perché una sincronizzazione dura secondi (lettura + scrittura su
    * rete) e nel frattempo l'utente può scollegarsi: il finale di `doSync` era
    * protetto solo dal montaggio, quindi atterrava e rimetteva "connected".
-   * Segnalato da Stefano premendo Disconnetti durante "Sincronizzazione…":
+   * Segnalato in uso premendo Disconnetti durante "Sincronizzazione…":
    * tornava collegato da solo.
    */
   const generazioneRef = useRef(0);
@@ -249,7 +249,7 @@ export function CloudProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem(LS_SCOLLEGATO, "1"); } catch { /* quota */ }
     // Scollegarsi riporta alla schermata di ingresso: il cancello si archivia
     // "per sempre" al primo avvio, ma un'uscita voluta è proprio il momento in
-    // cui va riaperto (richiesta di Stefano: "cliccando disconnetti deve
+    // cui va riaperto (richiesta di prodotto: "cliccando disconnetti deve
     // riportarmi alla homepage di login"). L'evento la fa comparire SUBITO,
     // senza aspettare un ricaricamento.
     try { localStorage.removeItem(LS_WELCOME); } catch { /* quota */ }

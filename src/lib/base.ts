@@ -90,15 +90,14 @@ export function fermateDiViaggio(t: Pick<Trip, "home_latitude" | "home_longitude
  * inserisce un RIENTRO alla base.
  *
  * ⚠️ Il perché è più interessante del come. La base si riconosce dai rientri
- * (vedi `riconosciBase`), ma nessuno pensa a inserire tre volte «Sofia»
- * mentre censisce un viaggio: Stefano ha trovato «tappa fissa: 0» pur avendo
- * fatto dieci viaggi con una base, e guardando il suo itinerario bulgaro
- * (Milano → Sofia → Rila → Plovdiv) ha chiesto come si ottenesse «tutta quella
- * cosa super figa». Non si otteneva: la funzione c'era e non era raggiungibile.
+ * (vedi `riconosciBase`), ma nessuno pensa a inserire tre volte la stessa città
+ * mentre censisce un viaggio: in uso è saltato fuori «tappa fissa: 0» con
+ * dieci viaggi fatti con una base, e guardando un itinerario con base e gite
+ * la domanda è stata come si ottenesse «tutta quella cosa super figa». Non si otteneva: la funzione c'era e non era raggiungibile.
  * Questo è il ponte — un tocco scrive quello che uno scriverebbe a mano.
  *
  * I rientri si scrivono DAVVERO nell'itinerario, non si finge: quei
- * chilometri li hai percorsi (~300 in più, nel caso bulgaro), e i dati
+ * chilometri li hai percorsi (centinaia in più, in un caso tipico), e i dati
  * restano quelli che il resto dell'app già capisce — nessun campo nuovo,
  * nessuna regola nuova, nessuna migrazione.
  *
@@ -116,7 +115,7 @@ export function inserisciRientri<T extends FermataConCoordinate>(
     const tappa = tappe[i];
     out.push(tappa);
     // Se il rientro c'è già (tocco ripetuto, o itinerario scritto a mano) non
-    // si duplica: due «Sofia» di fila non sono una gita, sono un refuso.
+    // si duplica: due volte la base di fila non sono una gita, sono un refuso.
     const prossima = tappe[i + 1];
     const eGiaRientro = stessoPosto(tappa, base) || (prossima != null && stessoPosto(prossima, base));
     if (!eGiaRientro) out.push(copia(base));

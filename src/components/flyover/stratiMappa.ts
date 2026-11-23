@@ -59,7 +59,7 @@ export function aggiungiStrati(map: MapLibreMap, mode: MapStyleMode, dati: DatiS
       paint: constellation
         // Alone dimezzato (era 9/blur 4). Con venticinque viaggi che partono
         // tutti da casa gli aloni si fondevano in una macchia bianca sul
-        // perno: metà del "caos" segnalato da Stefano era questo, non la
+        // perno: metà del "caos" segnalato in uso era questo, non la
         // topologia. Scelto da lui provandolo (2026-08-26).
         ? { "line-color": "rgba(255,255,255,0.10)", "line-width": 5, "line-blur": 2 }
         : { "line-color": "rgba(6,14,30,0.65)", "line-width": 8.5 },

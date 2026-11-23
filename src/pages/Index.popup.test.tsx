@@ -203,7 +203,7 @@ describe("Home — riga-sommario sotto il globo", () => {
   });
 
   // Il tocco NON naviga più: accende la modalità paesi sul globo (la pagina
-  // Statistiche resta nel menu in alto). Scelta di Stefano: "cliccando lì
+  // Statistiche resta nel menu in alto). Scelta di prodotto: "cliccando lì
   // sotto non si aprono le statistiche, il globo cambia".
   it("il tocco accende la modalità paesi sul globo, e non naviga", async () => {
     addTrip(baseTrip());
@@ -241,7 +241,7 @@ describe("Home — riga-sommario sotto il globo", () => {
 describe("Home — niente maniglia sotto il globo", () => {
   beforeEach(() => { localStorage.clear(); mockNavigate.mockClear(); });
 
-  // Scelta di Stefano (2026-08-21): via la maniglia e la scritta "torna ai
+  // Scelta di prodotto (2026-08-21): via la maniglia e la scritta "torna ai
   // tuoi viaggi" — le bandiere si accendono SOLO toccando i quattro numeri.
   it("non c'è nessuna scritta d'aiuto sotto il globo, in nessuno dei due stati", async () => {
     addTrip(baseTrip());

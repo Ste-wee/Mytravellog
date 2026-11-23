@@ -12,22 +12,28 @@ const viaggioTest = (id: string): Trip => ({
 } as Trip);
 
 /**
- * Caso VERO dall'archivio di Stefano (2026-08-20): un viaggio a Zurigo
+ * Un caso successo davvero (2026-08-20): un viaggio
  * cancellato è riapparso, e si è ritrovato SIA nella lista dei viaggi SIA
  * fra i tombstone. Qui si riproduce la sequenza esatta per capire dove la
  * cancellazione viene persa.
  */
-const ID = "d45017bf-f2b2-4a17-bae5-468b4367ed6b";
-const CREATO = "2026-08-20T10:49:21.411Z";
-const CANCELLATO = Date.parse("2026-08-20T10:50:14.318Z");
+const ID = "00000000-0000-4000-8000-000000000001";
+// Gli istanti sono RELATIVI ad adesso, con gli stessi intervalli del caso
+// vero (cancellato 53 s dopo la creazione, riscritto 1 h 12 min dopo). Con
+// date fisse i test che passano dalla lapide sarebbero caduti da soli: la
+// lapide scade dopo TOMBSTONE_TTL_MS, e scaduta non protegge più niente.
+const CREATO_MS = Date.now() - 10 * 24 * 60 * 60 * 1000;     // dieci giorni fa
+const CREATO = new Date(CREATO_MS).toISOString();
+const CANCELLATO = CREATO_MS + 52_907;
+const RISCRITTO = new Date(CREATO_MS + 4_327_534).toISOString();
 
-const zurigo = (updated?: string): Trip => ({
-  id: ID, title: "Zurigo", city: "Zurigo", country: "Svizzera", country_code: "CH",
-  trip_date: "2025-11-01", date_end: "2025-11-02", latitude: 47.3798, longitude: 8.5414,
+const viaggio = (updated?: string): Trip => ({
+  id: ID, title: "Ginevra", city: "Ginevra", country: "Svizzera", country_code: "CH",
+  trip_date: "2024-05-10", date_end: "2024-05-11", latitude: 46.2044, longitude: 6.1432,
   created_at: CREATO, updated_at: updated, transport_mode: "car", rating: 4, notes: null,
   home_latitude: 45.46, home_longitude: 9.19, home_label: "Milano, Italia",
   region: null, region_details: null, route_geometry: null, waypoints: [],
-  distance_from_home_km: 220, max_distance_from_home_km: 220, max_distance_city: "Zurigo",
+  distance_from_home_km: 220, max_distance_from_home_km: 220, max_distance_city: "Ginevra",
 } as Trip);
 
 const lapide: Tombstone[] = [{ id: ID, at: CANCELLATO }];
@@ -35,28 +41,28 @@ const lapide: Tombstone[] = [{ id: ID, at: CANCELLATO }];
 describe("il viaggio cancellato non deve tornare", () => {
   it("copia remota MAI toccata dopo la cancellazione: resta morta", () => {
     // Il backup su Drive ha la versione di quando fu creato.
-    const out = mergeTrips([], Date.now(), [zurigo(CREATO)], Date.now(), lapide);
+    const out = mergeTrips([], Date.now(), [viaggio(CREATO)], Date.now(), lapide);
     expect(out).toHaveLength(0);
   });
 
   it("copia remota senza updated_at (legacy): resta morta grazie a created_at", () => {
-    const out = mergeTrips([], Date.now(), [zurigo(undefined)], Date.now(), lapide);
+    const out = mergeTrips([], Date.now(), [viaggio(undefined)], Date.now(), lapide);
     expect(out).toHaveLength(0);
   });
 
   it("MA una modifica successiva alla cancellazione la RESUSCITA (last-write-wins)", () => {
-    // È il caso che ha colpito Stefano: qualcosa ha riscritto il viaggio DOPO
+    // È il caso successo davvero: qualcosa ha riscritto il viaggio DOPO
     // la cancellazione, e da quel momento vince sulla lapide.
-    const dopo = "2026-08-20T12:01:28.945Z";
-    const out = mergeTrips([zurigo(dopo)], Date.now(), [], 0, lapide);
+    const dopo = RISCRITTO;
+    const out = mergeTrips([viaggio(dopo)], Date.now(), [], 0, lapide);
     expect(out).toHaveLength(1);          // ← il morto cammina
   });
 
   it("un viaggio cancellato NON deve trovarsi nella lista locale: se c'è, il merge lo tiene", () => {
     // Il merge si fida della lista locale. Se un ricalcolo in sottofondo
     // riscrive un viaggio già cancellato, la lapide viene scavalcata.
-    const out = mergeTrips([zurigo("2026-08-20T12:01:28.945Z")], Date.now(),
-      [zurigo(CREATO)], Date.now(), lapide);
+    const out = mergeTrips([viaggio(RISCRITTO)], Date.now(),
+      [viaggio(CREATO)], Date.now(), lapide);
     expect(out.map(t => t.id)).toEqual([ID]);
   });
 });
@@ -65,15 +71,15 @@ describe("la lapide protegge anche la lista LOCALE (il buco vero)", () => {
   beforeEach(() => localStorage.clear());
 
   it("un viaggio con la lapide non compare, anche se è rimasto nell'array", () => {
-    // Lo stato in cui si è trovato l'archivio di Stefano: il viaggio nella
+    // Lo stato in cui si è trovato un archivio vero: il viaggio nella
     // lista E la sua lapide fra i cancellati.
-    localStorage.setItem("atlas.trips.v1", JSON.stringify([zurigo("2026-08-20T12:01:28.945Z")]));
+    localStorage.setItem("atlas.trips.v1", JSON.stringify([viaggio(RISCRITTO)]));
     saveTombstones("trips", lapide);
     expect(loadTrips()).toHaveLength(0);
   });
 
   it("così un ricalcolo in sottofondo non può resuscitarlo: non lo vede proprio", () => {
-    localStorage.setItem("atlas.trips.v1", JSON.stringify([zurigo(CREATO)]));
+    localStorage.setItem("atlas.trips.v1", JSON.stringify([viaggio(CREATO)]));
     saveTombstones("trips", lapide);
     // updateTrip lavora sulla lista salvata: il viaggio morto non è fra quelli
     // che un ricalcolo può leggere, quindi nessuno gli timbrerà updated_at.
@@ -81,21 +87,21 @@ describe("la lapide protegge anche la lista LOCALE (il buco vero)", () => {
   });
 
   it("i viaggi vivi restano tutti al loro posto", () => {
-    const vivo = { ...zurigo(CREATO), id: "vivo-1", city: "Berlino" };
-    localStorage.setItem("atlas.trips.v1", JSON.stringify([zurigo(CREATO), vivo]));
+    const vivo = { ...viaggio(CREATO), id: "vivo-1", city: "Berlino" };
+    localStorage.setItem("atlas.trips.v1", JSON.stringify([viaggio(CREATO), vivo]));
     saveTombstones("trips", lapide);
     expect(loadTrips().map(t => t.id)).toEqual(["vivo-1"]);
   });
 
   it("senza lapidi non cambia nulla", () => {
-    localStorage.setItem("atlas.trips.v1", JSON.stringify([zurigo(CREATO)]));
+    localStorage.setItem("atlas.trips.v1", JSON.stringify([viaggio(CREATO)]));
     expect(loadTrips()).toHaveLength(1);
   });
 });
 
 /**
  * "Se un viaggio viene cancellato e non si fa annulla, non dovrebbe rimanere
- * in memoria per 180 giorni?" (Stefano, 2026-08-21). Giusto: a restare sei
+ * in memoria per 180 giorni?" (2026-08-21). Giusto: a restare sei
  * mesi è la LAPIDE — un id e una data, 38 byte — che serve a propagare la
  * cancellazione agli altri dispositivi. Il viaggio invece se ne va subito.
  */

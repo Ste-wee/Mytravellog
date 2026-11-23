@@ -43,7 +43,7 @@ describe("formaDiViaggio — due caselle che si escludono", () => {
     }))).toBe("fissa");
   });
 
-  // La domanda di Stefano guardando i suoi numeri (0 tappe fisse, 10 andata e
+  // La domanda guardando i suoi numeri (0 tappe fisse, 10 andata e
   // ritorno): «non sono la stessa cosa?». Sì: in entrambi i casi dormi in un
   // posto solo, e la differenza che avevo codificato era se il rientro fosse
   // stato censito come tappa. Ora finiscono nella stessa casella.

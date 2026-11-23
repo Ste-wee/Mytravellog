@@ -157,7 +157,7 @@ export async function searchLandmarks(query: string, count = 4, superabile = tru
         // Località prima, regione come ripiego: un monumento si pensa per
         // città ("Pantheon · Roma", non "· Lazio") e disambigua meglio
         // (Roma vs Parigi). Laghi e monti una città non ce l'hanno e ricadono
-        // da soli sulla regione. Scelta di Stefano, 2026-08-19.
+        // da soli sulla regione. Scelta di prodotto, 2026-08-19.
         admin1: a.city ?? a.town ?? a.village ?? a.municipality ?? a.state ?? a.region ?? a.county ?? undefined,
         latitude: lat,
         longitude: lon,
@@ -342,8 +342,8 @@ export type RottaStradale = {
    *
    *  Perché si salva invece di ricavarla dal disegno: la versione semplificata
    *  taglia le curve, e sommarne i segmenti SOTTOSTIMA il percorso del 2-7%
-   *  (misurato il 2026-08-22 su cinque tratte: Roma→Napoli -1,6%,
-   *  Milano→Friburgo -6,6%, in media -3,8%). La versione completa sarebbe
+   *  (misurato il 2026-08-22 su cinque tratte: la più fedele -1,6%,
+   *  la peggiore -6,6%, in media -3,8%). La versione completa sarebbe
    *  esatta ma pesa 50-160 KB per tratta contro 0,5: fuori discussione per un
    *  archivio che sta tutto in localStorage. Questo numero costa 8 byte. */
   km: number | null;

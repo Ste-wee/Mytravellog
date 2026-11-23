@@ -101,7 +101,7 @@ export function TravelHighlights({ trips }: Props) {
         ];
         // Icona grande "illustrata" invece del badge circolare piccolo (spunto
         // preso da un'app concorrente, poi estesa anche al desktop su richiesta
-        // di Stefano — è pura estetica, non una soluzione "di spazio" come il
+        // — è pura estetica, non una soluzione "di spazio" come il
         // carosello o il menu hamburger, quindi ha senso unificarla ovunque.
         const Card = ({ item }: { item: HlItem }) => (
           <div style={{background:"#0a1628",border:"0.5px solid #1a2d4a",borderRadius:14,padding:"18px 10px",display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center",gap:4}}>

@@ -178,8 +178,8 @@ export function WelcomeGate() {
 
         {/* Con Drive i dati stavano davvero nell'account Google dell'utente;
             con Firestore stanno nel database dell'app, legati al suo account.
-            La frase vecchia era diventata una promessa falsa (trovata da
-            Stefano su questa schermata dopo che era già stata corretta nelle
+            La frase vecchia era diventata una promessa falsa (trovata in
+            uso su questa schermata dopo che era già stata corretta nelle
             Impostazioni: la stessa frase viveva in DUE posti). */}
         <p style={{ marginTop: 18, fontSize: 11.5, lineHeight: 1.6, color: "rgba(255,255,255,0.5)" }}>
           {t("🔒 I viaggi si salvano nel cloud, legati al tuo account: solo tu puoi vederli.")}

@@ -73,7 +73,7 @@ const Stats = () => {
 
           {/* Dopo la geografia (dove sei stato), prima dei record (quanto in
               alto, quanto lontano): risponde a una domanda diversa, che tipo
-              di viaggiatore sei. Posizione scelta da Stefano. */}
+              di viaggiatore sei. Posizione scelta di prodotto. */}
           <ComeViaggi trips={trips} />
 
           <TravelHighlights trips={trips} />

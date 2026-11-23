@@ -107,7 +107,7 @@ describe("ContinentsMap — errore nel caricamento dei confini", () => {
 /**
  * La mappa del mondo dice UNA cosa sola: i continenti che hai toccato.
  * Prima diceva due cose insieme — gli stati visitati in azzurro pieno sopra i
- * continenti in blu tenue — e Stefano ha chiesto di tenere solo la seconda
+ * continenti in blu tenue — e si è scelto di tenere solo la seconda
  * (i singoli paesi li mostrano il globo della Home e i chip qui sotto).
  */
 describe("ContinentsMap — un solo livello: i continenti", () => {

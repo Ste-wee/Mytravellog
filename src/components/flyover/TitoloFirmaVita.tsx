@@ -2,7 +2,7 @@
  * Mappa della vita: il TITOLO in alto a destra (lib/titoloVita), che resta
  * anche a riposo e coi comandi accesi si tocca per scriverlo, e «By 🐻» in
  * basso a destra, che coi comandi accesi lascia il posto ai bottoni (scelte di
- * Stefano, 2026-10-16). Le stesse misure dell'immagine condivisa: a riposo lo
+ * prodotto, 2026-10-16). Le stesse misure dell'immagine condivisa: a riposo lo
  * schermo È il poster. In anteprima di stampa: sul foglio 1200×900.
  * Spostato da TripFlyover.tsx senza cambiare il disegno.
  */

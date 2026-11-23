@@ -1,5 +1,5 @@
 /**
- * Il TITOLO della Mappa della vita (scelta di Stefano, 2026-10-16, fra tre
+ * Il TITOLO della Mappa della vita (scelta di prodotto, 2026-10-16, fra tre
  * stili su mockup: «solo il titolo»): in alto a destra, stesso carattere e
  * stessa inclinazione di 3° della didascalia degli altri poster, niente sotto.
  *
@@ -83,7 +83,7 @@ export function geometriaTitoloVita(titolo: string, W: number, misura: (testo: s
 }
 
 /** Il titolo salvato su QUESTO dispositivo (le impostazioni non vanno nel
- *  cloud: detto a Stefano, accettato). */
+ *  cloud: scelta discussa e accettata). */
 const CHIAVE = "navta.vita.titolo";
 export function leggiTitoloVita(): string {
   try { return (localStorage.getItem(CHIAVE) ?? "").slice(0, TITOLO_VITA.lettere); } catch { return ""; }

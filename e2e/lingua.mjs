@@ -11,11 +11,11 @@
  *   node e2e/lingua.mjs                       # dev server
  *   node e2e/lingua.mjs http://localhost:4173/Mytravellog
  */
-import { pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 import fs from "node:fs";
-const PROJ = "C:/Users/Stefano Merlini/Desktop/Steve/Git/Mytravellog-main";
-const require = createRequire(pathToFileURL(`${PROJ}/package.json`).href);
+// Playwright si cerca a partire da questo file (e2e/ → node_modules del progetto),
+// così lo script gira da qualunque cartella e su qualunque computer.
+const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
 const BASE = process.argv[2] || "http://localhost:8080/Mytravellog";
 const argOut = process.argv.indexOf("--out");
@@ -265,7 +265,7 @@ const INTERAZIONI = [
   ["chip_compagno", "#/miei-viaggi", async () => {
     await page.getByRole("button", { name: /The map of my life/i }).first().click();
     await page.waitForTimeout(6000);
-    // ⚠️ I comandi della mappa SI TOLGONO dopo 3s fermi (scelta di Stefano,
+    // ⚠️ I comandi della mappa SI TOLGONO dopo 3s fermi (scelta di prodotto,
     // 2026-08-27): dopo i 6s di caricamento il chip è svanito, e Playwright
     // NON lo sveglia da sé — il controllo di visibilità fallisce PRIMA di
     // muovere il mouse. Si fa quello che farebbe un dito: si tocca la mappa

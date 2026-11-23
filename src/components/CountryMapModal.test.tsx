@@ -148,7 +148,7 @@ describe("CountryMapModal — paese non supportato", () => {
   it("mostra le regioni visitate nell'error state se ci sono", async () => {
     // NB: il viaggio deve essere DI QUEL paese. Prima questo test passava un
     // viaggio italiano e si aspettava "Bavaria" nel pannello della Germania:
-    // era il difetto segnalato da Stefano (regioni di altri stati in elenco).
+    // era il difetto segnalato in uso (regioni di altri stati in elenco).
     global.fetch = vi.fn().mockRejectedValue(new Error("boom"));
     renderModal({
       countryCode: "DE", countryName: "Germania",
@@ -608,7 +608,7 @@ describe("CountryMapModal — abbinamento regioni greche (nome greco → traslit
   });
 });
 
-// IL CASO SEGNALATO DA STEFANO: un viaggio multi-tappa che passa da Trieste
+// IL CASO SEGNALATO IN USO: un viaggio multi-tappa che passa da Trieste
 // dava "0 regioni su 20" per l'Italia. Il dato di regione (region_details)
 // l'app lo calcola SOLO per la destinazione finale (Vienna), quindi le tappe
 // intermedie non contavano nulla — pur facendo comparire l'Italia nell'elenco
@@ -673,7 +673,7 @@ describe("CountryMapModal — regioni riconosciute dalle TAPPE (coordinate)", ()
   });
 });
 
-// Segnalato da Stefano con la console aperta: per l'AUSTRIA il pannello
+// Segnalato in uso con la console aperta: per l'AUSTRIA il pannello
 // elencava anche "Slovenia" e "Friuli-Venezia Giulia" (regioni di altri
 // stati, arrivate dalle region_details di altri viaggi che toccano l'Austria),
 // e diceva "Mappa non disponibile per questo paese" mentre il vero motivo era

@@ -22,7 +22,7 @@ describe("risolviLingua — da 'sistema' alla lingua vera", () => {
   });
 
   it("senza informazioni dal browser resta l'italiano", () => {
-    // L'app nasce italiana: nel dubbio non si cambia sotto i piedi a Stefano.
+    // L'app nasce italiana: nel dubbio non si cambia sotto i piedi a chi la usa.
     expect(risolviLingua("sistema", [])).toBe("it");
   });
 });

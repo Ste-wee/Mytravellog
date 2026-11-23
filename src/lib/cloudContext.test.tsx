@@ -154,7 +154,7 @@ describe("CloudProvider — macchina a stati", () => {
     expect(sync.scriviArchivio).not.toHaveBeenCalled();
   });
 
-  // Segnalato da Stefano: premuto "Disconnetti" MENTRE l'app diceva
+  // Segnalato in uso: premuto "Disconnetti" MENTRE l'app diceva
   // "Sincronizzazione…", si tornava subito connessi. La sincronizzazione in
   // volo atterrava dopo lo scollegamento e rimetteva lo stato "connected":
   // il suo finale era protetto solo dal montaggio, non dal fatto che

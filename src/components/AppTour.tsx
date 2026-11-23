@@ -63,7 +63,7 @@ const SECTIONS: Record<string, Section> = {
     ],
   },
   // Il capitolo del form esiste per un motivo preciso: la tenda è nata quando
-  // Stefano ha scoperto di avere «tappa fissa: 0» con dieci viaggi a base —
+  // in uso è saltato fuori «tappa fissa: 0» con dieci viaggi a base —
   // una funzione che non si scopre non esiste. Due schede e basta: qui
   // l'utente sta per FARE una cosa, non per leggere un manuale.
   form: {

@@ -175,7 +175,7 @@ export const visibile = () => new Promise<void>(res => {
 });
 
 // ══ I NOMI DELLA MAPPA DELLA VITA ═════════════════════════════════════
-// Scelta di Stefano (2026-10-15, fra due mockup sulla mappa vera): nomi
+// Scelta di prodotto (2026-10-15, fra due mockup sulla mappa vera): nomi
 // OVUNQUE e, dove le stelle quasi si toccano, RIQUADRI di ingrandimento
 // quanti ne servono; un nome isolato che non entra va col filo. Il dove lo
 // decide lib/etichetteMappa (puro); qui lo si disegna sopra la mappa, e la
@@ -200,7 +200,7 @@ export const copiaMappa = (m: MapLibreMap) => new Promise<HTMLCanvasElement>(res
 /** Aspetta che la mappa dei riquadri abbia finito di caricare la vista
  *  («idle»: tutti i suoi riquadri arrivati, niente in corso). ⚠️ Con
  *  `mappaNitida` e 3 s di tetto le foto in Satellite uscivano sgranate e
- *  restavano così finché non si spostava la mappa (visto: Genova–Pisa). */
+ *  restavano così finché non si spostava la mappa (visto in uso). */
 export const mappaFerma = (m: MapLibreMap, maxMs: number) => new Promise<void>(res => {
   let fatto = false;
   const fin = () => { if (!fatto) { fatto = true; res(); } };

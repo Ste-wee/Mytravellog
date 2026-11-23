@@ -1,8 +1,8 @@
-import { pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 import fs from "node:fs";
-const PROJ = "C:/Users/Stefano Merlini/Desktop/Steve/Git/Mytravellog-main";
-const require = createRequire(pathToFileURL(`${PROJ}/package.json`).href);
+// Playwright si cerca a partire da questo file (e2e/ → node_modules del progetto),
+// così lo script gira da qualunque cartella e su qualunque computer.
+const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
 const argOut = process.argv.indexOf("--out");
 const OUT = argOut > -1 ? process.argv[argOut + 1] : "e2e/__shots__/collaudo";

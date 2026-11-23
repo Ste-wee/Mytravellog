@@ -14,7 +14,7 @@ import type { TempiCopione } from "@/lib/copioneVolo";
  */
 export const STAMPA = {
   w: 1200, h: 900, k: 6.4, margine: 36, tileSize: 64, attesaMs: 90000,
-  // nomi e riquadri più grandi che a schermo (Stefano, 2026-10-19: «abbiamo un
+  // nomi e riquadri più grandi che a schermo (2026-10-19: «abbiamo un
   // po' di spazio, così non tagliamo nemmeno le strade»; poi «i nomi a 1 cm, i
   // riquadri al 42% più grandi»). Nomi a 16 px ≈ 8,5 mm, NON a 1 cm (19 px):
   // misurato sulla stampa, a 19 px 7 nomi finivano lontani col filo (fino a
@@ -63,8 +63,8 @@ export const FINALE_VIDEO_MS = 2500;
 export const TITOLO_MS = 2800;
 
 /** Durante il volo il tracciato ancora da fare NON si vede: compare solo man
- *  mano che l'icona lo percorre (layer `flyover-traccia`), come Relive. Scelta di
- *  Stefano fra «ombra al 30%» e «niente» rese nel video vero (2026-10-06): le
+ *  mano che l'icona lo percorre (layer `flyover-traccia`), come Relive. Scelta fatta
+ *  fra «ombra al 30%» e «niente» rese nel video vero (2026-10-06): le
  *  puntine delle tappe restano, quindi si vede dove si va, non come. */
 export const OPACITA_DA_FARE = 0;
 

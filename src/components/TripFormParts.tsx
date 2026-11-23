@@ -174,7 +174,7 @@ type StopDisegno = { label: string; countryCode: string | null; isHome: boolean;
  * andata e ritorno. I rientri (le tappe ripetute) spariscono dal disegno ma
  * restano nei dati: per riordinarli c'è la vista lineare.
  *
- * È una vista di sola lettura per scelta (mockup A, validato da Stefano):
+ * È una vista di sola lettura per scelta (mockup A, validato):
  * niente trascinamento sulle gite — il gesto vive solo nella vista lineare,
  * dove è appena stato messo a punto e lì resta.
  */
@@ -394,7 +394,7 @@ export interface RouteHeroProps {
   /**
    * Segna la tappa `i` come BASE del viaggio: scrive nell'itinerario un
    * rientro dopo ogni tappa successiva, così quello che hai fatto davvero
-   * (dormo a Sofia, esco e torno) diventa leggibile — e i km contano i
+   * (dormo in un posto, esco e torno) diventa leggibile — e i km contano i
    * ritorni. Il disegno poi la riconosce da sé, senza campi nuovi.
    */
   onSegnaBase: (i: number) => void;
@@ -434,7 +434,7 @@ function RouteHero({
   const [globoAperto, setGloboAperto] = React.useState(false);
   /** La base è stata riconosciuta ma l'utente vuole la serpentina lineare per
    *  riordinare o cambiare i mezzi: la vista "a base" si guarda e basta
-   *  (scelta esplicita di Stefano: niente trascinamento sulle gite appese). */
+   *  (scelta esplicita: niente trascinamento sulle gite appese). */
   const [riordino, setRiordino] = React.useState(false);
   // Per i km della tratta nel selettore: rispetta l'unità scelta (km/mi).
   const { distanceUnit } = useSettings();
@@ -714,7 +714,7 @@ function RouteHero({
                           () => onSegnaBase(i-1))}>
                         {/* Sul lato OPPOSTO al nome: la sua area sensibile (40px, per
                             il dito) si sovrapponeva alla coda dell'etichetta, e chi
-                            toccava la fine di "Sofia" si ritrovava una base. */}
+                            toccava la fine del nome si ritrovava una base. */}
                         <circle cx={xTenda} cy={y+r-3} r="20" fill="transparent"/>
                         <circle cx={xTenda} cy={y+r-3} r="9" fill="#060e1e"
                           stroke="#5dcaa5" strokeWidth="1.5"/>

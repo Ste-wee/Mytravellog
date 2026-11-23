@@ -15,7 +15,7 @@ export type Trip = {
   companions?: string[];   // nomi delle persone con cui hai viaggiato (opzionali; assenti sui viaggi vecchi)
   diary?: { date: string; text: string; highlight?: boolean }[]; // racconto giorno-per-giorno (date YYYY-MM-DD; solo i giorni scritti); highlight = IL momento del viaggio (al più uno), riemerge nel recap
   status?: "planned" | "done"; // "planned" = viaggio in programma (vive nel bucket piani, non nel diario); assente/"done" = viaggio del diario
-  // NB: il campo `budget` è stato RIMOSSO il 2026-08-16 (scelta di Stefano:
+  // NB: il campo `budget` è stato RIMOSSO il 2026-08-16 (scelta di prodotto:
   // l'app non tiene conti). I dati già inseriti vengono cancellati una volta
   // per tutte da `dropBudgetData()`, chiamata all'avvio.
   checklist?: { text: string; done: boolean }[];               // "da organizzare" prima di partire
@@ -145,7 +145,7 @@ export function loadTrips(): Trip[] {
  * grezzo — intero, con coordinate, tracciato e misure — finché la lapide
  * non scadeva, sei mesi dopo. Invisibile nell'app, ma pesante nell'archivio e
  * soprattutto CARICATO NEL BACKUP, quindi propagato a tutti i dispositivi.
- * (Segnalato da Stefano il 2026-08-21: "non dovrebbe rimanere in memoria per
+ * (Segnalato in uso il 2026-08-21: "non dovrebbe rimanere in memoria per
  * 180 giorni no?" — no, infatti. A restare 180 giorni è solo la lapide, che
  * pesa 38 byte e serve a propagare la cancellazione.)
  *
@@ -153,8 +153,8 @@ export function loadTrips(): Trip[] {
  * qualcuno l'ha rimesso nell'array (un merge andato storto, un backup
  * ripristinato a mano, una scheda aperta da prima della cancellazione).
  *
- * Perché è difesa necessaria e non paranoia: è successo davvero (Zurigo,
- * 2026-08-20). Il viaggio era tornato nell'array locale pur avendo la sua
+ * Perché è difesa necessaria e non paranoia: è successo davvero
+ * (2026-08-20). Il viaggio era tornato nell'array locale pur avendo la sua
  * lapide, e un ricalcolo in sottofondo l'ha riscritto: da quel momento la
  * sua data di modifica batteva la cancellazione e il merge lo teneva in vita
  * per sempre. Filtrando qui, chi legge non lo vede e chi riscrive non può
@@ -269,7 +269,7 @@ export function countTripsWithoutHome(): number {
 }
 
 /**
- * Cancella i budget salvati in viaggi e piani (scelta di Stefano del
+ * Cancella i budget salvati in viaggi e piani (scelta di prodotto del
  * 2026-08-16: l'app non tiene conti). Idempotente; ritorna quanti record ha
  * ripulito (per i test).
  *
@@ -296,7 +296,7 @@ export function dropBudgetData(): number {
  *
  * Da quando saveTrips/savePlans filtrano, un nuovo sepolto sparisce subito.
  * Ma i fantasmi VECCHI — chi ha aggiornato l'app con qualcuno già in pancia,
- * come l'archivio di Stefano dopo il caso Zurigo — resterebbero finché la
+ * come è successo a un archivio vero — resterebbero finché la
  * lapide non scade, sei mesi dopo, occupando spazio e viaggiando nel backup.
  * Basta una scrittura per liberarsene: si fa all'avvio, e solo se serve
  * davvero (nessuna scrittura a vuoto: timbrare l'archivio senza motivo è

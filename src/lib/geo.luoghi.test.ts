@@ -22,7 +22,7 @@ describe("placeKindOf — cosa entra in un diario di viaggio e cosa no", () => {
   });
 
   it("i luoghi di culto e le piazze celebri sono monumenti/luoghi, non rumore", () => {
-    // Casi VERI dall'API (2026-08-18, segnalazione di Stefano: "ho cercato il
+    // Casi VERI dall'API (2026-08-18, segnalazione dall'uso: "ho cercato il
     // pantheon a roma e non ho trovato nulla"):
     // Pantheon/Duomo di Milano/Sagrada Familia = amenity/place_of_worship,
     // Fontana di Trevi = amenity/fountain, Piazza San Marco = place/square.
