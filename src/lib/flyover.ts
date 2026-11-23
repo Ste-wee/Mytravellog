@@ -265,10 +265,10 @@ export function tracciaFittaSalvata(
  */
 /**
  * ⚠️ **La tratta da casa NON si disegna** (2026-08-27, il contrario di quanto
- * scritto qui fino a ieri). Stefano l'aveva chiesto subito («colleghiamo solo
- * i viaggi senza partire da Milano»), l'aveva provato col banco di prova e
- * scelto — e io avevo letto male il suo «tieni solo il tratto sottile»,
- * ricablando i raggi da Milano. Aprendo l'app se n'è accorto: «mica avevamo
+ * scritto qui fino a ieri). Era stato chiesto subito («colleghiamo solo
+ * i viaggi senza partire da casa»), provato col banco di prova e
+ * scelto — e io avevo letto male «tieni solo il tratto sottile»,
+ * ricablando i raggi da casa. Aprendo l'app è saltato fuori: «mica avevamo
  * detto che si collegavano solo le tappe?». Questa mappa dice **dove sono
  * stato**, non da dove parto.
  *

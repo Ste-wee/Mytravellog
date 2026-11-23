@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { paeseDelPunto, areaPoligonoCheContiene, type CountryFeat } from "./ContinentsMap";
 
 /**
- * Segnalazione di Stefano (2026-08-20): "la mappa mostra la Russia come paese
+ * Segnalazione dall'uso (2026-08-20): "la mappa mostra la Russia come paese
  * visitato" — con un solo viaggio in Lapponia (Svezia).
  *
  * Causa: il poligono continentale della Russia va da -180° a +180° (scavalca

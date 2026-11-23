@@ -58,8 +58,8 @@ export function computeHomeStats(trips: Trip[]) {
   // di questa funzione era codice morto e per giunta non inclusivo: rimosso.
   // ⚠️ QUATTRO voci, sempre le stesse: viaggi, paesi, città, km. Cinque vanno a
   // capo su un telefono da 390px (75px di riga invece di 41) e questa riga è il
-  // colpo d'occhio della Home. Ci ho provato due volte con una quinta e Stefano
-  // l'ha bocciata entrambe.
+  // colpo d'occhio della Home. Ci ho provato due volte con una quinta, ed è
+  // stata bocciata entrambe le volte.
   return { trips: trips.length, countries: countries.size, cities: cities.size, km };
 }
 
@@ -404,7 +404,7 @@ function HomeInner() {
           ].join(", ");
           // La riga dei numeri È l'interruttore: un tocco accende i paesi con
           // le bandiere, un altro torna ai viaggi. Niente maniglia né scritta
-          // d'aiuto sotto il globo (scelta di Stefano: erano 20px di testo per
+          // d'aiuto sotto il globo (scelta di prodotto: erano 20px di testo per
           // spiegare un tocco). Il senso lo porta l'aria-label, che cambia con
           // lo stato e serve anche allo screen reader.
           return (
@@ -418,8 +418,8 @@ function HomeInner() {
               { Icona: Plane,  valore: fmtNumber(stats.trips),     chiave:"viaggi", colore:"#f0f4ff", iconaColore:"#60a5fa" },
               // QUATTRO voci, sempre le stesse: viaggi, paesi, citta`, km.
               // Per un giro ne avevo messe cinque, aggiungendo le gite in
-              // giornata: prima AL POSTO delle citta` (Stefano se n'e` accorto
-              // subito), poi accanto. Ma cinque voci vanno a capo su un
+              // giornata: prima AL POSTO delle citta` (se n'e` visto il
+              // difetto subito), poi accanto. Ma cinque voci vanno a capo su un
               // telefono da 390px (misurato: 75px di riga invece di 41), e
               // questa riga e` il colpo d'occhio della Home. (Le gite in
               // giornata poi sono state rimosse del tutto, 2026-08-26 — ma

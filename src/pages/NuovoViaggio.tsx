@@ -150,7 +150,7 @@ const NuovoViaggio = () => {
       return;
     }
     // Doppioni: stesso posto, date che si sovrappongono (è successo davvero:
-    // due Zurigo identici da due risultati di ricerca diversi, zero avvisi).
+    // due viaggi identici da due risultati di ricerca diversi, zero avvisi).
     // Il controllo sta PRIMA delle fetch: l'avviso deve essere immediato.
     if (!ignoraDuplicato) {
       const doppione = trovaDuplicato(loadTrips(), waypoints[waypoints.length - 1].city, dateStart, dateEnd || null);

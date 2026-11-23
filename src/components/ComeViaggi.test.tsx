@@ -28,13 +28,13 @@ describe("ComeViaggi", () => {
       expect(screen.getByText(l)).toBeTruthy();
     }
     // "In giornata" non è più una forma: le gite sono contate a parte
-    // (scelta di Stefano, 2026-08-24) e hanno la loro riga sotto le caselle.
+    // (scelta di prodotto, 2026-08-24) e hanno la loro riga sotto le caselle.
     expect(screen.queryByText("In giornata")).toBeNull();
     // un viaggio con una meta sola sta in "tappa fissa": ci hai dormito
     expect(numeri()).toEqual(["1", "0"]);
   });
 
-  // La domanda di Stefano: "tappa fissa" e "andata e ritorno" erano due nomi
+  // La domanda: "tappa fissa" e "andata e ritorno" erano due nomi
   // per la stessa esperienza (0 contro 10 nei suoi dati).
   it("una meta sola e una meta con gite finiscono nella stessa casella", () => {
     render(<ComeViaggi trips={[

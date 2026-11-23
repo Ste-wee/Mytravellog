@@ -38,7 +38,7 @@ describe("shouldShowWelcome — regola del primo avvio", () => {
     expect(shouldShowWelcome()).toBe(false);
   });
 
-  // Segnalato da Stefano: "cliccando su disconnetti non mi riporta alla
+  // Segnalato in uso: "cliccando su disconnetti non mi riporta alla
   // homepage di login". Il cancello si archiviava per sempre al primo avvio,
   // e un'uscita voluta non lo riapriva.
   it("scollegato a mano: si mostra ANCHE con i viaggi in casa", () => {

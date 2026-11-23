@@ -1,7 +1,7 @@
 /**
  * I NOMI della Mappa della vita: dove scriverli perché si leggano tutti.
  *
- * Scelta di Stefano (2026-10-15, fra due mockup sulla mappa vera): i nomi
+ * Scelta di prodotto (2026-10-15, fra due mockup sulla mappa vera): i nomi
  * OVUNQUE, e per i punti troppo fitti dei riquadri di ingrandimento, quanti ne
  * servono. Prima la mappa della vita non aveva nomi («si accavallano»): qui si
  * decide per ognuno, in pixel, una di tre sorti —
@@ -103,9 +103,9 @@ export interface Opzioni {
   filoMax?: number;
   /** Riquadri più grandi (default 1): alza il tetto e il margine intorno al
    *  gruppo, così dentro si vede più strada prima che esca dal bordo. La usa
-   *  la stampa, dove lo spazio c'è (scelta di Stefano, 2026-10-19). */
+   *  la stampa, dove lo spazio c'è (scelta di prodotto, 2026-10-19). */
   grandezzaRiquadri?: number;
-  /** Riquadri regolati A MANO (anteprima di stampa, scelta B di Stefano,
+  /** Riquadri regolati A MANO (anteprima di stampa, scelta B,
    *  2026-10-19), per chiave del gruppo: dove sta (`posto`) e dove cade il
    *  centro della sua zona (`centro`: allargandolo da un lato si scopre più
    *  mappa da quel lato, il contenuto non scivola). Tutto il resto gli gira
@@ -245,7 +245,7 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
   // quanto DOVREBBE ingrandire un gruppo (abbastanza che le due stelle più
   // vicine abbiano spazio per due nomi) e quanto PUÒ (il tetto in pixel: in
   // proporzione allo schermo, su desktop un riquadro arrivava a mezzo poster
-  // quasi vuoto — visto: Napoli–Cosenza)
+  // quasi vuoto — visto in uso)
   const serve = (o.altezza + o.scostamento) * 2 + 4;
   const gR = o.grandezzaRiquadri ?? 1;
   const wMax = Math.min(o.w * 0.55 * gR, 300 * gR), hMax = Math.min(o.h * 0.42 * gR, 220 * gR);
@@ -278,9 +278,9 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
     .filter(g => g.length >= 3 && (vicinissime(g) || g.some(p => nonEntrano.has(p.id))));
   // una stella libera che cade DENTRO la zona di un gruppo entra nel gruppo:
   // ingrandita lì con le altre, invece che spenta nel riquadro e col filo
-  // sulla mappa grande (visto: Montepulciano, rimasto fuori dall'Umbria)
-  // — nella zona tratteggiata PIÙ PICCOLA che la contiene (Montepulciano sta
-  // anche nella zona della costa, ma è umbro)
+  // sulla mappa grande (visto in uso: un paese rimasto fuori dal suo gruppo)
+  // — nella zona tratteggiata PIÙ PICCOLA che la contiene (un paese può stare
+  // anche in una zona vicina più grande, ma appartiene alla sua)
   const presi = new Set(daIngrandire.flat());
   const tratteggi = daIngrandire.map(g => {
     const xs = g.map(q => q.x), ys = g.map(q => q.y);
@@ -309,8 +309,8 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
   const restanti = punti.filter(p => !nelRiquadro.has(p.id));
   const fuori = accanto(restanti, stelle, o, o.w, o.h, [...vietate, ...zone]);
   // chi non ci sta senza toccare un tratteggio ci va sopra, accanto alla sua
-  // stella, come prima: vietarlo e basta faceva SPARIRE nomi (visto: Colmar,
-  // Ginevra, Innsbruck…). Il numero della zona poi si sposta, lui sì.
+  // stella, come prima: vietarlo e basta faceva SPARIRE nomi (visto in uso,
+  // più d'uno). Il numero della zona poi si sposta, lui sì.
   if (fuori.falliti.length) {
     const ancora = accanto(fuori.falliti, stelle, o, o.w, o.h, [...vietate, ...fuori.fatti.map(e => e.box)]);
     fuori.fatti.push(...ancora.fatti);
@@ -334,7 +334,7 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
   const tornaFuori: Punto[] = [];
   // gli OSPITI: una stella che si vede dentro un riquadro e che sulla mappa
   // grande non ha trovato posto accanto entra nel riquadro, col nome lì
-  // (visto coi viaggi veri: Friburgo spenta nel riquadro dell'Alsazia e il
+  // (visto in uso: una stella spenta dentro un riquadro e il
   // suo nome fuori, legato da un filo che passava SOTTO il riquadro)
   const senzaNomeFuori = new Set(fuori.falliti.map(p => p.id));
   const ospitati = new Set<string>();
@@ -354,9 +354,9 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
       && !vietate.some(b => sovrapposti(r, b, 4));
     // un nome del gruppo che dentro non entra NON va fuori al primo colpo: il
     // riquadro si allarga (stessa scala, più spazio intorno) e si riprova.
-    // ⚠️ coi viaggi veri «Friburgo in Brisgovia», nel riquadro dell'Alsazia
-    // largo 209 px, finiva sulla mappa grande col filo e la stella restava
-    // dentro senza nome: «Friburgo esce dal quadrato»
+    // ⚠️ visto in uso: un nome lungo, nel riquadro di un gruppo largo
+    // 209 px, finiva sulla mappa grande col filo e la stella restava
+    // dentro senza nome: «il nome esce dal quadrato»
     const prova = (w0: number, h0: number, scala0: number) => {
     let w = w0, h = h0, scala = scala0;
     let posto: Box | null = fisso ? { ...fisso.posto } : null;
@@ -518,11 +518,11 @@ export function disponiEtichette(punti: Punto[], o: Opzioni): Disposizione {
       && !vietate.some(b => sovrapposti(r, b, 2));
     // ultima spiaggia: anche sopra un tratteggio (mai sopra il suo numero) e
     // con il filo lungo quanto serve. Brutto, ma un nome che manca è peggio:
-    // ne sparivano (Chamonix sul telefono, Alberobello sul desktop; col
-    // doppio di filoMax ancora San Benedetto, visto). La ricerca parte
+    // ne sparivano (uno sul telefono, uno sul desktop; col
+    // doppio di filoMax ancora uno, visto). La ricerca parte
     // comunque da vicino: il filo è lungo solo se serve.
     // e un filo passa sotto un riquadro solo se non c'è proprio altra strada
-    // (Friburgo: era un filo lungo dell'ultima spiaggia, che sotto ci passava)
+    // (visto in uso: era un filo lungo dell'ultima spiaggia, che sotto ci passava)
     const box = postoColFilo(p, tw, th, o.scostamento, o.filoMax ?? 90, libero(false))
       ?? postoColFilo(p, tw, th, o.scostamento, Math.max(o.w, o.h), libero(true))
       ?? postoColFilo(p, tw, th, o.scostamento, Math.max(o.w, o.h), libero(true, true));

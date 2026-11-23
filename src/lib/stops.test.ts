@@ -18,17 +18,17 @@ const trip = (over: Partial<Trip> = {}): Trip => ({
 const tappa = (city: string, lat?: number, lon?: number) =>
   ({ city, country: "X", transport_mode: "train" as const, lat, lon });
 
-// Il viaggio napoletano vero di Stefano: base a Napoli, quattro gite, e un
-// doppione consecutivo (Napoli → Napoli) rimasto nei dati.
-const NAP = { lat: 40.8518, lon: 14.2681 };
-const napoletano = () => trip({
-  city: "Napoli", latitude: NAP.lat, longitude: NAP.lon,
+// Un viaggio con base a Firenze, quattro gite, e un doppione consecutivo
+// (Firenze → Firenze) rimasto nei dati.
+const FI = { lat: 43.7696, lon: 11.2558 };
+const fiorentino = () => trip({
+  city: "Firenze", latitude: FI.lat, longitude: FI.lon,
   waypoints: [
-    tappa("Napoli", NAP.lat, NAP.lon), tappa("Pompei", 40.7497, 14.5007),
-    tappa("Napoli", NAP.lat, NAP.lon), tappa("Napoli", NAP.lat, NAP.lon),
-    tappa("Caserta", 41.0722, 14.3327), tappa("Napoli", NAP.lat, NAP.lon),
-    tappa("Sorrento", 40.6263, 14.3757), tappa("Napoli", NAP.lat, NAP.lon),
-    tappa("Capri", 40.5532, 14.2222),
+    tappa("Firenze", FI.lat, FI.lon), tappa("Siena", 43.3188, 11.3308),
+    tappa("Firenze", FI.lat, FI.lon), tappa("Firenze", FI.lat, FI.lon),
+    tappa("Pisa", 43.7228, 10.4017), tappa("Firenze", FI.lat, FI.lon),
+    tappa("Lucca", 43.8429, 10.5027), tappa("Firenze", FI.lat, FI.lon),
+    tappa("Arezzo", 43.4633, 11.8796),
   ],
 });
 
@@ -56,18 +56,18 @@ describe("stopChain", () => {
 
 describe("fermateDelBiglietto — la base si nomina una volta", () => {
   it("undici fermate diventano i sei posti che hai visto", () => {
-    expect(fermateDelBiglietto(napoletano()).nomi)
-      .toEqual(["Milano", "Napoli", "Pompei", "Caserta", "Sorrento", "Capri"]);
+    expect(fermateDelBiglietto(fiorentino()).nomi)
+      .toEqual(["Milano", "Firenze", "Siena", "Pisa", "Lucca", "Arezzo"]);
   });
 
   it("dice DOVE sta la base, per poterla marcare", () => {
     // indice 1: subito dopo la casa. Serve al pallino verde del biglietto —
-    // senza, finirebbe sull'ultima fermata, che è una gita (Capri).
-    expect(fermateDelBiglietto(napoletano()).baseIdx).toBe(1);
+    // senza, finirebbe sull'ultima fermata, che è una gita (Arezzo).
+    expect(fermateDelBiglietto(fiorentino()).baseIdx).toBe(1);
   });
 
-  it("anche il doppione consecutivo (Napoli → Napoli) se ne va", () => {
-    expect(fermateDelBiglietto(napoletano()).nomi.filter(n => n === "Napoli")).toHaveLength(1);
+  it("anche il doppione consecutivo (Firenze → Firenze) se ne va", () => {
+    expect(fermateDelBiglietto(fiorentino()).nomi.filter(n => n === "Firenze")).toHaveLength(1);
   });
 
   // Il paletto: un viaggio senza base non si tocca. Niente ripetizioni,
@@ -90,7 +90,7 @@ describe("fermateDelBiglietto — la base si nomina una volta", () => {
   it("un posto ripassato con una gita in mezzo È una base, e si collassa", () => {
     const conRitorno = trip({
       city: "Firenze", latitude: 43.7696, longitude: 11.2558,
-      waypoints: [tappa("Roma", 41.9028, 12.4964), tappa("Napoli", NAP.lat, NAP.lon),
+      waypoints: [tappa("Roma", 41.9028, 12.4964), tappa("Napoli", 40.8518, 14.2681),
         tappa("Roma", 41.9028, 12.4964)],
     });
     const f = fermateDelBiglietto(conRitorno);
@@ -117,11 +117,11 @@ describe("fermateDelBiglietto — la base si nomina una volta", () => {
 
 describe("stopChain e i pallini raccontano lo STESSO itinerario", () => {
   it("la catena di un viaggio a base non ripete la base", () => {
-    expect(stopChain(napoletano())).toBe("Milano → Napoli → Pompei → Caserta → Sorrento → Capri");
+    expect(stopChain(fiorentino())).toBe("Milano → Firenze → Siena → Pisa → Lucca → Arezzo");
   });
 
   it("e combacia sempre con le fermate del biglietto", () => {
-    for (const t of [napoletano(), trip({ waypoints: [tappa("Trieste"), tappa("Ljubljana")] })]) {
+    for (const t of [fiorentino(), trip({ waypoints: [tappa("Trieste"), tappa("Ljubljana")] })]) {
       expect(stopChain(t)).toBe(fermateDelBiglietto(t).nomi.join(" → "));
     }
   });

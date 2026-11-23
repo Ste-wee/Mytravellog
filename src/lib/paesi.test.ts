@@ -110,8 +110,8 @@ describe("paeseDelPunto — la regola del poligono più piccolo, condivisa", () 
 
 /**
  * Le quattro nazioni del Regno Unito contano come paesi a sé (richiesta di
- * Stefano, 2026-08-21: "la Scozia dovrebbe essere a parte"). Il suo viaggio
- * "Scozia" ha davvero country "Regno Unito" + region_details [GB-SCT].
+ * prodotto, 2026-08-21: "la Scozia dovrebbe essere a parte"). Un viaggio in
+ * Scozia ha davvero country "Regno Unito" + region_details [GB-SCT].
  */
 describe("paeseVisibile — Scozia, Galles e le altre nazioni UK", () => {
   it("il viaggio con region GB-SCT diventa Scozia, con la sua bandiera", () => {
@@ -152,8 +152,8 @@ describe("paeseVisibileDiTappa — le tappe non gonfiano il conteggio", () => {
   const SCOZIA = { nome: "Scozia", codice: "GB-SCT" };
 
   it("una tappa britannica di un viaggio scozzese conta come Scozia", () => {
-    // Il caso vero: viaggio "Scozia" (Pitlochry) con tappe Edimburgo e Fort
-    // Augustus, entrambe con country_code GB e senza regione salvata.
+    // Il caso tipico: viaggio in Scozia con tappe scozzesi salvate solo con
+    // country_code GB, senza regione.
     expect(paeseVisibileDiTappa({ country: "Regno Unito", country_code: "GB" }, SCOZIA)).toEqual(SCOZIA);
   });
 
@@ -222,7 +222,7 @@ describe("paesiVisitati — il nome da mostrare è in ITALIANO", () => {
  * finiva quindi attribuito all'Italia e il paese spariva dal globo.
  */
 describe("paesiVisitati — i micro-stati hanno comunque la loro bandiera", () => {
-  // Il caso VERO di Stefano: tre viaggi in Italia più uno in Vaticano. Il
+  // Il caso tipico: tre viaggi in Italia più uno in Vaticano. Il
   // punto vaticano cade dentro il poligono italiano (il poligono del Vaticano
   // nel world-atlas è nel posto sbagliato), e prima si portava via nome e
   // bandiera dell'Italia — o spariva del tutto.

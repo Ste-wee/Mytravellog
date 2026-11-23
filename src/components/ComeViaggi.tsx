@@ -14,8 +14,8 @@ import { Tent, Waypoints } from "lucide-react";
  *
  * Erano quattro: "tappa fissa" (base con gite) e "andata e ritorno" (una meta
  * sola) sono state unite perché descrivevano la stessa esperienza — in
- * entrambe dormi in un posto solo — e Stefano l'ha visto dai suoi numeri, 0
- * contro 10. Le gite dalla base ora sono un dettaglio nel sottotitolo.
+ * entrambe dormi in un posto solo — e si vedeva dai numeri di un archivio
+ * vero, 0 contro 10. Le gite dalla base ora sono un dettaglio nel sottotitolo.
  *
  * Poi sono diventate DUE: per due giorni c'era anche "in giornata", con una
  * riga sotto le caselle che spiegava che quelle stavano fuori dai conti. La

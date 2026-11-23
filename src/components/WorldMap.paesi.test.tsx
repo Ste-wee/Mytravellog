@@ -179,7 +179,7 @@ describe("WorldMap — modalità paesi", () => {
     expect(volo?.zoom).toBeLessThanOrEqual(0.9);
   });
 
-  // Richiesta di Stefano: "porta il globo in home page con i pallini alla
+  // Richiesta di prodotto: "porta il globo in home page con i pallini alla
   // stessa dimensione dell'altro con le bandiere". Una costante sola per
   // entrambe le viste, così non possono più divergere.
   it("il globo dei viaggi e quello dei paesi hanno la STESSA dimensione", async () => {

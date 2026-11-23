@@ -32,7 +32,7 @@ export function loadModeIcon(Icon: ElementType, color: string): Promise<HTMLImag
  *   prima versione del banco qui sotto cambiava anche questa, e l'interruttore
  *   della Mappa della vita modificava un poster dove non è nemmeno visibile.
  * - «soffusa» / «secca»: il BANCO DI PROVA della Mappa della vita (2026-08-27,
- *   da smontare quando Stefano sceglie): lì le tappe si ammassano e l'alone
+ *   da smontare quando si sceglie): lì le tappe si ammassano e l'alone
  *   largo le impastava (il suo screenshot dell'arco alpino). Soffusa = alone
  *   stretto e tenue; secca = solo il nucleo.
  */

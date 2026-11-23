@@ -233,7 +233,7 @@ export function TripCardTicket({ trip, onDeleteRequested, onSelectCompanion }: P
                     {/* Il pallino "di arrivo" sta sulla BASE quando c'è: è lì
                         che hai dormito. Senza questo finiva sull'ultima fermata
                         della fila, che dopo aver tolto i rientri è una gita
-                        (Capri, nel viaggio napoletano). Il verde della base è
+                        (l'ultima gita di un viaggio con base). Il verde della base è
                         lo stesso della serpentina, così il linguaggio è uno. */}
                     <div style={{
                       width: i===0 || i===baseIdx || (baseIdx===null && i===stops.length-1) ? (i===baseIdx ? 9 : 8) : 6,

@@ -22,7 +22,7 @@ import { disponiEtichette } from "./etichetteMappa";
  * ritocco: si cambia lo schermo, si dimentica la stampa, e il poster smette di
  * somigliare a quello che hai guardato. Ora c'è un posto solo.
  *
- * Portati da 0.32 a **0.45** su richiesta di Stefano (2026-08-26): a 0.32 le
+ * Portati da 0.32 a **0.45** su richiesta (2026-08-26): a 0.32 le
  * coste si leggevano ma i confini INTERNI (Austria, Ungheria, Slovacchia) quasi
  * svanivano, e su una mappa che serve a riconoscere dove sei stato quella è
  * l'informazione che manca. Provato anche 0.60: funziona, ma i confini
@@ -59,13 +59,13 @@ export interface PosterSvgInput {
    *  (lib/etichetteMappa) — accanto, col filo, o dentro i riquadri di
    *  ingrandimento dove le stelle quasi si toccano. */
   nomiOvunque?: boolean;
-  /** Mappa della vita (2026-10-16): il titolo scritto da Stefano, in alto a
+  /** Mappa della vita (2026-10-16): il titolo scritto dall'utente, in alto a
    *  destra e inclinato di 3° come a schermo (lib/titoloVita), al posto della
    *  didascalia in basso. Nomi e riquadri gli girano intorno. */
   titoloAngolo?: string;
   /** Larghezza VERA di un testo in un font CSS (nel browser: il canvas). Senza,
    *  si stima larga — e una stima larga manda i nomi lontani col filo quando
-   *  starebbero accanto (2026-10-16, visto sui viaggi veri di Stefano). */
+   *  starebbero accanto (2026-10-16, visto su un archivio vero). */
   misuraTesto?: (testo: string, font: string) => number;
   width?: number;
   height?: number;

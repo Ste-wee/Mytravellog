@@ -3,9 +3,9 @@ import { Trip } from "./storage";
 /**
  * C'è già un viaggio nello stesso posto con date che si sovrappongono?
  *
- * Esiste perché è successo davvero: due "Zurigo" identici (1-2 nov 2025),
+ * Esiste perché è successo davvero: due viaggi identici nella stessa città,
  * nati da due risultati di ricerca leggermente diversi, e nessun avviso.
- * Il criterio scelto da Stefano è il più preciso: STESSA città (nome
+ * Il criterio scelto è il più preciso: STESSA città (nome
  * normalizzato — le coordinate dei due doppioni differivano) e intervalli di
  * date che si toccano. Un ritorno nello stesso posto in date diverse NON è
  * un doppione: è un altro viaggio.

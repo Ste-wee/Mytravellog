@@ -48,7 +48,7 @@ const DEFAULTS: Settings = {
   maxMarkerScale: 0.7,
   // ⚠️ "it", NON "sistema". Avevo messo "sistema" convinto che fosse più
   // gentile con chi arriva da fuori, e ho scoperto due cose provandolo:
-  // l'app di Stefano sarebbe passata all'inglese da sola se il suo browser
+  // l'app di chi la usa già sarebbe passata all'inglese da sola se il browser
   // fosse in inglese — un cambio che nessuno ha chiesto — e quattro test di
   // TravelHighlights sono caduti perché in jsdom `navigator.language` è
   // inglese, quindi i numeri uscivano "9,710" invece di "9.710".

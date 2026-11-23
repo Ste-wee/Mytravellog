@@ -252,7 +252,7 @@ export function ContinentsMap({ trips }: Props) {
                 ?? classifyContinent(c.centroid[1], c.centroid[0]);
               const continentVisited = countryContinent ? visitedContinents.has(countryContinent) : false;
               // UN SOLO LIVELLO: il continente visitato, e basta (scelta di
-              // Stefano, 2026-08-21). Prima erano due — lo stato visitato in
+              // prodotto, 2026-08-21). Prima erano due — lo stato visitato in
               // azzurro pieno sopra il continente in blu tenue — e la mappa
               // raccontava due cose insieme; i singoli paesi li mostrano già
               // il globo della Home e i chip dell'elenco qui sotto.

@@ -10,13 +10,13 @@ import { hasCoords } from "./coords";
  *
  * ⚠️ Erano TRE: c'era anche "giornata" (parti e torni lo stesso giorno). La
  * feature delle gite in giornata è stata rimossa per intero il 2026-08-26 su
- * richiesta di Stefano — l'app censisce solo viaggi con più giorni. Il posto
+ * richiesta di prodotto — l'app censisce solo viaggi con più giorni. Il posto
  * dove la durata conta ora è la validazione del form, non una casella qui.
  *
  * ⚠️ Storia da non ripetere. Il primo taglio ne aveva QUATTRO, con "base" (una
  * meta con gite che ne partono) separata da "diretto" (una meta e basta).
- * Stefano ha guardato i suoi numeri — 0 e 10 — e ha chiesto: «non sono la
- * stessa cosa?». Aveva ragione: in entrambi i casi dormi in un posto solo, e
+ * Guardando i numeri di un archivio vero — 0 e 10 — la domanda è stata:
+ * «non sono la stessa cosa?». Aveva ragione: in entrambi i casi dormi in un posto solo, e
  * la differenza che avevo codificato non era COME viaggia ma se avesse censito
  * il rientro come tappa. Due nomi per la stessa esperienza, con la casella
  * inventata da me vuota e i suoi dieci viaggi veri in quella dal nome meno

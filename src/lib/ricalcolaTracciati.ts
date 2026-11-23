@@ -70,7 +70,7 @@ function daRiprovare(tentativi: Tentativi, id: string): boolean {
  * ⚠️ Storia da non ripetere: fino al 2026-08-21 questo recupero girava **una
  * volta sola per dispositivo** (un flag booleano in localStorage). Andava bene
  * come migrazione una tantum, ma lasciava scoperto tutto ciò che veniva DOPO:
- * Stefano ha cancellato e ricreato un Milano→Zurigo in auto, il salvataggio
+ * un viaggio in auto cancellato e ricreato, il salvataggio
  * non ha ottenuto il percorso, e la rete di sicurezza non è mai più scattata —
  * il viaggio sarebbe rimasto senza tracciato per sempre. Verificato in
  * laboratorio: col flag scritto restava vuoto, senza flag si riparava con 35

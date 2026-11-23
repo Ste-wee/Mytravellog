@@ -136,8 +136,8 @@ describe("ricalcolaTracciati — i viaggi su strada rimasti senza percorso", () 
 });
 
 /**
- * Il caso che ha fatto nascere la riscrittura (segnalato da Stefano il
- * 2026-08-21): aveva cancellato e ricreato un Milano→Zurigo in auto, il
+ * Il caso che ha fatto nascere la riscrittura (segnalato in uso il
+ * 2026-08-21): un viaggio in auto cancellato e ricreato, il
  * salvataggio non aveva ottenuto il percorso, e la vecchia rete di sicurezza
  * — un flag "già girato" per dispositivo — non scattava più. Il viaggio
  * sarebbe rimasto senza tracciato per sempre.

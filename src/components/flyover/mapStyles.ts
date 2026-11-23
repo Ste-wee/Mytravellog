@@ -18,7 +18,7 @@ export async function buildSatelliteStyle(): Promise<StyleSpecification> {
 }
 
 /**
- * Satellite per la Mappa della vita (scelta di Stefano, 2026-10-15): PIATTO
+ * Satellite per la Mappa della vita (scelta di prodotto, 2026-10-15): PIATTO
  * (Mercatore, come la Costellazione — i riquadri ingrandiscono la mappa in
  * modo lineare, cosa che il globo non permette) e SENZA i nomi di MapTiler,
  * che si doppierebbero con i nostri (lib/etichetteMappa).
@@ -27,7 +27,7 @@ export async function buildSatelliteStylePiatto(): Promise<StyleSpecification> {
   const style = await buildSatelliteStyle();
   style.projection = { type: "mercator" };
   style.layers = style.layers.filter(l => l.type !== "symbol");
-  // più viva (scelta B di Stefano, 2026-10-19, provata sulle Alpi e
+  // più viva (scelta B, 2026-10-19, provata sulle Alpi e
   // sull'Adriatico): neve e coste risaltano, sullo schermo e in stampa
   for (const l of style.layers) {
     if (l.type === "raster") l.paint = { ...l.paint, "raster-saturation": SATELLITE_VIVO.saturazione, "raster-contrast": SATELLITE_VIVO.contrasto };
@@ -38,7 +38,7 @@ export async function buildSatelliteStylePiatto(): Promise<StyleSpecification> {
 /** La foto satellitare della Mappa della vita, un po' più viva. */
 export const SATELLITE_VIVO = { saturazione: 0.3, contrasto: 0.2 };
 
-/** Le coste nel Satellite della Mappa della vita (scelta E1 di Stefano,
+/** Le coste nel Satellite della Mappa della vita (scelta E1,
  *  2026-10-19, fra «tenue» e «forte» viste sulla mappa): un alone azzurro
  *  largo e sfumato — l'acqua bassa vicino a riva, che a questa distanza la foto
  *  non mostra — e una schiuma bianca sottile sul bordo. Coste vere

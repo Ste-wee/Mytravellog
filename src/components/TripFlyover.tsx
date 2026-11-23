@@ -56,7 +56,7 @@ interface Props {
  * foto a ventaglio. L'utente può zoomare/spostare, poi "Salva" (lo snapshot
  * diventa il foglio sul biglietto in "I miei viaggi") o "Condividi" (immagine).
  *
- * IL VOLO (tornato il 2026-10-06, richiesto da Stefano): sul viaggio singolo
+ * IL VOLO (tornato il 2026-10-06, su richiesta): sul viaggio singolo
  * e sull'anno, all'apertura la camera VOLA tratta per tratta — icona del mezzo
  * lungo il tracciato, contatore dei km — e atterra su questo poster. Il volo si
  * registra in un video (.webm, o .mp4 su Safari) da scaricare a fine corsa.
@@ -84,7 +84,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   const [savingRelief, setSavingRelief] = useState(false);
   const [exportingSvg, setExportingSvg] = useState(false);
   // La Mappa della vita parte in Costellazione; dal 2026-10-15 si può passare
-  // al Satellite (piatto, vedi buildSatelliteStylePiatto), scelta di Stefano.
+  // al Satellite (piatto, vedi buildSatelliteStylePiatto), scelta di prodotto.
   const [styleMode, setStyleMode] = useState<MapStyleMode>(lifeMap ? "constellation" : "satellite");
   /** Lo stile che la mappa ha addosso adesso (lo copia la mappa dei riquadri). */
   const stileRef = useRef<StyleSpecification | null>(null);
@@ -105,7 +105,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   const misuraRef = useRef<CanvasRenderingContext2D | null>(null);
   /** Le coste della Mappa della vita (caricate una volta, vedi COSTE_E1). */
   const costeRef = useRef<GeoJSON.Feature<GeoJSON.MultiLineString> | null>(null);
-  /** Il titolo della Mappa della vita (scelta di Stefano, 2026-10-16: «solo il
+  /** Il titolo della Mappa della vita (scelta di prodotto, 2026-10-16: «solo il
    *  titolo», in alto a destra), salvato su questo dispositivo. */
   const [titoloVita, setTitoloVita] = useState(() => (lifeMap ? leggiTitoloVita() : ""));
   const titoloVitaRef = useRef(titoloVita);
@@ -117,7 +117,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   /** La stampa non è riuscita: lo dice il bottone per qualche secondo. */
   const [stampaFallita, setStampaFallita] = useState(false);
   /**
-   * ANTEPRIMA DI STAMPA (Stefano, 2026-10-19: «come mai la stampa viene
+   * ANTEPRIMA DI STAMPA (2026-10-19: «come mai la stampa viene
    * diversa da quello che vedo?»). La stampa rifaceva la disposizione su un
    * foglio 4:3 con nomi e riquadri più grandi, e i gruppi cambiavano. Ora
    * «Per la stampa» apre un'anteprima: la mappa diventa un riquadro 4:3, nomi
@@ -131,7 +131,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   /** Il riquadro 4:3 della mappa dentro la scheda, in anteprima. */
   const [cornice, setCornice] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   /**
-   * I riquadri regolati A MANO in anteprima (scelta B di Stefano, 2026-10-19:
+   * I riquadri regolati A MANO in anteprima (scelta B, 2026-10-19:
    * «dammi la possibilità di regolare grandezza, altezza e larghezza dei
    * quadrati»): per chiave del gruppo, in px di foglio. Valgono per QUESTA
    * inquadratura: spostando o avvicinando la mappa si azzerano (i riquadri si
@@ -146,7 +146,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
   const [trascina, setTrascina] = useState<{ chiave: string; box: Box } | null>(null);
   /** Il compagno selezionato, o null per tutti. Filtra la costellazione. */
   /**
-   * ⚠️ BANCO DI PROVA (2026-08-27, da smontare quando Stefano sceglie): le due
+   * ⚠️ BANCO DI PROVA (2026-08-27, da smontare quando si sceglie): le due
    * varianti di stella sopravvissute al confronto a cinque — «soffusa» (alone
    * stretto) e «secca» (solo il nucleo). Si ricorda fra un'apertura e l'altra
    * per poterle confrontare con calma, come il vecchio banco del tratto.
@@ -159,7 +159,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
     try { localStorage.setItem("navta.prova.stelle.secche", v ? "1" : "0"); } catch { /* quota piena: pazienza */ }
   };
   /**
-   * Mappa della vita: i comandi SI TOLGONO QUANDO GUARDI (idea di Stefano,
+   * Mappa della vita: i comandi SI TOLGONO QUANDO GUARDI (idea di prodotto,
    * 2026-08-27, per fare lo screenshot pulito della mappa). Dopo 3s senza
    * tocchi né mouse sfumano tutti — X, interruttore, nomi, azioni — e
    * qualunque tocco o movimento li riporta. Da nascosti non sono cliccabili:
@@ -204,7 +204,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
    *
    * ⚠️ Da qui in giù nel componente si usa `viaggi`, non `trips`: se il filtro
    * valesse solo per le linee, titolo, km e conteggi resterebbero quelli di
-   * tutti — la stessa mezza-verità che sulle gite aveva fatto dire a Stefano
+   * tutti — la stessa mezza-verità che sulle gite aveva fatto dire, in uso,
    * «qualcosa non torna».
    */
   const viaggi = useMemo(() => viaggiCon(trips, soloCon), [trips, soloCon]);
@@ -1159,7 +1159,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
           // chiamerebbe resize() su una mappa già rimossa (TypeError).
           setTimeout(() => { if (!cancelled && mapRef.current) mapRef.current.resize(); }, 100);
 
-          // Viaggio singolo e anno: si DECOLLA (scelta di Stefano: parte da
+          // Viaggio singolo e anno: si DECOLLA (scelta di prodotto: parte da
           // solo, «Salta» per il poster subito). Si aspetta il resize qui sopra,
           // sennò il video nascerebbe con le misure del canvas di prima.
           if (animato) {
@@ -1264,7 +1264,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
         {/* Mappa della vita: il TITOLO in alto a destra (lib/titoloVita), che
             resta anche a riposo e coi comandi accesi si tocca per scriverlo, e
             «By 🐻» in basso a destra, che coi comandi accesi lascia il posto ai
-            bottoni (scelte di Stefano, 2026-10-16). Le stesse misure
+            bottoni (scelte di prodotto, 2026-10-16). Le stesse misure
             dell'immagine condivisa: a riposo lo schermo È il poster. */}
         {lifeMap && phase === "ready" && (
           <TitoloFirmaVita titoloVita={titoloVita}
@@ -1287,7 +1287,7 @@ export function TripFlyover({ trips, onClose, lifeMap = false }: Props) {
           <X className="w-4 h-4" />
         </button>
 
-        {/* ⚠️ BANCO DI PROVA stelle (da smontare quando Stefano sceglie):
+        {/* ⚠️ BANCO DI PROVA stelle (da smontare quando si sceglie):
             l'interruttore fra «soffusa» (alone stretto) e «secca» (solo
             nucleo). Stesso posto e stessa forma del banco del tratto. */}
         {phase === "ready" && lifeMap && (

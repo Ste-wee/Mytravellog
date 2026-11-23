@@ -434,7 +434,7 @@ describe("buildPerTripRouteCoords", () => {
 
 
 /**
- * ⚠️ LA TRATTA DA CASA NON SI DISEGNA — sentinella della scelta di Stefano,
+ * ⚠️ LA TRATTA DA CASA NON SI DISEGNA — sentinella della scelta di prodotto,
  * fatta col banco di prova e ribadita aprendo l'app (2026-08-27: «mica avevamo
  * detto che si collegavano solo le tappe?»). La versione precedente di questo
  * blocco diceva l'esatto CONTRARIO («la tratta da casa resta») ed era un mio

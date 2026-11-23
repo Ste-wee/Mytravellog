@@ -55,7 +55,7 @@ export function AppHeader({ onTripsClick }: Props) {
               <Menu className="w-5 h-5"/>
             </button>
           </DropdownMenuTrigger>
-          {/* Ordine per SEZIONI (scelta di Stefano, 2026-08-16): dove vai →
+          {/* Ordine per SEZIONI (scelta di prodotto, 2026-08-16): dove vai →
               cosa aggiungi → configurazione. Prima Impostazioni stava in mezzo
               alla navigazione, sopra il separatore: la voce che si apre una
               volta ogni tanto precedeva l'azione principale dell'app. */}

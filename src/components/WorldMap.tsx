@@ -141,7 +141,7 @@ const ZOOM_GLOBO = 0.8;
  * Misurato sul dev server (1248×588): il diametro cresce di ~2× per ogni
  * punto di zoom in più, quindi +log2(latoCorto/358) tiene la PROPORZIONE del
  * telefono su qualunque schermo. Clamp: mai sotto 0.8 (il telefono resta
- * esattamente com'è: il valore l'ha scelto Stefano a vista) e mai sopra 1.6
+ * esattamente com'è: il valore è stato scelto a vista) e mai sopra 1.6
  * (a 1.7 la sfera sfiora i bordi e il cielo sparisce).
  */
 const BASE_LATO_CORTO = 358;

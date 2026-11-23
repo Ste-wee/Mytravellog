@@ -21,7 +21,7 @@ export interface FermateBiglietto {
  *
  * ⚠️ Solo dove c'è una BASE riconosciuta. In un viaggio itinerante ripassare da
  * un posto non è un rientro, è una tappa che hai davvero rifatto: lì il
- * percorso è il racconto e non si tocca (scelta di Stefano).
+ * percorso è il racconto e non si tocca (scelta di prodotto).
  */
 export function fermateDelBiglietto(t: Trip): FermateBiglietto {
   const tappe = t.waypoints ?? [];

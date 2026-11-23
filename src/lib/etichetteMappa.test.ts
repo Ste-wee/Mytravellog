@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { disponiEtichette, type Box, type Opzioni, type Punto } from "./etichetteMappa";
-import { LINEE_SOFY, PUNTI_SOFY } from "./etichetteMappa.scenaSofy";
+import { LINEE_SCENA, PUNTI_SCENA } from "./etichetteMappa.scenaGrande";
 
 const OPZ: Opzioni = {
   w: 600, h: 800, misura: (n: string) => n.length * 6, altezza: 12, raggioStella: 3,
@@ -360,12 +360,12 @@ describe("disponiEtichette", () => {
     expect([...grande.ids].sort()).toEqual([...base.ids].sort());
   });
 
-  it("una stella che si vede nel riquadro e fuori non ha posto per il nome entra nel riquadro (Friburgo)", () => {
-    // tre stelle (l'Alsazia) e «Friburgo» lì accanto: fuori dal gruppo e dal
+  it("una stella che si vede nel riquadro e fuori non ha posto per il nome entra nel riquadro (il nome accanto al gruppo)", () => {
+    // tre stelle (un gruppo) e «Pratello» lì accanto: fuori dal gruppo e dal
     // tratteggio, ma dentro la finestra del riquadro; attorno a tutti un'area
     // vietata, così sulla mappa grande nessun nome trova posto
-    const g = [p("a", 300, 300, "Colmar"), p("b", 315, 300, "Eguisheim"), p("c", 307, 313, "Kientzheim")];
-    const F = p("F", 326, 298, "Friburgo");
+    const g = [p("a", 300, 300, "Ardeno"), p("b", 315, 300, "Valcerosa"), p("c", 307, 313, "Roccafonda")];
+    const F = p("F", 326, 298, "Pratello");
     const d = disponiEtichette([...g, F], { ...OPZ, vietate: [{ x: 270, y: 270, w: 90, h: 70 }] });
     expect(d.riquadri).toHaveLength(1);
     const r = d.riquadri[0];
@@ -378,7 +378,7 @@ describe("disponiEtichette", () => {
 
   it("un filo sulla mappa grande non passa sotto un riquadro, quando c'è un'altra strada", () => {
     // scene da telefono cercate apposta fra 400: in queste, senza la regola,
-    // un filo passa sotto un riquadro (come quello di Friburgo)
+    // un filo passa sotto un riquadro (come nel caso visto in uso)
     const o: Opzioni = { ...OPZ, w: 390, h: 700, altezza: 13, raggioStella: 4, scostamento: 6, margine: 8 };
     let fili = 0;
     for (const scena of [22, 30, 84, 282, 299]) {
@@ -409,16 +409,16 @@ describe("disponiEtichette", () => {
     expect(fili).toBeGreaterThan(0);   // la prova ha visto dei fili
   });
 
-  it("un nome del gruppo che dentro non entra allarga il riquadro, non finisce fuori (Friburgo, scena vera)", () => {
-    const larghezze = new Map(PUNTI_SOFY.map(([, nome, , , w]) => [nome, w]));
-    const d = disponiEtichette(PUNTI_SOFY.map(([id, nome, x, y]) => ({ id, nome, x, y })), {
+  it("un nome del gruppo che dentro non entra allarga il riquadro, non finisce fuori (nome lungo, scena da un archivio vero)", () => {
+    const larghezze = new Map(PUNTI_SCENA.map(([, nome, , , w]) => [nome, w]));
+    const d = disponiEtichette(PUNTI_SCENA.map(([id, nome, x, y]) => ({ id, nome, x, y })), {
       w: 878, h: 598, misura: n => larghezze.get(n) ?? n.length * 6, altezza: 13, raggioStella: 4, scostamento: 6,
-      distanzaGrappolo: 15, margine: 8, linee: LINEE_SOFY.map(l => l.map(([x, y]) => ({ x, y }))),
+      distanzaGrappolo: 15, margine: 8, linee: LINEE_SCENA.map(l => l.map(([x, y]) => ({ x, y }))),
       vietate: [{ x: 878 - 84, y: 598 - 56, w: 84, h: 56 }],
     });
-    const alsazia = d.riquadri.find(r => r.ids.includes("26"))!;   // 26 = Colmar
-    expect([...alsazia.nomi, ...alsazia.conFilo].map(e => e.nome)).toContain("Friburgo in Brisgovia");
-    expect(d.conFilo.map(e => e.nome)).not.toContain("Friburgo in Brisgovia");
+    const gruppo = d.riquadri.find(r => r.ids.includes("26"))!;   // 26: una stella del gruppo
+    expect([...gruppo.nomi, ...gruppo.conFilo].map(e => e.nome)).toContain("Luogo 28");
+    expect(d.conFilo.map(e => e.nome)).not.toContain("Luogo 28");
     expect(d.senzaPosto).toEqual([]);
     // nessuna stella piena senza il suo nome dentro un riquadro
     for (const r of d.riquadri) {
